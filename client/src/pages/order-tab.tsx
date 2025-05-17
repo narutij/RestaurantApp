@@ -89,8 +89,10 @@ export default function OrderTab() {
   const addOrderMutation = useMutation({
     mutationFn: (data: { tableId: number; menuItemId: number; price: number }) => 
       apiRequest('POST', '/api/orders', {
-        ...data,
-        timestamp: new Date(),
+        tableId: data.tableId,
+        menuItemId: data.menuItemId,
+        price: data.price,
+        // Remove timestamp as the server will handle this with defaultNow()
         completed: false
       }),
     onSuccess: () => {
@@ -100,6 +102,15 @@ export default function OrderTab() {
       // Also refresh kitchen view orders
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/new'] });
+    },
+    onError: (error) => {
+      console.error('Failed to add order:', error);
+      setToastMessage('Failed to add order. Please try again.');
+      setShowToast(true);
+      
+      setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
     }
   });
 

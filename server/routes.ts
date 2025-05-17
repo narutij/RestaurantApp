@@ -247,7 +247,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post('/api/orders', async (req: Request, res: Response) => {
     try {
-      const validatedData = insertOrderSchema.parse(req.body);
+      // Create a timestamp now for the order
+      const orderData = {
+        ...req.body,
+        timestamp: new Date()
+      };
+      
+      // Validate the data with the schema
+      const validatedData = insertOrderSchema.parse(orderData);
       const order = await storage.createOrder(validatedData);
       
       // Get the order details for broadcast
@@ -269,6 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(order);
     } catch (error) {
+      console.error('Order creation error:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
