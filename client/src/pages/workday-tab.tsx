@@ -371,6 +371,10 @@ export default function WorkdayTab() {
   const handleSelectRestaurant = (restaurant: Restaurant) => {
     setSelectedRestaurantId(restaurant.id);
     setRestaurantModalOpen(false);
+    
+    // Save to localStorage to update app-level state
+    localStorage.setItem('selectedRestaurant', JSON.stringify(restaurant));
+    
     toast({
       title: "Restaurant Selected",
       description: `${restaurant.name} has been selected.`,
