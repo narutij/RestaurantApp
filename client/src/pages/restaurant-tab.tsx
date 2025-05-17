@@ -48,7 +48,7 @@ export default function RestaurantTab() {
   const [newDayDialogOpen, setNewDayDialogOpen] = useState(false);
   const [templateSelectionOpen, setTemplateSelectionOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<DayTemplate | null>(null);
@@ -369,7 +369,7 @@ export default function RestaurantTab() {
 
   // Handle selecting a restaurant
   const handleSelectRestaurant = (restaurant: Restaurant) => {
-    setSelectedRestaurant(restaurant);
+    setSelectedRestaurantId(restaurant.id);
     setRestaurantModalOpen(false);
     toast({
       title: "Restaurant Selected",
@@ -379,26 +379,26 @@ export default function RestaurantTab() {
 
   return (
     <div className="p-4">
-      {/* Restaurant Selection Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Restaurant Management</h2>
-        <Button 
-          onClick={() => setRestaurantModalOpen(true)}
-          className="bg-primary hover:bg-primary/90 text-white"
-        >
-          <Store className="h-4 w-4 mr-2" />
-          {selectedRestaurant ? selectedRestaurant.name : 'Select Restaurant'}
-        </Button>
-      </div>
-
       {/* Restaurant Modal */}
       <RestaurantModal 
         open={restaurantModalOpen} 
         onOpenChange={setRestaurantModalOpen}
-        selectedRestaurant={selectedRestaurant}
+        selectedRestaurantId={selectedRestaurantId}
         onSelectRestaurant={handleSelectRestaurant}
       />
 
+      {/* Restaurant Management Tabs */}
+      <Tabs defaultValue="menus" className="mb-6">
+        <TabsList className="grid grid-cols-3 mb-6">
+          <TabsTrigger value="restaurants" onClick={() => setRestaurantModalOpen(true)}>
+            <Store className="h-4 w-4 mr-2" />
+            Restaurants
+          </TabsTrigger>
+          <TabsTrigger value="menus">Menus</TabsTrigger>
+          <TabsTrigger value="tables">Table Layouts</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      
       {/* Day Selection Header */}
       <div className="flex items-center justify-between mb-6 mt-6">
         <div className="font-semibold text-lg">
