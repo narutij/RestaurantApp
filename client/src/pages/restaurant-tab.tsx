@@ -300,19 +300,12 @@ export default function RestaurantTab() {
     setTemplateModalOpen(true);
   };
 
-  // Handle create day configuration
-  const handleCreateDayConfig = () => {
-    setEditingTemplate(null);
-    setTemplateMode('create');
-    setTemplateModalOpen(true);
-  };
-
-  // Handle starting a new day
+  // Handle starting a new day when clicking "Bright New Day" button
   const handleStartNewDay = () => {
     setNewDayDialogOpen(true);
   };
 
-  // Handle creating a new template for the current day
+  // Handle creating a new template for the current day from the "Bright New Day" dialog
   const handleCreateNewTemplate = () => {
     setNewDayDialogOpen(false);
     setEditingTemplate(null);
@@ -332,11 +325,6 @@ export default function RestaurantTab() {
     });
     setTemplateMode('create');
     setTemplateModalOpen(true);
-  };
-
-  // Handle starting a new day
-  const handleStartNewDay = () => {
-    setNewDayDialogOpen(true);
   };
 
   // Handle choosing a template for the current day
