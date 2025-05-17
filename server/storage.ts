@@ -131,6 +131,61 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     });
+    
+    // We'll initialize from database separately
+    // (Can't use async in constructor)
+    this.loadDataFromDatabase();
+  }
+  
+  private loadDataFromDatabase() {
+    // Call the async initialization method but don't wait for it
+    this.initializeFromDatabase().catch(err => {
+      console.error("Failed to initialize database:", err);
+    });
+  }
+  
+  private async initializeFromDatabase() {
+    try {
+      console.log("Initializing storage from database...");
+      
+      // Load menu items
+      const dbMenuItems = await db.select().from(menuItems);
+      console.log(`Loaded ${dbMenuItems.length} menu items from database`);
+      
+      for (const item of dbMenuItems) {
+        this.menuItemsMap.set(item.id, item);
+        if (item.id >= this.currentMenuItemId) {
+          this.currentMenuItemId = item.id + 1;
+        }
+      }
+      
+      // Load menu categories
+      const dbMenuCategories = await db.select().from(menuCategories);
+      console.log(`Loaded ${dbMenuCategories.length} menu categories from database`);
+      
+      for (const category of dbMenuCategories) {
+        this.menuCategoriesMap.set(category.id, category);
+        if (category.id >= this.currentMenuCategoryId) {
+          this.currentMenuCategoryId = category.id + 1;
+        }
+      }
+      
+      // Load menus
+      const dbMenus = await db.select().from(menus);
+      console.log(`Loaded ${dbMenus.length} menus from database`);
+      
+      for (const menu of dbMenus) {
+        this.menusMap.set(menu.id, menu);
+        if (menu.id >= this.currentMenuId) {
+          this.currentMenuId = menu.id + 1;
+        }
+      }
+      
+      console.log("Storage initialization complete");
+    } catch (error) {
+      console.error("Error initializing from database:", error);
+      console.log("Continuing with empty memory storage");
+    }
   }
   
   // Menu methods
@@ -375,69 +430,117 @@ export class MemStorage implements IStorage {
 
   // Menu Items
   async getMenuItems(categoryId?: number): Promise<MenuItem[]> {
+    console.log(`Getting menu items ${categoryId ? `for category ${categoryId}` : 'for all categories'}`);
+    
     try {
+      let dbResults: MenuItem[] = [];
+      
       if (categoryId) {
-        const result = await db.select().from(menuItems).where(eq(menuItems.categoryId, categoryId));
-        return result;
+        dbResults = await db.select().from(menuItems).where(eq(menuItems.categoryId, categoryId));
       } else {
-        const result = await db.select().from(menuItems);
-        return result;
+        dbResults = await db.select().from(menuItems);
       }
+      
+      console.log(`Found ${dbResults.length} menu items in database`);
+      
+      // Sync with memory cache
+      for (const item of dbResults) {
+        if (!this.menuItemsMap.has(item.id)) {
+          this.menuItemsMap.set(item.id, item);
+        }
+      }
+      
+      // Get all items from memory cache
+      let allItems = Array.from(this.menuItemsMap.values());
+      
+      // Filter by category if needed
+      if (categoryId) {
+        allItems = allItems.filter(item => item.categoryId === categoryId);
+      }
+      
+      // Sort by order
+      return allItems.sort((a, b) => {
+        const orderA = a.order === null ? 0 : a.order;
+        const orderB = b.order === null ? 0 : b.order;
+        return orderA - orderB;
+      });
     } catch (error) {
       console.error("Error getting menu items:", error);
       
-      // Fallback to memory storage
+      // Fallback to memory storage only
+      let memoryItems = Array.from(this.menuItemsMap.values());
+      
       if (categoryId) {
-        return Array.from(this.menuItemsMap.values())
-          .filter(item => item.categoryId === categoryId)
-          .sort((a, b) => (a.order || 0) - (b.order || 0));
-      } else {
-        return Array.from(this.menuItemsMap.values());
+        memoryItems = memoryItems.filter(item => item.categoryId === categoryId);
       }
+      
+      return memoryItems.sort((a, b) => {
+        const orderA = a.order === null ? 0 : a.order;
+        const orderB = b.order === null ? 0 : b.order;
+        return orderA - orderB;
+      });
     }
   }
 
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
+    console.log(`Retrieving menu item with id: ${id}`);
+    
     try {
-      console.log(`Retrieving menu item with id: ${id}`);
+      // Try to get from database first
       const result = await db.select().from(menuItems).where(eq(menuItems.id, id));
-      console.log(`Database query result for menu item ${id}:`, result);
       
       if (result.length > 0) {
-        return result[0];
+        const item = result[0];
+        console.log(`Found menu item in database: ${item.name}`);
+        
+        // Update memory cache
+        this.menuItemsMap.set(id, item);
+        return item;
       }
       
-      // If not found in database, try memory storage
+      // If not in database, check memory
       const memoryItem = this.menuItemsMap.get(id);
-      console.log(`Memory storage result for menu item ${id}:`, memoryItem || 'Not found');
-      return memoryItem;
+      if (memoryItem) {
+        console.log(`Found menu item in memory: ${memoryItem.name}`);
+        return memoryItem;
+      }
+      
+      console.log(`Menu item with id ${id} not found`);
+      return undefined;
     } catch (error) {
       console.error("Error getting menu item:", error);
-      // Fallback to memory storage
+      
+      // Fallback to memory only
       const memoryItem = this.menuItemsMap.get(id);
-      console.log(`Memory storage fallback for menu item ${id}:`, memoryItem || 'Not found');
-      return memoryItem;
+      if (memoryItem) {
+        console.log(`Fallback: Found menu item in memory: ${memoryItem.name}`);
+        return memoryItem;
+      }
+      
+      return undefined;
     }
   }
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
+    console.log(`Creating menu item:`, item);
+    
     try {
-      console.log(`Creating menu item:`, item);
+      // Insert into database
       const result = await db.insert(menuItems).values(item).returning();
-      console.log(`Database result for creating menu item:`, result);
       
       if (result.length > 0) {
-        // Also store in memory for consistent access
         const newItem = result[0];
+        console.log(`Created menu item in database: ${newItem.name} with id ${newItem.id}`);
+        
+        // Also store in memory cache
         this.menuItemsMap.set(newItem.id, newItem);
-        console.log(`Stored new menu item in memory with id: ${newItem.id}`);
         return newItem;
       }
     } catch (error) {
-      console.error("Error creating menu item:", error);
+      console.error("Error creating menu item in database:", error);
     }
     
-    // Fallback to memory storage
+    // Fallback to memory only storage
     const id = this.currentMenuItemId++;
     const now = new Date();
     const menuItem: MenuItem = { 
@@ -447,34 +550,54 @@ export class MemStorage implements IStorage {
       updatedAt: now
     };
     
-    console.log(`Fallback: Creating menu item in memory with id: ${id}`);
+    console.log(`Fallback: Created menu item in memory: ${menuItem.name} with id ${id}`);
     this.menuItemsMap.set(id, menuItem);
     return menuItem;
   }
 
   async updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem | undefined> {
+    console.log(`Updating menu item with id ${id}:`, item);
+    
     try {
+      // First, check if the item exists
+      const existingItem = await this.getMenuItem(id);
+      if (!existingItem) {
+        console.log(`Menu item with id ${id} not found, cannot update`);
+        return undefined;
+      }
+      
+      // Update in database
       const result = await db.update(menuItems)
         .set({ ...item, updatedAt: new Date() })
         .where(eq(menuItems.id, id))
         .returning();
       
       if (result.length > 0) {
-        return result[0];
+        const updatedItem = result[0];
+        console.log(`Updated menu item in database: ${updatedItem.name}`);
+        
+        // Update memory cache
+        this.menuItemsMap.set(id, updatedItem);
+        return updatedItem;
       }
     } catch (error) {
-      console.error("Error updating menu item:", error);
+      console.error("Error updating menu item in database:", error);
     }
     
     // Fallback to memory storage
-    const existingItem = this.menuItemsMap.get(id);
-    if (!existingItem) return undefined;
+    const memoryItem = this.menuItemsMap.get(id);
+    if (!memoryItem) {
+      console.log(`Menu item with id ${id} not found in memory, cannot update`);
+      return undefined;
+    }
 
     const updatedItem = { 
-      ...existingItem, 
+      ...memoryItem, 
       ...item,
       updatedAt: new Date()
     };
+    
+    console.log(`Fallback: Updated menu item in memory: ${updatedItem.name}`);
     this.menuItemsMap.set(id, updatedItem);
     return updatedItem;
   }
@@ -482,6 +605,8 @@ export class MemStorage implements IStorage {
   async deleteMenuItem(id: number): Promise<boolean> {
     try {
       console.log(`Attempting to delete menu item with id: ${id}`);
+      
+      // First, make sure we have the most up-to-date version of the item
       const itemToDelete = await this.getMenuItem(id);
       if (!itemToDelete) {
         console.log(`Menu item with id ${id} not found`);
@@ -489,20 +614,29 @@ export class MemStorage implements IStorage {
       }
       
       console.log(`Found menu item to delete:`, itemToDelete);
+      
+      // Delete from database
       const result = await db.delete(menuItems).where(eq(menuItems.id, id)).returning();
-      console.log(`Delete result:`, result);
+      console.log(`Database delete result:`, result);
       
-      // Also delete from memory storage to maintain consistency
-      this.menuItemsMap.delete(id);
+      // Then delete from memory cache
+      const memoryResult = this.menuItemsMap.delete(id);
+      console.log(`Memory storage deletion result: ${memoryResult}`);
       
-      return result.length > 0;
+      // Consider successful if either database or memory deletion worked
+      return result.length > 0 || memoryResult;
     } catch (error) {
       console.error("Error deleting menu item:", error);
       
-      // Still try memory storage as fallback
-      const memoryResult = this.menuItemsMap.delete(id);
-      console.log(`Memory storage deletion result: ${memoryResult}`);
-      return memoryResult;
+      // Last attempt - try memory storage as fallback
+      try {
+        const memoryResult = this.menuItemsMap.delete(id);
+        console.log(`Fallback memory deletion result: ${memoryResult}`);
+        return memoryResult;
+      } catch (memError) {
+        console.error("Memory deletion also failed:", memError);
+        return false;
+      }
     }
   }
 
