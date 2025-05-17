@@ -32,20 +32,22 @@ export default function RestaurantInfoTab() {
 
   return (
     <div className="p-4 flex flex-col min-h-[calc(100vh-70px)]">
-      {/* User avatar block */}
-      <div className="flex flex-col items-center mb-10 mt-4">
-        <Avatar className="h-20 w-20 mb-3">
+      {/* User avatar block - horizontal layout */}
+      <div className="flex items-center mb-8 mt-4">
+        <Avatar className="h-16 w-16">
           <AvatarImage src={user.avatar} alt={user.name} />
           <AvatarFallback className="text-xl bg-primary text-primary-foreground">
             {user.name.split(' ').map(n => n[0]).join('')}
           </AvatarFallback>
         </Avatar>
-        <h2 className="text-xl font-semibold">{user.name}</h2>
-        <p className="text-muted-foreground text-sm">{user.role}</p>
+        <div className="ml-4">
+          <h2 className="text-xl font-semibold">{user.name}</h2>
+          <p className="text-muted-foreground text-sm">{user.role}</p>
+        </div>
       </div>
       
-      {/* Option buttons */}
-      <div className="space-y-2 flex-1">
+      {/* Option buttons - reduced spacing */}
+      <div className="space-y-1 flex-1">
         {options.map((option, index) => (
           <Button 
             key={index} 
