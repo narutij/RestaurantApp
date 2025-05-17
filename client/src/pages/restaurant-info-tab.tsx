@@ -118,14 +118,14 @@ export default function RestaurantInfoTab() {
     try {
       setIsUpdatingProfile(true);
       
-      // Use apiRequest from our query client
+      // Use apiRequest from our query client with the correct body format
       const updatedProfile = await apiRequest('/api/user-profile', {
         method: 'POST',
-        body: JSON.stringify({
+        body: {
           name: editedUser.name,
           role: editedUser.role,
           avatarUrl: selectedFile ? previewUrl : (profile?.avatarUrl || null)
-        })
+        }
       });
       
       // Invalidate the profile query to refresh the data
