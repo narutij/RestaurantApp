@@ -308,13 +308,28 @@ export class MemStorage implements IStorage {
   
   async deleteMenuCategory(id: number): Promise<boolean> {
     try {
+      console.log(`Attempting to delete menu category with id: ${id}`);
+      const categoryToDelete = await this.getMenuCategory(id);
+      if (!categoryToDelete) {
+        console.log(`Category with id ${id} not found`);
+        return false;
+      }
+      
+      console.log(`Found category to delete:`, categoryToDelete);
       const result = await db.delete(menuCategories).where(eq(menuCategories.id, id)).returning();
+      console.log(`Delete result:`, result);
+      
+      // Also delete from memory storage to maintain consistency
+      this.menuCategoriesMap.delete(id);
+      
       return result.length > 0;
     } catch (error) {
       console.error("Error deleting menu category:", error);
       
-      // Fallback to memory storage
-      return this.menuCategoriesMap.delete(id);
+      // Still try memory storage as fallback
+      const memoryResult = this.menuCategoriesMap.delete(id);
+      console.log(`Memory storage deletion result: ${memoryResult}`);
+      return memoryResult;
     }
   }
 
@@ -422,11 +437,28 @@ export class MemStorage implements IStorage {
 
   async deleteMenuItem(id: number): Promise<boolean> {
     try {
+      console.log(`Attempting to delete menu item with id: ${id}`);
+      const itemToDelete = await this.getMenuItem(id);
+      if (!itemToDelete) {
+        console.log(`Menu item with id ${id} not found`);
+        return false;
+      }
+      
+      console.log(`Found menu item to delete:`, itemToDelete);
       const result = await db.delete(menuItems).where(eq(menuItems.id, id)).returning();
+      console.log(`Delete result:`, result);
+      
+      // Also delete from memory storage to maintain consistency
+      this.menuItemsMap.delete(id);
+      
       return result.length > 0;
     } catch (error) {
       console.error("Error deleting menu item:", error);
-      return this.menuItemsMap.delete(id);
+      
+      // Still try memory storage as fallback
+      const memoryResult = this.menuItemsMap.delete(id);
+      console.log(`Memory storage deletion result: ${memoryResult}`);
+      return memoryResult;
     }
   }
 
