@@ -38,25 +38,13 @@ export function RestaurantModal({
   // Fetch restaurants
   const { data: restaurants = [], isLoading } = useQuery({
     queryKey: ["/api/restaurants"],
-    queryFn: async () => {
-      const res = await apiRequest<Restaurant[]>({
-        url: "/api/restaurants",
-        method: "GET",
-      });
-      return res;
-    }
+    queryFn: () => apiRequest("/api/restaurants")
   });
 
   // Create restaurant mutation
   const createRestaurantMutation = useMutation({
-    mutationFn: async (data: { name: string; address: string }) => {
-      const res = await apiRequest<Restaurant>({
-        url: "/api/restaurants",
-        method: "POST",
-        data,
-      });
-      return res;
-    },
+    mutationFn: (data: { name: string; address: string }) => 
+      apiRequest("/api/restaurants", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: (data) => {
       // Reset the form
       setNewRestaurantName("");
@@ -107,6 +95,10 @@ export function RestaurantModal({
     setCreateMode(false);
     setNewRestaurantName("");
     setNewRestaurantAddress("");
+  };
+
+  const handleRestaurantClick = (restaurant: Restaurant) => {
+    onSelectRestaurant(restaurant);
   };
 
   return (

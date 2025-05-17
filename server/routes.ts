@@ -8,6 +8,7 @@ import {
   insertOrderSchema,
   insertDayTemplateSchema,
   userProfileSchema,
+  insertRestaurantSchema,
   WebSocketMessage 
 } from "@shared/schema";
 import { log } from "./vite";
