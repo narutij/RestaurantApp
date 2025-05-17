@@ -181,7 +181,11 @@ export default function RestaurantInfoTab() {
         >
           <div className="relative">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={profile?.avatarUrl || ""} alt={profile?.name || "User"} />
+              <AvatarImage 
+                src={profile?.avatarUrl || ""} 
+                alt={profile?.name || "User"} 
+                className="object-cover"
+              />
               <AvatarFallback className="text-xl bg-primary text-primary-foreground">
                 {profile?.name.split(' ').map(n => n[0]).join('') || "U"}
               </AvatarFallback>
@@ -211,7 +215,11 @@ export default function RestaurantInfoTab() {
             {/* Avatar with change option */}
             <div className="flex flex-col items-center justify-center gap-2">
               <Avatar className="h-24 w-24 cursor-pointer" onClick={triggerFileInput}>
-                <AvatarImage src={previewUrl} alt={editedUser.name} />
+                <AvatarImage 
+                  src={previewUrl} 
+                  alt={editedUser.name} 
+                  className="object-cover"
+                />
                 <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                   {editedUser.name.split(' ').map(n => n[0]).join('') || "U"}
                 </AvatarFallback>
