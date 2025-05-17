@@ -54,31 +54,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header className="bg-white shadow-sm dark:bg-slate-800">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center">
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
-              {selectedRestaurant?.name || "Order Manager"}
-            </h1>
-            {!selectedRestaurant && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="ml-2 text-xs"
-                onClick={() => setRestaurantModalOpen(true)}
-              >
-                Select Restaurant
-              </Button>
-            )}
-            {selectedRestaurant && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="ml-2 text-xs"
-                onClick={() => setRestaurantModalOpen(true)}
-              >
-                Change
-              </Button>
-            )}
-          </div>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
+            {selectedRestaurant?.name || "Order Manager"}
+          </h1>
           <div 
             id="sync-status" 
             className={`flex items-center text-xs ${

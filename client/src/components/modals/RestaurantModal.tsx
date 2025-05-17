@@ -175,6 +175,7 @@ export function RestaurantModal({
 
   const handleRestaurantClick = (restaurant: Restaurant) => {
     onSelectRestaurant(restaurant);
+    onOpenChange(false); // Close the modal after selection
   };
   
   const handleDeleteClick = (e: React.MouseEvent, restaurant: Restaurant) => {
