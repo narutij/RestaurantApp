@@ -105,8 +105,20 @@ export default function RestaurantInfoTab() {
         }
       });
       
-      // Invalidate the profile query to refresh the data
-      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
+      // Force refetch to ensure the UI gets the latest data
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/user-profile'],
+        exact: true
+      });
+      
+      // Update the state without waiting for a server refresh
+      if (profile) {
+        queryClient.setQueryData(['/api/user-profile'], {
+          ...profile,
+          name: editedUser.name,
+          role: editedUser.role
+        });
+      }
       
       toast({
         title: "Profile updated",
