@@ -374,6 +374,22 @@ export class MemStorage implements IStorage {
       // For database implementation
       const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
       if (profiles.length > 0) {
+        // Use a direct query to get the avatar_url from the database
+        try {
+          const result = await db.execute(
+            `SELECT avatar_url FROM user_profiles WHERE id = $1`, 
+            [id]
+          );
+          
+          if (result && result.rows && result.rows.length > 0) {
+            // Make sure the avatarUrl is directly taken from the database
+            profiles[0].avatarUrl = result.rows[0].avatar_url;
+            console.log("Successfully retrieved avatar URL from database:", profiles[0].avatarUrl);
+          }
+        } catch (err) {
+          console.error("Error getting avatar URL directly:", err);
+        }
+        
         return profiles[0];
       }
       
