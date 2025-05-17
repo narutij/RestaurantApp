@@ -12,33 +12,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { connectedUsers, status } = useWebSocket();
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  
-  // For debugging
-  useEffect(() => {
-    console.log("Selected restaurant:", selectedRestaurant);
-  }, [selectedRestaurant]);
   const { toast } = useToast();
   
   // Load selected restaurant from localStorage on mount
   useEffect(() => {
-    const savedRestaurant = localStorage.getItem('selectedRestaurant');
-    if (savedRestaurant) {
-      try {
-        const parsed = JSON.parse(savedRestaurant);
-        console.log("Loading saved restaurant:", parsed);
-        setSelectedRestaurant(parsed);
-      } catch (e) {
-        console.error('Failed to parse saved restaurant', e);
-        localStorage.removeItem('selectedRestaurant');
+    try {
+      const savedRestaurant = localStorage.getItem('selectedRestaurant');
+      if (savedRestaurant) {
+        const restaurant = JSON.parse(savedRestaurant);
+        setSelectedRestaurant(restaurant);
       }
+    } catch (e) {
+      console.error('Failed to load saved restaurant', e);
+      localStorage.removeItem('selectedRestaurant');
     }
   }, []);
   
   const handleSelectRestaurant = (restaurant: Restaurant) => {
+    // Store the restaurant data and update state
     setSelectedRestaurant(restaurant);
     localStorage.setItem('selectedRestaurant', JSON.stringify(restaurant));
     setRestaurantModalOpen(false);
     
+    // Show confirmation toast
     toast({
       title: "Restaurant Selected",
       description: `${restaurant.name} is now active.`,
