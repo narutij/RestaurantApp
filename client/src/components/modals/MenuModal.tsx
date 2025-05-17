@@ -33,6 +33,7 @@ export function MenuModal({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -269,7 +270,10 @@ export function MenuModal({
                   <AccordionItem value="categories">
                     <AccordionTrigger>Categories</AccordionTrigger>
                     <AccordionContent>
-                      <CategoryList menuId={selectedMenu.id} />
+                      <CategoryList 
+                      menuId={selectedMenu.id} 
+                      onEditCategory={openEditCategoryModal} 
+                    />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -400,7 +404,13 @@ export function MenuModal({
       {selectedMenu && (
         <CategoryModal
           open={categoryModalOpen}
-          onOpenChange={setCategoryModalOpen}
+          onOpenChange={(open) => {
+            setCategoryModalOpen(open);
+            if (!open) {
+              // Reset the editing category ID when closing the modal
+              setEditingCategoryId(null);
+            }
+          }}
           menuId={selectedMenu.id}
           categoryId={editingCategoryId || undefined}
         />
@@ -409,7 +419,13 @@ export function MenuModal({
   );
 }
 
-function CategoryList({ menuId }: { menuId: number }) {
+function CategoryList({ 
+  menuId, 
+  onEditCategory 
+}: { 
+  menuId: number,
+  onEditCategory: (categoryId: number) => void 
+}) {
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
   const [menuItemModalOpen, setMenuItemModalOpen] = useState(false);
@@ -618,7 +634,10 @@ function CategoryList({ menuId }: { menuId: number }) {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => setEditingCategoryId(category.id)}
+                  onClick={() => {
+                    setEditingCategoryId(category.id);
+                    setCategoryModalOpen(true);
+                  }}
                 >
                   <Edit className="h-3 w-3 mr-1" />
                   Edit
