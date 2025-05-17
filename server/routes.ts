@@ -500,8 +500,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profile = await storage.createUserProfile(profileData);
       }
       
+      if (!profile) {
+        throw new Error("Failed to update or create profile");
+      }
+      
       console.log('Updated profile:', profile);
-      res.json(profile);
+      
+      // Return the full updated profile
+      res.json({
+        id: profile.id,
+        name: profile.name,
+        role: profile.role,
+        avatarUrl: profile.avatarUrl,
+        success: true
+      });
     } catch (error) {
       console.error('Error updating profile:', error);
       res.status(500).json({ error: "Failed to update user profile" });

@@ -113,7 +113,7 @@ export default function RestaurantInfoTab() {
     setEditedUser({ ...editedUser, role: e.target.value });
   };
 
-  // Save profile changes
+  // Function to manually update the profile without relying on cache/query invalidation
   const saveProfile = async () => {
     try {
       setIsUpdatingProfile(true);
@@ -134,23 +134,17 @@ export default function RestaurantInfoTab() {
       if (!response.ok) {
         throw new Error('Failed to update profile');
       }
-            
-      // Close the dialog and show success message
-      setIsProfileDialogOpen(false);
       
-      // Invalidate the query cache to force a refresh
-      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
+      const updatedProfile = await response.json();
       
-      // Show success message
+      // Force a complete page reload to ensure all state is updated
+      window.location.href = window.location.href;
+      
+      // Show success message before reload
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated"
       });
-      
-      // Hard reload only if needed as a fallback
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
       
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -161,6 +155,7 @@ export default function RestaurantInfoTab() {
       });
     } finally {
       setIsUpdatingProfile(false);
+      setIsProfileDialogOpen(false);
     }
   };
 
