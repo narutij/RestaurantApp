@@ -10,8 +10,9 @@ import { apiRequest } from '@/lib/queryClient';
 import { Menu, Restaurant } from '@shared/schema';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { formatTime } from '@/lib/utils';
+import { formatTime, formatPrice } from '@/lib/utils';
 import { CategoryModal } from '@/components/modals/CategoryModal';
+import { MenuItemModal } from '@/components/modals/MenuItemModal';
 
 type MenuModalProps = {
   open: boolean;
@@ -393,12 +394,100 @@ export function MenuModal({
 }
 
 function CategoryList({ menuId }: { menuId: number }) {
-  const { data: categories = [], isLoading } = useQuery({
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
+  const [menuItemModalOpen, setMenuItemModalOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingItemName, setDeletingItemName] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
     queryKey: ['/api/menu-categories', menuId],
     queryFn: () => apiRequest(`/api/menu-categories?menuId=${menuId}`),
   });
 
-  if (isLoading) {
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest(`/api/menu-categories/${id}`, {
+        method: 'DELETE'
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-categories', menuId] });
+      toast({
+        title: "Category Deleted",
+        description: "Category has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Deleting Category",
+        description: "There was an error deleting the category. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete menu item mutation
+  const deleteMenuItemMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest(`/api/menu-items/${id}`, {
+        method: 'DELETE'
+      }),
+    onSuccess: () => {
+      if (selectedCategoryId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/menu-items', selectedCategoryId] });
+      }
+      setDeleteDialogOpen(false);
+      setDeletingItemId(null);
+      toast({
+        title: "Menu Item Deleted",
+        description: "Menu item has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Deleting Menu Item",
+        description: "There was an error deleting the menu item. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleDeleteCategory = (id: number) => {
+    deleteCategoryMutation.mutate(id);
+  };
+
+  const handleAddItem = (categoryId: number) => {
+    setSelectedCategoryId(categoryId);
+    setEditingItemId(null);
+    setMenuItemModalOpen(true);
+  };
+
+  const handleEditItem = (categoryId: number, itemId: number) => {
+    setSelectedCategoryId(categoryId);
+    setEditingItemId(itemId);
+    setMenuItemModalOpen(true);
+  };
+
+  const handleDeleteItemClick = (categoryId: number, itemId: number, itemName: string) => {
+    setSelectedCategoryId(categoryId);
+    setDeletingItemId(itemId);
+    setDeletingItemName(itemName);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteItem = () => {
+    if (deletingItemId) {
+      deleteMenuItemMutation.mutate(deletingItemId);
+    }
+  };
+
+  if (loadingCategories) {
     return <div className="py-2">Loading categories...</div>;
   }
 
@@ -407,16 +496,124 @@ function CategoryList({ menuId }: { menuId: number }) {
   }
 
   return (
-    <div className="space-y-2">
-      {categories.map((category: any) => (
-        <div key={category.id} className="flex items-center justify-between p-2 border rounded">
-          <span>{category.name}</span>
+    <>
+      <div className="space-y-4">
+        {categories.map((category: any) => (
+          <div key={category.id} className="border rounded">
+            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800">
+              <h4 className="font-medium">{category.name}</h4>
+              <div className="flex space-x-1">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleAddItem(category.id)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Item
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setEditingCategoryId(category.id)}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleDeleteCategory(category.id)}
+                >
+                  <Trash className="h-3 w-3 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+            <CategoryItems 
+              categoryId={category.id} 
+              onEditItem={(itemId) => handleEditItem(category.id, itemId)}
+              onDeleteItem={(itemId, itemName) => handleDeleteItemClick(category.id, itemId, itemName)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Menu Item Modal */}
+      {selectedCategoryId && (
+        <MenuItemModal
+          open={menuItemModalOpen}
+          onOpenChange={setMenuItemModalOpen}
+          categoryId={selectedCategoryId}
+          itemId={editingItemId || undefined}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the menu item "{deletingItemName}". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteItem}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function CategoryItems({ 
+  categoryId, 
+  onEditItem, 
+  onDeleteItem 
+}: { 
+  categoryId: number,
+  onEditItem: (itemId: number) => void,
+  onDeleteItem: (itemId: number, itemName: string) => void
+}) {
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['/api/menu-items', categoryId],
+    queryFn: () => apiRequest(`/api/menu-items?categoryId=${categoryId}`),
+  });
+
+  if (isLoading) {
+    return <div className="p-3">Loading items...</div>;
+  }
+
+  if (items.length === 0) {
+    return <div className="p-3 text-center text-slate-500">No items in this category yet.</div>;
+  }
+
+  return (
+    <div className="divide-y">
+      {items.map((item: any) => (
+        <div key={item.id} className="flex items-center justify-between p-3">
+          <div>
+            <div className="font-medium">{item.name}</div>
+            {item.description && (
+              <div className="text-sm text-slate-500">{item.description}</div>
+            )}
+            <div className="text-sm font-medium text-primary">{formatPrice(item.price)}</div>
+          </div>
           <div className="flex space-x-1">
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onEditItem(item.id)}
+            >
               <Edit className="h-3 w-3 mr-1" />
               Edit
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onDeleteItem(item.id, item.name)}
+            >
               <Trash className="h-3 w-3 mr-1" />
               Delete
             </Button>
