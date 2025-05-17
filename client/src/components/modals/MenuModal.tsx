@@ -402,6 +402,7 @@ function CategoryList({ menuId }: { menuId: number }) {
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingItemName, setDeletingItemName] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -466,6 +467,12 @@ function CategoryList({ menuId }: { menuId: number }) {
     setSelectedCategoryId(categoryId);
     setEditingItemId(null);
     setMenuItemModalOpen(true);
+    
+    // Auto-expand the category when adding a new item
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: true
+    }));
   };
 
   const handleEditItem = (categoryId: number, itemId: number) => {
@@ -487,6 +494,13 @@ function CategoryList({ menuId }: { menuId: number }) {
     }
   };
 
+  const toggleCategory = (categoryId: number) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+
   if (loadingCategories) {
     return <div className="py-2">Loading categories...</div>;
   }
@@ -500,9 +514,17 @@ function CategoryList({ menuId }: { menuId: number }) {
       <div className="space-y-4">
         {categories.map((category: any) => (
           <div key={category.id} className="border rounded">
-            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800">
-              <h4 className="font-medium">{category.name}</h4>
-              <div className="flex space-x-1">
+            <div 
+              className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 cursor-pointer"
+              onClick={() => toggleCategory(category.id)}
+            >
+              <div className="flex items-center">
+                <ChevronRight 
+                  className={`h-4 w-4 mr-2 transition-transform ${expandedCategories[category.id] ? 'transform rotate-90' : ''}`} 
+                />
+                <h4 className="font-medium">{category.name}</h4>
+              </div>
+              <div className="flex space-x-1" onClick={e => e.stopPropagation()}>
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -529,11 +551,13 @@ function CategoryList({ menuId }: { menuId: number }) {
                 </Button>
               </div>
             </div>
-            <CategoryItems 
-              categoryId={category.id} 
-              onEditItem={(itemId) => handleEditItem(category.id, itemId)}
-              onDeleteItem={(itemId, itemName) => handleDeleteItemClick(category.id, itemId, itemName)}
-            />
+            {expandedCategories[category.id] && (
+              <CategoryItems 
+                categoryId={category.id} 
+                onEditItem={(itemId) => handleEditItem(category.id, itemId)}
+                onDeleteItem={(itemId, itemName) => handleDeleteItemClick(category.id, itemId, itemName)}
+              />
+            )}
           </div>
         ))}
       </div>
