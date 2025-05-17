@@ -53,21 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header className="bg-white shadow-sm dark:bg-slate-800">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center">
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white mr-3">Order Manager</h1>
-            <Button 
-              id="restaurants-button"
-              variant="outline" 
-              size="sm" 
-              className="text-xs flex items-center gap-1" 
-              onClick={() => setRestaurantModalOpen(true)}
-            >
-              <span>{selectedRestaurant ? selectedRestaurant.name : 'Select Restaurant'}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </Button>
-          </div>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Order Manager</h1>
           <div 
             id="sync-status" 
             className={`flex items-center text-xs ${
