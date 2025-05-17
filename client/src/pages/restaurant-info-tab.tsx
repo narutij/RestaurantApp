@@ -351,6 +351,14 @@ export default function RestaurantInfoTab() {
           </Button>
         </div>
       </div>
+      
+      {/* Restaurant Modal */}
+      <RestaurantModal
+        open={restaurantModalOpen}
+        onOpenChange={setRestaurantModalOpen}
+        selectedRestaurantId={selectedRestaurantId}
+        onSelectRestaurant={handleSelectRestaurant}
+      />
     </div>
   );
 }
