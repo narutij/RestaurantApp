@@ -41,7 +41,10 @@ export default function SetupTab() {
   // Mutations for menu items
   const createMenuItemMutation = useMutation({
     mutationFn: (item: { name: string; price: number }) => 
-      apiRequest('POST', '/api/menu-items', item),
+      apiRequest('/api/menu-items', { 
+        method: 'POST', 
+        body: item 
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       setMenuModalOpen(false);
@@ -50,7 +53,10 @@ export default function SetupTab() {
 
   const updateMenuItemMutation = useMutation({
     mutationFn: ({ id, item }: { id: number; item: { name: string; price: number } }) => 
-      apiRequest('PUT', `/api/menu-items/${id}`, item),
+      apiRequest(`/api/menu-items/${id}`, {
+        method: 'PUT',
+        body: item
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       setMenuModalOpen(false);
@@ -60,7 +66,7 @@ export default function SetupTab() {
 
   const deleteMenuItemMutation = useMutation({
     mutationFn: (id: number) => 
-      apiRequest('DELETE', `/api/menu-items/${id}`),
+      apiRequest(`/api/menu-items/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       setConfirmDeleteMenu(null);
@@ -70,7 +76,10 @@ export default function SetupTab() {
   // Mutations for tables
   const createTableMutation = useMutation({
     mutationFn: (table: { number: string; label: string }) => 
-      apiRequest('POST', '/api/tables', table),
+      apiRequest('/api/tables', {
+        method: 'POST',
+        body: table
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       setTableModalOpen(false);
@@ -79,7 +88,10 @@ export default function SetupTab() {
 
   const updateTableMutation = useMutation({
     mutationFn: ({ id, table }: { id: number; table: { number: string; label: string } }) => 
-      apiRequest('PUT', `/api/tables/${id}`, table),
+      apiRequest(`/api/tables/${id}`, {
+        method: 'PUT',
+        body: table
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       setTableModalOpen(false);
@@ -89,7 +101,7 @@ export default function SetupTab() {
 
   const deleteTableMutation = useMutation({
     mutationFn: (id: number) => 
-      apiRequest('DELETE', `/api/tables/${id}`),
+      apiRequest(`/api/tables/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       setConfirmDeleteTable(null);
