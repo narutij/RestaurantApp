@@ -3,6 +3,7 @@ import {
   menuItems, type MenuItem, type InsertMenuItem,
   tables, type Table, type InsertTable,
   orders, type Order, type InsertOrder,
+  dayTemplates, type DayTemplate, type InsertDayTemplate,
   type OrderWithDetails
 } from "@shared/schema";
 
@@ -37,6 +38,16 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   markOrderComplete(id: number): Promise<Order | undefined>;
   getNewOrders(): Promise<OrderWithDetails[]>;
+  
+  // Day Templates
+  getDayTemplates(): Promise<DayTemplate[]>;
+  getDayTemplate(id: number): Promise<DayTemplate | undefined>;
+  getDayTemplateByDate(date: Date): Promise<DayTemplate | undefined>;
+  createDayTemplate(template: InsertDayTemplate): Promise<DayTemplate>;
+  updateDayTemplate(id: number, template: Partial<InsertDayTemplate>): Promise<DayTemplate | undefined>;
+  deleteDayTemplate(id: number): Promise<boolean>;
+  getTemplates(): Promise<DayTemplate[]>;
+  applyTemplate(templateId: number, date: Date): Promise<DayTemplate>;
 }
 
 export class MemStorage implements IStorage {
@@ -44,10 +55,12 @@ export class MemStorage implements IStorage {
   private menuItemsMap: Map<number, MenuItem>;
   private tablesMap: Map<number, Table>;
   private ordersMap: Map<number, Order>;
+  private dayTemplatesMap: Map<number, DayTemplate>;
   private currentUserId: number;
   private currentMenuItemId: number;
   private currentTableId: number;
   private currentOrderId: number;
+  private currentDayTemplateId: number;
 
   constructor() {
     this.users = new Map();

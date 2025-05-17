@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -93,3 +93,24 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Day Templates
+export const dayTemplates = pgTable("day_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  date: date("date").notNull(),
+  menuItems: jsonb("menu_items").$type<MenuItem[]>(),
+  tables: jsonb("tables").$type<Table[]>(),
+  isTemplate: boolean("is_template").default(false),
+});
+
+export const insertDayTemplateSchema = createInsertSchema(dayTemplates).pick({
+  name: true,
+  date: true,
+  menuItems: true,
+  tables: true,
+  isTemplate: true,
+});
+
+export type InsertDayTemplate = z.infer<typeof insertDayTemplateSchema>;
+export type DayTemplate = typeof dayTemplates.$inferSelect;
