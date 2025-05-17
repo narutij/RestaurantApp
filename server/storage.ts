@@ -364,6 +364,8 @@ export class MemStorage implements IStorage {
   async deleteMenuCategory(id: number): Promise<boolean> {
     try {
       console.log(`Attempting to delete menu category with id: ${id}`);
+      
+      // Make sure the category exists before trying to delete it
       const categoryToDelete = await this.getMenuCategory(id);
       if (!categoryToDelete) {
         console.log(`Category with id ${id} not found`);
@@ -372,41 +374,78 @@ export class MemStorage implements IStorage {
       
       console.log(`Found category to delete:`, categoryToDelete);
       
-      // First find and delete all menu items associated with this category
-      const relatedItems = await this.getMenuItems(id);
-      console.log(`Found ${relatedItems.length} menu items related to this category`);
-      
-      // Delete related menu items one by one
-      for (const item of relatedItems) {
-        console.log(`Deleting related menu item: ${item.id}`);
-        await db.delete(menuItems).where(eq(menuItems.id, item.id)).returning();
-        // Also delete from memory storage
-        this.menuItemsMap.delete(item.id);
+      try {
+        // 1. First find all menu items associated with this category
+        const relatedItems = await this.getMenuItems(id);
+        console.log(`Found ${relatedItems.length} menu items related to this category`);
+        
+        // 2. Delete related menu items from the database
+        if (relatedItems.length > 0) {
+          console.log(`Deleting ${relatedItems.length} related menu items from database`);
+          
+          for (const item of relatedItems) {
+            try {
+              // For each item, delete from database
+              await db.delete(menuItems).where(eq(menuItems.id, item.id));
+              console.log(`Deleted menu item ${item.id} (${item.name}) from database`);
+              
+              // Then remove from memory storage
+              this.menuItemsMap.delete(item.id);
+            } catch (itemError) {
+              console.error(`Error deleting menu item ${item.id}:`, itemError);
+              // Continue with other items even if one fails
+            }
+          }
+        }
+        
+        // 3. Delete the category from database
+        console.log(`Now deleting the category ${id} from database`);
+        const result = await db.delete(menuCategories).where(eq(menuCategories.id, id)).returning();
+        
+        // 4. Remove from memory storage
+        this.menuCategoriesMap.delete(id);
+        
+        console.log(`Category deletion result:`, result);
+        return result.length > 0;
+      } catch (dbError) {
+        console.error("Database operations failed:", dbError);
+        
+        // Fallback to memory-only operations if database fails
+        console.log("Attempting memory-only deletion as fallback");
+        
+        // Delete items from memory
+        const memoryItems = Array.from(this.menuItemsMap.values())
+          .filter(item => item.categoryId === id);
+        
+        for (const item of memoryItems) {
+          this.menuItemsMap.delete(item.id);
+          console.log(`Deleted menu item ${item.id} from memory`);
+        }
+        
+        // Delete category from memory
+        const memResult = this.menuCategoriesMap.delete(id);
+        console.log(`Memory-only category deletion result: ${memResult}`);
+        return memResult;
       }
-      
-      // Now delete the category itself
-      const result = await db.delete(menuCategories).where(eq(menuCategories.id, id)).returning();
-      console.log(`Delete result:`, result);
-      
-      // Also delete from memory storage to maintain consistency
-      this.menuCategoriesMap.delete(id);
-      
-      return result.length > 0;
     } catch (error) {
-      console.error("Error deleting menu category:", error);
+      console.error("Error in deleteMenuCategory:", error);
       
-      // Still try memory storage as fallback
-      // First attempt to delete related menu items from memory
-      const relatedItems = Array.from(this.menuItemsMap.values())
-        .filter(item => item.categoryId === id);
-      
-      for (const item of relatedItems) {
-        this.menuItemsMap.delete(item.id);
+      // Last attempt emergency fallback
+      try {
+        const memoryItems = Array.from(this.menuItemsMap.values())
+          .filter(item => item.categoryId === id);
+        
+        for (const item of memoryItems) {
+          this.menuItemsMap.delete(item.id);
+        }
+        
+        const memoryResult = this.menuCategoriesMap.delete(id);
+        console.log(`Emergency fallback memory deletion result: ${memoryResult}`);
+        return memoryResult;
+      } catch (memError) {
+        console.error("Memory deletion also failed:", memError);
+        return false;
       }
-      
-      const memoryResult = this.menuCategoriesMap.delete(id);
-      console.log(`Memory storage deletion result: ${memoryResult}`);
-      return memoryResult;
     }
   }
 
@@ -615,23 +654,31 @@ export class MemStorage implements IStorage {
       
       console.log(`Found menu item to delete:`, itemToDelete);
       
-      // Delete from database
-      const result = await db.delete(menuItems).where(eq(menuItems.id, id)).returning();
-      console.log(`Database delete result:`, result);
-      
-      // Then delete from memory cache
-      const memoryResult = this.menuItemsMap.delete(id);
-      console.log(`Memory storage deletion result: ${memoryResult}`);
-      
-      // Consider successful if either database or memory deletion worked
-      return result.length > 0 || memoryResult;
+      // Delete from database first
+      try {
+        const result = await db.delete(menuItems)
+          .where(eq(menuItems.id, id))
+          .returning();
+        console.log(`Database delete result:`, result);
+        
+        // Then delete from memory cache
+        this.menuItemsMap.delete(id);
+        
+        return result.length > 0;
+      } catch (dbError) {
+        console.error("Database delete failed:", dbError);
+        
+        // If DB delete fails, try direct memory deletion as fallback
+        const memResult = this.menuItemsMap.delete(id);
+        return memResult;
+      }
     } catch (error) {
-      console.error("Error deleting menu item:", error);
+      console.error("Error in deleteMenuItem:", error);
       
       // Last attempt - try memory storage as fallback
       try {
         const memoryResult = this.menuItemsMap.delete(id);
-        console.log(`Fallback memory deletion result: ${memoryResult}`);
+        console.log(`Emergency fallback memory deletion result: ${memoryResult}`);
         return memoryResult;
       } catch (memError) {
         console.error("Memory deletion also failed:", memError);

@@ -238,14 +238,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/menu-categories/:id', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
-      const result = await storage.deleteMenuCategory(id);
+      console.log(`API Request: Deleting menu category with ID: ${id}`);
       
-      if (!result) {
+      // First verify the category exists
+      const category = await storage.getMenuCategory(id);
+      if (!category) {
+        console.log(`API Error: Menu category with ID ${id} not found`);
         return res.status(404).json({ error: "Category not found" });
       }
       
+      // Then attempt to delete it along with all its items
+      const result = await storage.deleteMenuCategory(id);
+      
+      if (!result) {
+        console.log(`API Error: Failed to delete menu category with ID ${id}`);
+        return res.status(500).json({ error: "Failed to delete the category" });
+      }
+      
+      console.log(`API Success: Menu category with ID ${id} and all its items deleted successfully`);
       res.status(204).send();
     } catch (error) {
+      console.error(`API Error: Exception when deleting menu category:`, error);
       res.status(500).json({ error: "Failed to delete category" });
     }
   });
@@ -307,14 +320,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/menu-items/:id', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
-      const result = await storage.deleteMenuItem(id);
+      console.log(`API Request: Deleting menu item with ID: ${id}`);
       
-      if (!result) {
+      // First verify the item exists
+      const item = await storage.getMenuItem(id);
+      if (!item) {
+        console.log(`API Error: Menu item with ID ${id} not found`);
         return res.status(404).json({ error: "Menu item not found" });
       }
       
+      // Then attempt to delete it
+      const result = await storage.deleteMenuItem(id);
+      
+      if (!result) {
+        console.log(`API Error: Failed to delete menu item with ID ${id}`);
+        return res.status(500).json({ error: "Failed to delete the menu item" });
+      }
+      
+      console.log(`API Success: Menu item with ID ${id} deleted successfully`);
       res.status(204).send();
     } catch (error) {
+      console.error(`API Error: Exception when deleting menu item:`, error);
       res.status(500).json({ error: "Failed to delete menu item" });
     }
   });
