@@ -372,12 +372,19 @@ export class MemStorage implements IStorage {
   async getUserProfile(id: number): Promise<UserProfile | undefined> {
     try {
       // For database implementation
-      const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
-      if (profiles.length > 0) {
-        return profiles[0];
+      // First, check if the user profile exists in the database
+      try {
+        const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
+        if (profiles.length > 0) {
+          console.log("Got profile from database:", profiles[0]);
+          return profiles[0];
+        }
+      } catch (dbErr) {
+        console.error("Database query error:", dbErr);
       }
       
       // Fallback to memory storage if not found in DB
+      console.log("Falling back to memory storage for profile");
       return this.userProfilesMap.get(id);
     } catch (error) {
       console.error("Error getting user profile:", error);
@@ -417,61 +424,80 @@ export class MemStorage implements IStorage {
   
   async updateUserProfile(id: number, profile: Partial<UserProfileData>): Promise<UserProfile | undefined> {
     try {
-      // For database implementation
-      const data: any = {
-        updated_at: new Date()
-      };
-      
-      if (profile.name !== undefined) data.name = profile.name;
-      if (profile.role !== undefined) data.role = profile.role;
-      if (profile.avatarUrl !== undefined) {
-        data.avatar_url = profile.avatarUrl;
-        console.log("Setting avatar_url in database to:", profile.avatarUrl);
-        
-        // Use a direct SQL query for reliable updates
-        try {
-          // Execute direct SQL for updating the profile
-          const result = await db.execute(
-            `UPDATE user_profiles 
-             SET name = $1, role = $2, avatar_url = $3, updated_at = $4
-             WHERE id = $5 RETURNING *`,
-            [
-              profile.name !== undefined ? profile.name : existingProfile?.name || '',
-              profile.role !== undefined ? profile.role : existingProfile?.role || '',
-              profile.avatarUrl,
-              new Date(),
-              id
-            ]
-          );
-          console.log("Successfully updated profile with avatar URL using SQL");
-        } catch (err) {
-          console.error("Error in profile update with SQL:", err);
-        }
-      }
-      
-      // Get the existing profile first to ensure it exists
+      // First get the existing profile
       const existingProfile = await this.getUserProfile(id);
       if (!existingProfile) {
         return undefined;
       }
       
-      // Create the return object with up-to-date avatar URL
+      // Prepare the data for database update
+      const avatarUrl = profile.avatarUrl !== undefined ? profile.avatarUrl : existingProfile.avatarUrl;
+      const name = profile.name !== undefined ? profile.name : existingProfile.name;
+      const role = profile.role !== undefined ? profile.role : existingProfile.role;
+      
+      console.log("Updating profile data:", { id, name, role, avatarUrl });
+      
+      let updated = false;
+      try {
+        // Update with proper Drizzle ORM
+        const result = await db.update(userProfiles)
+          .set({
+            name: name,
+            role: role,
+            avatarUrl: avatarUrl,
+            updatedAt: new Date()
+          })
+          .where(eq(userProfiles.id, id))
+          .returning();
+          
+        if (result.length > 0) {
+          console.log("Successfully updated profile:", result[0]);
+          updated = true;
+        } else {
+          console.log("No rows updated, trying insert instead");
+        }
+      } catch (err) {
+        console.error("Error in profile update:", err);
+      }
+      
+      // If update failed, try to insert instead
+      if (!updated) {
+        try {
+          const result = await db.insert(userProfiles).values({
+            id,
+            name,
+            role,
+            avatarUrl,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }).returning();
+          
+          if (result.length > 0) {
+            console.log("Successfully inserted profile:", result[0]);
+          }
+        } catch (err) {
+          console.error("Error in profile insert:", err);
+        }
+      }
+      
+      // Create the return object with up-to-date data 
       const updatedProfile: UserProfile = {
-        ...existingProfile,
-        name: profile.name !== undefined ? profile.name : existingProfile.name,
-        role: profile.role !== undefined ? profile.role : existingProfile.role,
-        avatarUrl: profile.avatarUrl !== undefined ? profile.avatarUrl : existingProfile.avatarUrl,
+        id,
+        name,
+        role,
+        avatarUrl,
+        createdAt: existingProfile.createdAt || new Date(),
         updatedAt: new Date()
       };
       
-      // Also update memory storage as fallback
+      // Always update memory storage
       this.userProfilesMap.set(id, updatedProfile);
       
       return updatedProfile;
     } catch (error) {
       console.error("Error updating user profile:", error);
       
-      // Fallback to memory storage implementation
+      // If all database operations fail, update memory storage
       const existingProfile = this.userProfilesMap.get(id);
       if (!existingProfile) {
         return undefined;
@@ -479,7 +505,9 @@ export class MemStorage implements IStorage {
       
       const updatedProfile: UserProfile = {
         ...existingProfile,
-        ...profile,
+        name: profile.name !== undefined ? profile.name : existingProfile.name,
+        role: profile.role !== undefined ? profile.role : existingProfile.role,
+        avatarUrl: profile.avatarUrl !== undefined ? profile.avatarUrl : existingProfile.avatarUrl,
         updatedAt: new Date()
       };
       
