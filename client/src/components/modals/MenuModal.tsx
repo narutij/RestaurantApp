@@ -407,6 +407,9 @@ function CategoryList({ menuId }: { menuId: number }) {
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Debug state for console logging  
+  const [lastDeletedItem, setLastDeletedItem] = useState<string | null>(null);
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
     queryKey: ['/api/menu-categories', menuId],
@@ -437,16 +440,20 @@ function CategoryList({ menuId }: { menuId: number }) {
 
   // Delete menu item mutation
   const deleteMenuItemMutation = useMutation({
-    mutationFn: (id: number) => 
-      apiRequest(`/api/menu-items/${id}`, {
+    mutationFn: (id: number) => {
+      console.log(`Sending delete request for menu item with id: ${id}`);
+      return apiRequest(`/api/menu-items/${id}`, {
         method: 'DELETE'
-      }),
+      });
+    },
     onSuccess: () => {
+      console.log(`Delete menu item success! Category ID: ${selectedCategoryId}, Item ID: ${deletingItemId}`);
       if (selectedCategoryId) {
         queryClient.invalidateQueries({ queryKey: ['/api/menu-items', selectedCategoryId] });
       }
       setDeleteItemDialogOpen(false);
       setDeletingItemId(null);
+      setLastDeletedItem(`Item ${deletingItemId} (${deletingItemName})`);
       toast({
         title: "Menu Item Deleted",
         description: "Menu item has been deleted successfully.",
@@ -493,6 +500,7 @@ function CategoryList({ menuId }: { menuId: number }) {
   };
 
   const handleDeleteItemClick = (categoryId: number, itemId: number, itemName: string) => {
+    console.log(`Preparing to delete item: ID=${itemId}, Name=${itemName}, CategoryID=${categoryId}`);
     setSelectedCategoryId(categoryId);
     setDeletingItemId(itemId);
     setDeletingItemName(itemName);
@@ -501,8 +509,9 @@ function CategoryList({ menuId }: { menuId: number }) {
 
   const confirmDeleteItem = () => {
     if (deletingItemId) {
+      console.log(`Confirming deletion of item ID: ${deletingItemId}`);
       deleteMenuItemMutation.mutate(deletingItemId);
-      setDeleteItemDialogOpen(false);
+      // The setDeleteItemDialogOpen(false) is now in onSuccess to prevent UI from updating before the API call completes
     }
   };
 
