@@ -372,8 +372,14 @@ export default function WorkdayTab() {
     setSelectedRestaurantId(restaurant.id);
     setRestaurantModalOpen(false);
     
-    // Save to localStorage to update app-level state
+    console.log("Selected restaurant:", restaurant);
+    
+    // Save to localStorage and dispatch a custom event to update app-level state
     localStorage.setItem('selectedRestaurant', JSON.stringify(restaurant));
+    
+    // Create and dispatch a custom event to notify the app layout component
+    const event = new Event('restaurantSelected');
+    window.dispatchEvent(event);
     
     toast({
       title: "Restaurant Selected",

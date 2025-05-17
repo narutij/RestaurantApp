@@ -14,18 +14,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const { toast } = useToast();
   
-  // Load selected restaurant from localStorage on mount
+  // Load selected restaurant from localStorage (both on mount and when it changes)
   useEffect(() => {
-    try {
-      const savedRestaurant = localStorage.getItem('selectedRestaurant');
-      if (savedRestaurant) {
-        const restaurant = JSON.parse(savedRestaurant);
-        setSelectedRestaurant(restaurant);
+    // Function to load restaurant from localStorage
+    const loadRestaurantFromStorage = () => {
+      try {
+        const savedRestaurant = localStorage.getItem('selectedRestaurant');
+        console.log("Selected restaurant:", null);
+        if (savedRestaurant) {
+          const restaurant = JSON.parse(savedRestaurant);
+          console.log("Loading saved restaurant:", restaurant);
+          setSelectedRestaurant(restaurant);
+        }
+      } catch (e) {
+        console.error('Failed to load saved restaurant', e);
+        localStorage.removeItem('selectedRestaurant');
       }
-    } catch (e) {
-      console.error('Failed to load saved restaurant', e);
-      localStorage.removeItem('selectedRestaurant');
-    }
+    };
+    
+    // Initial load
+    loadRestaurantFromStorage();
+    
+    // Set up event listener for our custom event
+    const handleRestaurantSelected = () => {
+      loadRestaurantFromStorage();
+    };
+    
+    // Listen for both storage events (for cross-tab sync) and our custom event
+    window.addEventListener('restaurantSelected', handleRestaurantSelected);
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'selectedRestaurant') {
+        loadRestaurantFromStorage();
+      }
+    });
+    
+    // Clean up event listeners
+    return () => {
+      window.removeEventListener('restaurantSelected', handleRestaurantSelected);
+      window.removeEventListener('storage', () => {});
+    };
   }, []);
   
   const handleSelectRestaurant = (restaurant: Restaurant) => {
