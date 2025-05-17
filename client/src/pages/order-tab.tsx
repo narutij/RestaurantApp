@@ -62,10 +62,13 @@ export default function OrderTab() {
   
   // Fetch orders for active table
   const { data: tableOrders = [] } = useQuery<OrderWithDetails[]>({
-    queryKey: ['/api/tables', activeTableId, 'orders'],
+    queryKey: [`/api/tables/${activeTableId}/orders`],
     enabled: activeTableId !== null,
     // Refetch at regular intervals to keep orders up to date
-    refetchInterval: 2000
+    refetchInterval: 2000,
+    // Reset cache when activeTableId changes
+    staleTime: 0,
+    cacheTime: 0
   });
 
   // Mutations for table activation and orders
