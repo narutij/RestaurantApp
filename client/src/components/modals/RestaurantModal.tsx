@@ -156,124 +156,125 @@ export function RestaurantModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{createMode ? "Create New Restaurant" : "Select Restaurant"}</DialogTitle>
-          <DialogDescription>
-            {createMode 
-              ? "Enter the details for the new restaurant." 
-              : "Choose a restaurant or create a new one."}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{createMode ? "Create New Restaurant" : "Select Restaurant"}</DialogTitle>
+            <DialogDescription>
+              {createMode 
+                ? "Enter the details for the new restaurant." 
+                : "Choose a restaurant or create a new one."}
+            </DialogDescription>
+          </DialogHeader>
 
-        {createMode ? (
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="restaurant-name">Restaurant Name</Label>
-              <Input
-                id="restaurant-name"
-                placeholder="Enter restaurant name"
-                value={newRestaurantName}
-                onChange={(e) => setNewRestaurantName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="restaurant-address">Restaurant Address</Label>
-              <Input
-                id="restaurant-address"
-                placeholder="Enter restaurant address"
-                value={newRestaurantAddress}
-                onChange={(e) => setNewRestaurantAddress(e.target.value)}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="py-4">
-            <div className="max-h-[300px] overflow-y-auto space-y-2">
-              {isLoading ? (
-                <div className="text-center py-4">Loading restaurants...</div>
-              ) : restaurants.length === 0 ? (
-                <div className="text-center py-4">No restaurants found</div>
-              ) : (
-                restaurants.map((restaurant: Restaurant) => (
-                  <div key={restaurant.id} className="flex items-center mb-2">
-                    <Button
-                      variant={selectedRestaurantId === restaurant.id ? "default" : "outline"}
-                      className="w-full justify-start text-left h-auto py-3 pr-12 relative"
-                      onClick={() => handleRestaurantClick(restaurant)}
-                    >
-                      <div>
-                        <div className="font-medium">{restaurant.name}</div>
-                        <div className="text-sm text-muted-foreground">{restaurant.address}</div>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="absolute right-1 p-1 h-8 w-8"
-                        onClick={(e) => handleDeleteClick(e, restaurant)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            <Separator className="my-4" />
-            
-            <Button 
-              variant="outline" 
-              className="w-full justify-start text-left h-auto py-3"
-              onClick={() => setCreateMode(true)}
-            >
-              <div className="font-medium">+ Create New Restaurant</div>
-            </Button>
-          </div>
-        )}
-
-        <DialogFooter>
           {createMode ? (
-            <>
-              <Button variant="outline" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateRestaurant}
-                disabled={createRestaurantMutation.isPending}
-              >
-                {createRestaurantMutation.isPending ? "Creating..." : "Save Restaurant"}
-              </Button>
-            </>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="restaurant-name">Restaurant Name</Label>
+                <Input
+                  id="restaurant-name"
+                  placeholder="Enter restaurant name"
+                  value={newRestaurantName}
+                  onChange={(e) => setNewRestaurantName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="restaurant-address">Restaurant Address</Label>
+                <Input
+                  id="restaurant-address"
+                  placeholder="Enter restaurant address"
+                  value={newRestaurantAddress}
+                  onChange={(e) => setNewRestaurantAddress(e.target.value)}
+                />
+              </div>
+            </div>
           ) : (
-            <Button onClick={() => onOpenChange(false)}>Close</Button>
+            <div className="py-4">
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {isLoading ? (
+                  <div className="text-center py-4">Loading restaurants...</div>
+                ) : restaurants.length === 0 ? (
+                  <div className="text-center py-4">No restaurants found</div>
+                ) : (
+                  restaurants.map((restaurant: Restaurant) => (
+                    <div key={restaurant.id} className="flex items-center mb-2">
+                      <Button
+                        variant={selectedRestaurantId === restaurant.id ? "default" : "outline"}
+                        className="w-full justify-start text-left h-auto py-3 pr-12 relative"
+                        onClick={() => handleRestaurantClick(restaurant)}
+                      >
+                        <div>
+                          <div className="font-medium">{restaurant.name}</div>
+                          <div className="text-sm text-muted-foreground">{restaurant.address}</div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="absolute right-1 p-1 h-8 w-8"
+                          onClick={(e) => handleDeleteClick(e, restaurant)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <Separator className="my-4" />
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start text-left h-auto py-3"
+                onClick={() => setCreateMode(true)}
+              >
+                <div className="font-medium">+ Create New Restaurant</div>
+              </Button>
+            </div>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
 
-    {/* Delete Confirmation Dialog */}
-    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the restaurant 
-            "{restaurantToDelete?.name}" and all associated data.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setRestaurantToDelete(null)}>Cancel</AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={confirmDelete} 
-            className="bg-red-500 hover:bg-red-600"
-            disabled={deleteRestaurantMutation.isPending}
-          >
-            {deleteRestaurantMutation.isPending ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          <DialogFooter>
+            {createMode ? (
+              <>
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateRestaurant}
+                  disabled={createRestaurantMutation.isPending}
+                >
+                  {createRestaurantMutation.isPending ? "Creating..." : "Save Restaurant"}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => onOpenChange(false)}>Close</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the restaurant 
+              "{restaurantToDelete?.name}" and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRestaurantToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              className="bg-red-500 hover:bg-red-600"
+              disabled={deleteRestaurantMutation.isPending}
+            >
+              {deleteRestaurantMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
