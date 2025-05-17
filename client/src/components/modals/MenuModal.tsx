@@ -418,18 +418,43 @@ function CategoryList({ menuId }: { menuId: number }) {
 
   // Delete category mutation
   const deleteCategoryMutation = useMutation({
-    mutationFn: (id: number) => 
-      apiRequest(`/api/menu-categories/${id}`, {
+    mutationFn: (id: number) => {
+      console.log(`Sending delete request for category with id: ${id}`);
+      return apiRequest(`/api/menu-categories/${id}`, {
         method: 'DELETE'
-      }),
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/menu-categories', menuId] });
+      console.log(`Delete category success! Menu ID: ${menuId}, Category ID: ${deletingCategoryId}`);
+      
+      // Store category ID before clearing it
+      const catId = deletingCategoryId;
+      
+      // Close the dialog and clear state
+      setDeleteCategoryDialogOpen(false);
+      setDeletingCategoryId(null);
+      
+      // Make sure we invalidate both the categories list and any items that might have been in this category
+      if (menuId) {
+        console.log(`Invalidating cache for menu ${menuId}`);
+        queryClient.invalidateQueries({ queryKey: ['/api/menu-categories', menuId] });
+      }
+      
+      // Also invalidate the menu items cache as they may have changed
+      if (catId) {
+        console.log(`Invalidating cache for items in category ${catId}`);
+        queryClient.invalidateQueries({ queryKey: ['/api/menu-items', catId] });
+        // Also refresh all menu items to be safe
+        queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+      }
+      
       toast({
         title: "Category Deleted",
-        description: "Category has been deleted successfully.",
+        description: "Category and all its items have been deleted successfully.",
       });
     },
     onError: (error) => {
+      console.error("Error deleting category:", error);
       toast({
         title: "Error Deleting Category",
         description: "There was an error deleting the category. Please try again.",
@@ -448,18 +473,30 @@ function CategoryList({ menuId }: { menuId: number }) {
     },
     onSuccess: () => {
       console.log(`Delete menu item success! Category ID: ${selectedCategoryId}, Item ID: ${deletingItemId}`);
-      if (selectedCategoryId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/menu-items', selectedCategoryId] });
+      
+      // Store these values before clearing them
+      const catId = selectedCategoryId;
+      const itemId = deletingItemId;
+      const itemName = deletingItemName;
+      
+      // First invalidate the cache to trigger a refresh
+      if (catId) {
+        console.log(`Invalidating cache for category ${catId}`);
+        queryClient.invalidateQueries({ queryKey: ['/api/menu-items', catId] });
       }
+      
+      // Then update UI state
       setDeleteItemDialogOpen(false);
       setDeletingItemId(null);
-      setLastDeletedItem(`Item ${deletingItemId} (${deletingItemName})`);
+      setLastDeletedItem(`Item ${itemId} (${itemName})`);
+      
       toast({
         title: "Menu Item Deleted",
         description: "Menu item has been deleted successfully.",
       });
     },
     onError: (error) => {
+      console.error("Error deleting menu item:", error);
       toast({
         title: "Error Deleting Menu Item",
         description: "There was an error deleting the menu item. Please try again.",
@@ -476,8 +513,9 @@ function CategoryList({ menuId }: { menuId: number }) {
 
   const confirmDeleteCategory = () => {
     if (deletingCategoryId) {
+      console.log(`Confirming deletion of category ID: ${deletingCategoryId}`);
       deleteCategoryMutation.mutate(deletingCategoryId);
-      setDeleteCategoryDialogOpen(false);
+      // Dialog will be closed in onSuccess
     }
   };
 
