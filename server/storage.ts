@@ -337,32 +337,97 @@ export class MemStorage implements IStorage {
   }
 
   // Menu Items
-  async getMenuItems(): Promise<MenuItem[]> {
-    return Array.from(this.menuItemsMap.values());
+  async getMenuItems(categoryId?: number): Promise<MenuItem[]> {
+    try {
+      if (categoryId) {
+        const result = await db.select().from(menuItems).where(eq(menuItems.categoryId, categoryId));
+        return result;
+      } else {
+        const result = await db.select().from(menuItems);
+        return result;
+      }
+    } catch (error) {
+      console.error("Error getting menu items:", error);
+      
+      // Fallback to memory storage
+      if (categoryId) {
+        return Array.from(this.menuItemsMap.values())
+          .filter(item => item.categoryId === categoryId)
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+      } else {
+        return Array.from(this.menuItemsMap.values());
+      }
+    }
   }
 
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
-    return this.menuItemsMap.get(id);
+    try {
+      const result = await db.select().from(menuItems).where(eq(menuItems.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting menu item:", error);
+      return this.menuItemsMap.get(id);
+    }
   }
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
+    try {
+      const result = await db.insert(menuItems).values(item).returning();
+      if (result.length > 0) {
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error creating menu item:", error);
+    }
+    
+    // Fallback to memory storage
     const id = this.currentMenuItemId++;
-    const menuItem: MenuItem = { ...item, id };
+    const now = new Date();
+    const menuItem: MenuItem = { 
+      ...item, 
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
     this.menuItemsMap.set(id, menuItem);
     return menuItem;
   }
 
   async updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem | undefined> {
+    try {
+      const result = await db.update(menuItems)
+        .set({ ...item, updatedAt: new Date() })
+        .where(eq(menuItems.id, id))
+        .returning();
+      
+      if (result.length > 0) {
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error updating menu item:", error);
+    }
+    
+    // Fallback to memory storage
     const existingItem = this.menuItemsMap.get(id);
     if (!existingItem) return undefined;
 
-    const updatedItem = { ...existingItem, ...item };
+    const updatedItem = { 
+      ...existingItem, 
+      ...item,
+      updatedAt: new Date()
+    };
     this.menuItemsMap.set(id, updatedItem);
     return updatedItem;
   }
 
   async deleteMenuItem(id: number): Promise<boolean> {
-    return this.menuItemsMap.delete(id);
+    try {
+      const result = await db.delete(menuItems).where(eq(menuItems.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting menu item:", error);
+      return this.menuItemsMap.delete(id);
+    }
   }
 
   // Tables

@@ -49,6 +49,9 @@ export default function RestaurantInfoTab() {
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
 
+  // State for menu modal
+  const [menuModalOpen, setMenuModalOpen] = useState(false);
+
   // Navigation options
   const options = [
     { icon: <Palette className="mr-2 h-5 w-5" />, label: "App Theme", href: "#theme" },
@@ -58,7 +61,12 @@ export default function RestaurantInfoTab() {
       href: "#restaurants",
       action: () => setRestaurantModalOpen(true)
     },
-    { icon: <MenuSquare className="mr-2 h-5 w-5" />, label: "Menus", href: "#menus" },
+    { 
+      icon: <MenuSquare className="mr-2 h-5 w-5" />, 
+      label: "Menus", 
+      href: "#menus",
+      action: () => setMenuModalOpen(true)
+    },
     { icon: <Grid2X2 className="mr-2 h-5 w-5" />, label: "Table Layouts", href: "#tables" },
   ];
 

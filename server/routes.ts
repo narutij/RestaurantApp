@@ -11,7 +11,9 @@ import {
   userProfileSchema,
   insertRestaurantSchema,
   WebSocketMessage,
-  userProfiles
+  userProfiles,
+  insertMenuSchema,
+  insertMenuCategorySchema
 } from "@shared/schema";
 import { eq } from "drizzle-orm"; // Add eq import for database queries
 import { log } from "./vite";
@@ -101,10 +103,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // API Routes
+  // Menus
+  app.get('/api/menus', async (req: Request, res: Response) => {
+    const restaurantId = req.query.restaurantId ? parseInt(req.query.restaurantId as string, 10) : undefined;
+    const menus = await storage.getMenus(restaurantId);
+    res.json(menus);
+  });
+  
+  app.get('/api/menus/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const menu = await storage.getMenu(id);
+      
+      if (!menu) {
+        return res.status(404).json({ error: "Menu not found" });
+      }
+      
+      res.json(menu);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get menu" });
+    }
+  });
+  
+  app.post('/api/menus', async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertMenuSchema.parse(req.body);
+      const menu = await storage.createMenu(validatedData);
+      res.status(201).json(menu);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create menu" });
+    }
+  });
+  
+  app.put('/api/menus/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const validatedData = insertMenuSchema.partial().parse(req.body);
+      const menu = await storage.updateMenu(id, validatedData);
+      
+      if (!menu) {
+        return res.status(404).json({ error: "Menu not found" });
+      }
+      
+      res.json(menu);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update menu" });
+    }
+  });
+  
+  app.delete('/api/menus/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const result = await storage.deleteMenu(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Menu not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete menu" });
+    }
+  });
+  
+  // Menu Categories
+  app.get('/api/menu-categories', async (req: Request, res: Response) => {
+    try {
+      const menuId = req.query.menuId ? parseInt(req.query.menuId as string, 10) : null;
+      
+      if (!menuId) {
+        return res.status(400).json({ error: "Menu ID is required" });
+      }
+      
+      const categories = await storage.getMenuCategories(menuId);
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get menu categories" });
+    }
+  });
+  
+  app.get('/api/menu-categories/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const category = await storage.getMenuCategory(id);
+      
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      res.json(category);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get category" });
+    }
+  });
+  
+  app.post('/api/menu-categories', async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertMenuCategorySchema.parse(req.body);
+      const category = await storage.createMenuCategory(validatedData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+  
+  app.put('/api/menu-categories/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const validatedData = insertMenuCategorySchema.partial().parse(req.body);
+      const category = await storage.updateMenuCategory(id, validatedData);
+      
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  });
+  
+  app.delete('/api/menu-categories/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const result = await storage.deleteMenuCategory(id);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete category" });
+    }
+  });
+  
   // Menu Items
   app.get('/api/menu-items', async (req: Request, res: Response) => {
-    const menuItems = await storage.getMenuItems();
+    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string, 10) : undefined;
+    const menuItems = await storage.getMenuItems(categoryId);
     res.json(menuItems);
+  });
+  
+  app.get('/api/menu-items/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const menuItem = await storage.getMenuItem(id);
+      
+      if (!menuItem) {
+        return res.status(404).json({ error: "Menu item not found" });
+      }
+      
+      res.json(menuItem);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get menu item" });
+    }
   });
   
   app.post('/api/menu-items', async (req: Request, res: Response) => {
