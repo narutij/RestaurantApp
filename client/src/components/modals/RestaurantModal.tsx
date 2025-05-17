@@ -44,7 +44,7 @@ export function RestaurantModal({
   // Create restaurant mutation
   const createRestaurantMutation = useMutation({
     mutationFn: (data: { name: string; address: string }) => 
-      apiRequest("/api/restaurants", { method: "POST", body: JSON.stringify(data) }),
+      apiRequest("/api/restaurants", { method: "POST", body: data }),
     onSuccess: (data) => {
       // Reset the form
       setNewRestaurantName("");
@@ -142,12 +142,12 @@ export function RestaurantModal({
               ) : restaurants.length === 0 ? (
                 <div className="text-center py-4">No restaurants found</div>
               ) : (
-                restaurants.map((restaurant) => (
+                restaurants.map((restaurant: Restaurant) => (
                   <div key={restaurant.id} className="flex items-center">
                     <Button
                       variant={selectedRestaurantId === restaurant.id ? "default" : "outline"}
                       className="w-full justify-start text-left h-auto py-3"
-                      onClick={() => onSelectRestaurant(restaurant)}
+                      onClick={() => handleRestaurantClick(restaurant)}
                     >
                       <div>
                         <div className="font-medium">{restaurant.name}</div>
