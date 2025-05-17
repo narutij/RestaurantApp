@@ -88,6 +88,34 @@ export function RestaurantModal({
       });
     },
   });
+  
+  // Delete restaurant mutation
+  const deleteRestaurantMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest(`/api/restaurants/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      // Close delete dialog
+      setDeleteDialogOpen(false);
+      setRestaurantToDelete(null);
+      
+      // Invalidate the restaurants query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+      
+      // Show success toast
+      toast({
+        title: "Restaurant Deleted",
+        description: `The restaurant has been deleted successfully.`,
+      });
+    },
+    onError: (error) => {
+      console.error("Error deleting restaurant:", error);
+      toast({
+        title: "Failed to Delete Restaurant",
+        description: "There was a problem deleting the restaurant. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleCreateRestaurant = () => {
     if (!newRestaurantName.trim() || !newRestaurantAddress.trim()) {
@@ -113,6 +141,18 @@ export function RestaurantModal({
 
   const handleRestaurantClick = (restaurant: Restaurant) => {
     onSelectRestaurant(restaurant);
+  };
+  
+  const handleDeleteClick = (e: React.MouseEvent, restaurant: Restaurant) => {
+    e.stopPropagation(); // Prevent restaurant selection
+    setRestaurantToDelete(restaurant);
+    setDeleteDialogOpen(true);
+  };
+  
+  const confirmDelete = () => {
+    if (restaurantToDelete) {
+      deleteRestaurantMutation.mutate(restaurantToDelete.id);
+    }
   };
 
   return (
@@ -157,16 +197,24 @@ export function RestaurantModal({
                 <div className="text-center py-4">No restaurants found</div>
               ) : (
                 restaurants.map((restaurant: Restaurant) => (
-                  <div key={restaurant.id} className="flex items-center">
+                  <div key={restaurant.id} className="flex items-center mb-2">
                     <Button
                       variant={selectedRestaurantId === restaurant.id ? "default" : "outline"}
-                      className="w-full justify-start text-left h-auto py-3"
+                      className="w-full justify-start text-left h-auto py-3 pr-12 relative"
                       onClick={() => handleRestaurantClick(restaurant)}
                     >
                       <div>
                         <div className="font-medium">{restaurant.name}</div>
                         <div className="text-sm text-muted-foreground">{restaurant.address}</div>
                       </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="absolute right-1 p-1 h-8 w-8"
+                        onClick={(e) => handleDeleteClick(e, restaurant)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </Button>
                   </div>
                 ))
@@ -204,5 +252,28 @@ export function RestaurantModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Delete Confirmation Dialog */}
+    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the restaurant 
+            "{restaurantToDelete?.name}" and all associated data.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setRestaurantToDelete(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={confirmDelete} 
+            className="bg-red-500 hover:bg-red-600"
+            disabled={deleteRestaurantMutation.isPending}
+          >
+            {deleteRestaurantMutation.isPending ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
