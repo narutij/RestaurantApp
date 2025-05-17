@@ -1,7 +1,7 @@
 import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { type OrderWithDetails } from '@shared/schema';
-import { Settings, LayoutGrid, BookOpen } from 'lucide-react';
+import { Building2, LayoutGrid, BookOpen } from 'lucide-react';
 
 export default function TabNavigation() {
   const [location] = useLocation();
@@ -21,7 +21,7 @@ export default function TabNavigation() {
           <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
             location === '/' ? 'text-primary' : 'text-slate-500'
           }`}>
-            <Settings className="h-6 w-6" />
+            <Building2 className="h-6 w-6" />
             <span className="text-xs mt-1">Restaurant</span>
           </a>
         </Link>
