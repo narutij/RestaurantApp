@@ -331,6 +331,18 @@ export function RestaurantModal({
                   {createRestaurantMutation.isPending ? "Creating..." : "Save Restaurant"}
                 </Button>
               </>
+            ) : editMode ? (
+              <>
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleUpdateRestaurant}
+                  disabled={updateRestaurantMutation.isPending}
+                >
+                  {updateRestaurantMutation.isPending ? "Saving..." : "Update Restaurant"}
+                </Button>
+              </>
             ) : (
               <Button onClick={() => onOpenChange(false)}>Close</Button>
             )}
