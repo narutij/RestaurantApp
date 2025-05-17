@@ -94,6 +94,25 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// User Profile schema
+export const userProfiles = pgTable("user_profiles", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  role: text("role").notNull(),
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const userProfileSchema = createInsertSchema(userProfiles).pick({
+  name: true,
+  role: true,
+  avatarUrl: true,
+});
+
+export type UserProfileData = z.infer<typeof userProfileSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+
 // Day Templates
 export const dayTemplates = pgTable("day_templates", {
   id: serial("id").primaryKey(),
