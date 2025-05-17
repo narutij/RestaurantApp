@@ -6,7 +6,9 @@ import {
   dayTemplates, type DayTemplate, type InsertDayTemplate,
   type OrderWithDetails,
   userProfiles, type UserProfile, type UserProfileData,
-  restaurants, type Restaurant, type InsertRestaurant
+  restaurants, type Restaurant, type InsertRestaurant,
+  menus, type Menu, type InsertMenu,
+  menuCategories, type MenuCategory, type InsertMenuCategory
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -29,8 +31,22 @@ export interface IStorage {
   updateRestaurant(id: number, restaurant: Partial<InsertRestaurant>): Promise<Restaurant | undefined>;
   deleteRestaurant(id: number): Promise<boolean>;
   
+  // Menus
+  getMenus(restaurantId?: number): Promise<Menu[]>;
+  getMenu(id: number): Promise<Menu | undefined>;
+  createMenu(menu: InsertMenu): Promise<Menu>;
+  updateMenu(id: number, menu: Partial<InsertMenu>): Promise<Menu | undefined>;
+  deleteMenu(id: number): Promise<boolean>;
+  
+  // Menu Categories
+  getMenuCategories(menuId: number): Promise<MenuCategory[]>;
+  getMenuCategory(id: number): Promise<MenuCategory | undefined>;
+  createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory>;
+  updateMenuCategory(id: number, category: Partial<InsertMenuCategory>): Promise<MenuCategory | undefined>;
+  deleteMenuCategory(id: number): Promise<boolean>;
+  
   // Menu Items
-  getMenuItems(): Promise<MenuItem[]>;
+  getMenuItems(categoryId?: number): Promise<MenuItem[]>;
   getMenuItem(id: number): Promise<MenuItem | undefined>;
   createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem | undefined>;
@@ -74,6 +90,8 @@ export class MemStorage implements IStorage {
   private dayTemplatesMap: Map<number, DayTemplate>;
   private userProfilesMap: Map<number, UserProfile>;
   private restaurantsMap: Map<number, Restaurant>;
+  private menusMap: Map<number, Menu>;
+  private menuCategoriesMap: Map<number, MenuCategory>;
   private currentUserId: number;
   private currentMenuItemId: number;
   private currentTableId: number;
@@ -81,6 +99,8 @@ export class MemStorage implements IStorage {
   private currentDayTemplateId: number;
   private currentUserProfileId: number;
   private currentRestaurantId: number;
+  private currentMenuId: number;
+  private currentMenuCategoryId: number;
 
   constructor() {
     this.users = new Map();
@@ -90,6 +110,8 @@ export class MemStorage implements IStorage {
     this.dayTemplatesMap = new Map();
     this.userProfilesMap = new Map();
     this.restaurantsMap = new Map();
+    this.menusMap = new Map();
+    this.menuCategoriesMap = new Map();
     this.currentUserId = 1;
     this.currentMenuItemId = 1;
     this.currentTableId = 1;
@@ -97,6 +119,8 @@ export class MemStorage implements IStorage {
     this.currentDayTemplateId = 1;
     this.currentUserProfileId = 1;
     this.currentRestaurantId = 1;
+    this.currentMenuId = 1;
+    this.currentMenuCategoryId = 1;
     
     // Add a default user profile
     this.userProfilesMap.set(1, {
@@ -107,6 +131,191 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     });
+  }
+  
+  // Menu methods
+  async getMenus(restaurantId?: number): Promise<Menu[]> {
+    try {
+      if (restaurantId) {
+        const result = await db.select().from(menus).where(eq(menus.restaurantId, restaurantId));
+        return result;
+      } else {
+        const result = await db.select().from(menus);
+        return result;
+      }
+    } catch (error) {
+      console.error("Error getting menus:", error);
+      
+      // Return from memory if DB fails
+      if (restaurantId) {
+        return Array.from(this.menusMap.values()).filter(menu => menu.restaurantId === restaurantId);
+      } else {
+        return Array.from(this.menusMap.values());
+      }
+    }
+  }
+  
+  async getMenu(id: number): Promise<Menu | undefined> {
+    try {
+      const result = await db.select().from(menus).where(eq(menus.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting menu:", error);
+      return this.menusMap.get(id);
+    }
+  }
+  
+  async createMenu(menu: InsertMenu): Promise<Menu> {
+    try {
+      const result = await db.insert(menus).values(menu).returning();
+      if (result.length > 0) {
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error creating menu:", error);
+    }
+    
+    // Fallback to memory storage
+    const id = this.currentMenuId++;
+    const now = new Date();
+    const newMenu: Menu = { 
+      ...menu, 
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.menusMap.set(id, newMenu);
+    return newMenu;
+  }
+  
+  async updateMenu(id: number, menu: Partial<InsertMenu>): Promise<Menu | undefined> {
+    try {
+      const result = await db.update(menus)
+        .set({ ...menu, updatedAt: new Date() })
+        .where(eq(menus.id, id))
+        .returning();
+      
+      if (result.length > 0) {
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error updating menu:", error);
+    }
+    
+    // Fallback to memory storage
+    const existingMenu = this.menusMap.get(id);
+    if (!existingMenu) {
+      return undefined;
+    }
+    
+    const updatedMenu: Menu = { 
+      ...existingMenu, 
+      ...menu,
+      updatedAt: new Date()
+    };
+    this.menusMap.set(id, updatedMenu);
+    return updatedMenu;
+  }
+  
+  async deleteMenu(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(menus).where(eq(menus.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting menu:", error);
+      
+      // Fallback to memory storage
+      return this.menusMap.delete(id);
+    }
+  }
+  
+  // Menu Categories methods
+  async getMenuCategories(menuId: number): Promise<MenuCategory[]> {
+    try {
+      const result = await db.select().from(menuCategories).where(eq(menuCategories.menuId, menuId));
+      return result;
+    } catch (error) {
+      console.error("Error getting menu categories:", error);
+      
+      // Return from memory if DB fails
+      return Array.from(this.menuCategoriesMap.values())
+        .filter(category => category.menuId === menuId)
+        .sort((a, b) => a.order - b.order);
+    }
+  }
+  
+  async getMenuCategory(id: number): Promise<MenuCategory | undefined> {
+    try {
+      const result = await db.select().from(menuCategories).where(eq(menuCategories.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting menu category:", error);
+      return this.menuCategoriesMap.get(id);
+    }
+  }
+  
+  async createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory> {
+    try {
+      const result = await db.insert(menuCategories).values(category).returning();
+      if (result.length > 0) {
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error creating menu category:", error);
+    }
+    
+    // Fallback to memory storage
+    const id = this.currentMenuCategoryId++;
+    const now = new Date();
+    const newCategory: MenuCategory = { 
+      ...category, 
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.menuCategoriesMap.set(id, newCategory);
+    return newCategory;
+  }
+  
+  async updateMenuCategory(id: number, category: Partial<InsertMenuCategory>): Promise<MenuCategory | undefined> {
+    try {
+      const result = await db.update(menuCategories)
+        .set({ ...category, updatedAt: new Date() })
+        .where(eq(menuCategories.id, id))
+        .returning();
+      
+      if (result.length > 0) {
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error updating menu category:", error);
+    }
+    
+    // Fallback to memory storage
+    const existingCategory = this.menuCategoriesMap.get(id);
+    if (!existingCategory) {
+      return undefined;
+    }
+    
+    const updatedCategory: MenuCategory = { 
+      ...existingCategory, 
+      ...category,
+      updatedAt: new Date()
+    };
+    this.menuCategoriesMap.set(id, updatedCategory);
+    return updatedCategory;
+  }
+  
+  async deleteMenuCategory(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(menuCategories).where(eq(menuCategories.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting menu category:", error);
+      
+      // Fallback to memory storage
+      return this.menuCategoriesMap.delete(id);
+    }
   }
 
   // Users (from base template)
