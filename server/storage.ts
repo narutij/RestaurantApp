@@ -316,6 +316,20 @@ export class MemStorage implements IStorage {
       }
       
       console.log(`Found category to delete:`, categoryToDelete);
+      
+      // First find and delete all menu items associated with this category
+      const relatedItems = await this.getMenuItems(id);
+      console.log(`Found ${relatedItems.length} menu items related to this category`);
+      
+      // Delete related menu items one by one
+      for (const item of relatedItems) {
+        console.log(`Deleting related menu item: ${item.id}`);
+        await db.delete(menuItems).where(eq(menuItems.id, item.id)).returning();
+        // Also delete from memory storage
+        this.menuItemsMap.delete(item.id);
+      }
+      
+      // Now delete the category itself
       const result = await db.delete(menuCategories).where(eq(menuCategories.id, id)).returning();
       console.log(`Delete result:`, result);
       
@@ -327,6 +341,14 @@ export class MemStorage implements IStorage {
       console.error("Error deleting menu category:", error);
       
       // Still try memory storage as fallback
+      // First attempt to delete related menu items from memory
+      const relatedItems = Array.from(this.menuItemsMap.values())
+        .filter(item => item.categoryId === id);
+      
+      for (const item of relatedItems) {
+        this.menuItemsMap.delete(item.id);
+      }
+      
       const memoryResult = this.menuCategoriesMap.delete(id);
       console.log(`Memory storage deletion result: ${memoryResult}`);
       return memoryResult;
