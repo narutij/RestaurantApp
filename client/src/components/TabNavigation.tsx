@@ -43,7 +43,7 @@ export default function TabNavigation() {
         </Link>
         <Link href="/kitchen">
           <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 relative ${
-            location === '/kitchen' ? 'text-primary' : 'text-slate-500'
+            location === '/kitchen' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'
           }`}>
             <UtensilsCrossed className="h-6 w-6" />
             <span className="text-xs mt-1">Kitchen</span>
