@@ -138,11 +138,11 @@ export default function KitchenTab() {
                         <div className="notification-dot"></div>
                       )}
                       <Button 
-                        variant={order.completed ? "success" : "outline"}
+                        variant="outline"
                         size="icon"
                         className={`ml-3 ${
                           order.completed 
-                            ? 'bg-success text-white hover:bg-success/90' 
+                            ? 'bg-green-500 text-white hover:bg-green-600' 
                             : 'bg-slate-100 hover:bg-slate-200'
                         }`}
                         onClick={() => handleMarkComplete(order.id)}

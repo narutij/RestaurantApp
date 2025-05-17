@@ -149,7 +149,7 @@ export default function OrderTab() {
                   <div className="text-xs text-slate-500 mb-2">{table.label}</div>
                   {table.isActive ? (
                     <div className="flex justify-between items-center">
-                      <Badge variant="success" className="bg-green-100 text-green-800 hover:bg-green-100">
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                         Active
                       </Badge>
                       {activeTableId !== table.id && (
@@ -252,6 +252,15 @@ export default function OrderTab() {
                               menuItemId: item.id,
                               price: item.price
                             });
+                            
+                            // Show toast notification for added item
+                            setToastMessage(`Added ${item.name} to Table ${activeTable.number}`);
+                            setShowToast(true);
+                            
+                            // Hide toast after 3 seconds
+                            setTimeout(() => {
+                              setShowToast(false);
+                            }, 3000);
                           }}
                           disabled={addOrderMutation.isPending}
                         >
