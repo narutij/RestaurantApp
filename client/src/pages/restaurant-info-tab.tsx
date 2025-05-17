@@ -118,33 +118,25 @@ export default function RestaurantInfoTab() {
     try {
       setIsUpdatingProfile(true);
       
-      // Make the request
-      const response = await fetch('/api/user-profile', {
+      // Use apiRequest from our query client
+      const updatedProfile = await apiRequest('/api/user-profile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name: editedUser.name,
           role: editedUser.role,
-          avatarUrl: profile?.avatarUrl || null
+          avatarUrl: selectedFile ? previewUrl : (profile?.avatarUrl || null)
         })
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
+      // Invalidate the profile query to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
       
-      const updatedProfile = await response.json();
-      
-      // Force a complete page reload to ensure all state is updated
-      window.location.href = window.location.href;
-      
-      // Show success message before reload
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated"
       });
+      
+      setIsProfileDialogOpen(false);
       
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -155,7 +147,6 @@ export default function RestaurantInfoTab() {
       });
     } finally {
       setIsUpdatingProfile(false);
-      setIsProfileDialogOpen(false);
     }
   };
 

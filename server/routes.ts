@@ -461,27 +461,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve static files from uploads directory
   app.use('/uploads', express.static(uploadDir));
   
-  // User Profile API endpoints - Using simple MemStorage implementation
+  // User Profile API endpoints
   app.get('/api/user-profile', async (req: Request, res: Response) => {
     try {
-      // Create a hardcoded profile for now
-      const defaultProfile = {
-        id: 1,
-        name: "John Doe",
-        role: "Restaurant Manager",
-        avatarUrl: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      // Check if a profile exists in storage first
+      let profile = await storage.getUserProfile(1);
       
-      res.json(defaultProfile);
+      // If no profile exists, create a default one
+      if (!profile) {
+        profile = await storage.createUserProfile({
+          name: "John Doe",
+          role: "Restaurant Manager",
+          avatarUrl: null
+        });
+      }
+      
+      res.json(profile);
     } catch (error) {
       console.error('Error fetching user profile:', error);
       res.status(500).json({ error: "Failed to fetch user profile" });
     }
   });
   
-  // Simplified profile update endpoint that just returns the updated data
+  // Profile update endpoint that persists data to storage
   app.post('/api/user-profile', async (req: Request, res: Response) => {
     try {
       console.log('Received profile update request:', req.body);
@@ -492,16 +494,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name and role are required" });
       }
       
-      // Just return the updated profile directly without saving to DB
-      // This is a temporary solution until we fix the database integration
-      const updatedProfile = {
-        id: 1,
+      // Update the profile in storage
+      const profileData = {
         name,
         role,
-        avatarUrl: avatarUrl || null,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        avatarUrl: avatarUrl || null
       };
+      
+      // Check if profile exists
+      let profile = await storage.getUserProfile(1);
+      
+      let updatedProfile;
+      if (profile) {
+        // Update existing profile
+        updatedProfile = await storage.updateUserProfile(1, profileData);
+      } else {
+        // Create new profile if it doesn't exist
+        updatedProfile = await storage.createUserProfile(profileData);
+      }
+      
+      if (!updatedProfile) {
+        throw new Error("Failed to update profile");
+      }
       
       console.log('Returning updated profile:', updatedProfile);
       res.json(updatedProfile);
