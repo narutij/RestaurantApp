@@ -398,202 +398,195 @@ export default function RestaurantTab() {
         </div>
       </div>
 
-      <Tabs defaultValue="menu-tables" className="mb-8">
-        <TabsList className="mb-4">
-          <TabsTrigger value="menu-tables">Menu & Tables</TabsTrigger>
-          <TabsTrigger value="templates">Restaurant Templates</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="menu-tables">
-          {/* Menu Items Section */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Menu Items</h2>
-              <Button 
-                size="sm" 
-                onClick={() => {
-                  setEditingMenuItem(null);
-                  setMenuModalOpen(true);
-                }}
-                className="flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Item
-              </Button>
-            </div>
-            
+      {/* Main content */}
+      <div className="space-y-8">
+        {/* Menu Items Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Menu Items</h2>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                setEditingMenuItem(null);
+                setMenuModalOpen(true);
+              }}
+              className="flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Item
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-0">
+              {menuItems.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">
+                  No menu items yet. Add your first menu item!
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200">
+                  {menuItems.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-4">
+                      <div className="flex-1">
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-slate-500 text-sm">{formatPrice(item.price)}</div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditMenuItem(item)}>
+                          <Pencil className="h-5 w-5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setConfirmDeleteMenu(item.id)}
+                        >
+                          <Trash className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tables Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Tables</h2>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                setEditingTable(null);
+                setTableModalOpen(true);
+              }}
+              className="flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Table
+            </Button>
+          </div>
+          
+          {tables.length === 0 ? (
             <Card>
-              <CardContent className="p-0">
-                {menuItems.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    No menu items yet. Add your first menu item!
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-200">
-                    {menuItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4">
-                        <div className="flex-1">
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-slate-500 text-sm">{formatPrice(item.price)}</div>
-                        </div>
+              <CardContent className="p-4 text-center text-gray-500">
+                No tables yet. Add your first table!
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {tables.map((table) => (
+                <Card key={table.id} className="bg-white">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-lg">Table {table.number}</span>
+                      <div className="flex space-x-1">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEditTable(table)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive" 
+                          onClick={() => setConfirmDeleteTable(table.id)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-500">Label: {table.label}</span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Templates Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center">
+              <SaveAll className="mr-2 h-5 w-5" />
+              Saved Templates
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditingTemplate(null);
+                setTemplateMode('create');
+                setTemplateModalOpen(true);
+              }}
+            >
+              New Template
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-0">
+              {templates.length === 0 ? (
+                <div className="p-6 text-center text-slate-500">
+                  <p className="mb-4">No saved templates yet.</p>
+                  <p className="text-sm mb-4">Templates can be reused for different days.</p>
+                  <Button
+                    onClick={() => {
+                      setEditingTemplate(null);
+                      setTemplateMode('create');
+                      setTemplateModalOpen(true);
+                    }}
+                  >
+                    Create Template
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200">
+                  {templates.map((template) => (
+                    <div key={template.id} className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium">{template.name}</h4>
                         <div className="flex space-x-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditMenuItem(item)}>
-                            <Pencil className="h-5 w-5" />
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleApplyTemplate(template)}
+                          >
+                            Apply
                           </Button>
                           <Button 
                             variant="ghost" 
-                            size="icon" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setConfirmDeleteMenu(item.id)}
+                            size="icon"
+                            onClick={() => handleEditTemplate(template)}
                           >
-                            <Trash className="h-5 w-5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Tables Section */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Tables</h2>
-              <Button 
-                size="sm" 
-                onClick={() => {
-                  setEditingTable(null);
-                  setTableModalOpen(true);
-                }}
-                className="flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Table
-              </Button>
-            </div>
-            
-            {tables.length === 0 ? (
-              <Card>
-                <CardContent className="p-4 text-center text-gray-500">
-                  No tables yet. Add your first table!
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {tables.map((table) => (
-                  <Card key={table.id} className="bg-white">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-semibold text-lg">Table {table.number}</span>
-                        <div className="flex space-x-1">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEditTable(table)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive" 
-                            onClick={() => setConfirmDeleteTable(table.id)}
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setConfirmDeleteTemplate(template.id)}
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                      <span className="text-xs text-slate-500">Label: {table.label}</span>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="templates">
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center">
-                <SaveAll className="mr-2 h-5 w-5" />
-                Saved Templates
-              </h2>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setEditingTemplate(null);
-                  setTemplateMode('create');
-                  setTemplateModalOpen(true);
-                }}
-              >
-                New Template
-              </Button>
-            </div>
-            
-            <Card>
-              <CardContent className="p-0">
-                {templates.length === 0 ? (
-                  <div className="p-6 text-center text-slate-500">
-                    <p className="mb-4">No saved templates yet.</p>
-                    <p className="text-sm mb-4">Templates can be reused for different days.</p>
-                    <Button
-                      onClick={() => {
-                        setEditingTemplate(null);
-                        setTemplateMode('create');
-                        setTemplateModalOpen(true);
-                      }}
-                    >
-                      Create Template
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-200">
-                    {templates.map((template) => (
-                      <div key={template.id} className="p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium">{template.name}</h4>
-                          <div className="flex space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleApplyTemplate(template)}
-                            >
-                              Apply
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleEditTemplate(template)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setConfirmDeleteTemplate(template.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex text-sm text-slate-500 gap-x-4">
-                          <span>{template.menuItems?.length || 0} items</span>
-                          <span>{template.tables?.length || 0} tables</span>
-                        </div>
+                      <div className="flex text-sm text-slate-500 gap-x-4">
+                        <span>{template.menuItems?.length || 0} items</span>
+                        <span>{template.tables?.length || 0} tables</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Modals */}
       <AddMenuItemModal 
