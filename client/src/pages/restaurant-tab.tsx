@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { ThemeSwitch } from "@/components/ThemeToggle";
 import { RestaurantModal } from "@/components/modals/RestaurantModal";
+import { MenuModal } from "@/components/modals/MenuModal";
 import { Restaurant } from "@shared/schema";
 import { 
   Palette, 
@@ -48,9 +49,22 @@ export default function RestaurantInfoTab() {
   // State for restaurant modal
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
 
   // State for menu modal
   const [menuModalOpen, setMenuModalOpen] = useState(false);
+  
+  // Effect to load selected restaurant from localStorage
+  useEffect(() => {
+    try {
+      const savedRestaurant = localStorage.getItem('selectedRestaurant');
+      if (savedRestaurant) {
+        setSelectedRestaurant(JSON.parse(savedRestaurant));
+      }
+    } catch (e) {
+      console.error('Failed to load saved restaurant', e);
+    }
+  }, []);
 
   // Navigation options
   const options = [
@@ -410,6 +424,13 @@ export default function RestaurantInfoTab() {
         onOpenChange={setRestaurantModalOpen}
         selectedRestaurantId={selectedRestaurantId}
         onSelectRestaurant={handleSelectRestaurant}
+      />
+      
+      {/* Menu Modal */}
+      <MenuModal
+        open={menuModalOpen}
+        onOpenChange={setMenuModalOpen}
+        restaurant={selectedRestaurant}
       />
     </div>
   );

@@ -11,7 +11,7 @@ import { Menu, Restaurant } from '@shared/schema';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { formatTime } from '@/lib/utils';
-import { CategoryModal } from './CategoryModal';
+import { CategoryModal } from '@/components/modals/CategoryModal';
 
 type MenuModalProps = {
   open: boolean;
