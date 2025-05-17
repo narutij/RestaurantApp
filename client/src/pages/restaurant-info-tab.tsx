@@ -47,7 +47,7 @@ export default function RestaurantInfoTab() {
       </div>
       
       {/* Option buttons - reduced spacing */}
-      <div className="space-y-1 flex-1">
+      <div className="space-y-1">
         {options.map((option, index) => (
           <Button 
             key={index} 
@@ -59,18 +59,18 @@ export default function RestaurantInfoTab() {
             {option.label}
           </Button>
         ))}
-      </div>
-      
-      {/* Logout button at the bottom */}
-      <div className="mt-auto mb-6">
-        <Button 
-          variant="destructive" 
-          className="w-full py-6 text-base"
-          onClick={handleLogout}
-        >
-          <LogOut className="mr-2 h-5 w-5" />
-          Log out
-        </Button>
+        
+        {/* Logout button below options with a small gap */}
+        <div className="pt-4 mt-2 border-t border-gray-100">
+          <Button 
+            variant="destructive" 
+            className="w-full py-6 text-base"
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-5 w-5" />
+            Log out
+          </Button>
+        </div>
       </div>
     </div>
   );
