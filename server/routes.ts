@@ -464,22 +464,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Profile API endpoints
   app.get('/api/user-profile', async (req: Request, res: Response) => {
     try {
-      // Use the simple file-based profile manager
-      const profileManager = require('./simple-profile');
-      
-      // Get the profile directly from file
-      const profile = profileManager.getProfileById(1);
+      // Get profile from storage
+      const profile = await storage.getUserProfile(1);
       
       if (profile) {
         res.json(profile);
       } else {
-        // Return default profile if none exists
-        res.json({
-          id: 1,
+        // Create a default profile if none exists
+        const defaultProfile = await storage.createUserProfile({
           name: "John Doe",
           role: "Restaurant Manager",
           avatarUrl: null
         });
+        res.json(defaultProfile);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -497,9 +494,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name and role are required" });
       }
       
-      // Use the simple file-based profile manager
-      const profileManager = require('./simple-profile');
-      
       const profileData = {
         name,
         role,
@@ -508,12 +502,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Updating profile with data:', profileData);
       
-      // Update the profile in the file
-      const updatedProfile = profileManager.updateProfile(1, profileData);
+      // Update the profile using storage
+      const updatedProfile = await storage.updateUserProfile(1, profileData);
+      
+      if (!updatedProfile) {
+        // If no profile was found to update, create a new one
+        const newProfile = await storage.createUserProfile(profileData);
+        console.log('Created new profile:', newProfile);
+        return res.json(newProfile);
+      }
       
       console.log('Updated profile:', updatedProfile);
-      
-      // Return the updated profile directly from the file
       res.json(updatedProfile);
     } catch (error) {
       console.error('Error updating profile:', error);

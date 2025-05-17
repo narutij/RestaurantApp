@@ -50,9 +50,12 @@ export default function RestaurantTab() {
   const [confirmDeleteMenu, setConfirmDeleteMenu] = useState<number | null>(null);
   const [confirmDeleteTable, setConfirmDeleteTable] = useState<number | null>(null);
   const [confirmDeleteTemplate, setConfirmDeleteTemplate] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [templateMode, setTemplateMode] = useState<'create' | 'edit' | 'apply'>('create');
+  
+  // Date selection functionality
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [dayConfigExists, setDayConfigExists] = useState(false);
 
   // Function to change the selected date
   const changeDay = (direction: 'next' | 'prev') => {
