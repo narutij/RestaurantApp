@@ -3,12 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
 import { AddMenuItemModal } from '@/components/modals/AddMenuItemModal';
 import { AddTableModal } from '@/components/modals/AddTableModal';
+import { DayTemplateModal } from '@/components/modals/DayTemplateModal';
 import { apiRequest } from '@/lib/queryClient';
-import { Pencil, Trash } from 'lucide-react';
-import { formatPrice } from '@/lib/utils';
-import { type MenuItem, type Table } from '@shared/schema';
+import { Pencil, Trash, CalendarIcon, Calendar as CalendarFull, SaveAll } from 'lucide-react';
+import { formatPrice, formatTime } from '@/lib/utils';
+import { type MenuItem, type Table, type DayTemplate } from '@shared/schema';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -24,10 +27,15 @@ export default function SetupTab() {
   const queryClient = useQueryClient();
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [tableModalOpen, setTableModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<DayTemplate | null>(null);
   const [confirmDeleteMenu, setConfirmDeleteMenu] = useState<number | null>(null);
   const [confirmDeleteTable, setConfirmDeleteTable] = useState<number | null>(null);
+  const [confirmDeleteTemplate, setConfirmDeleteTemplate] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [templateMode, setTemplateMode] = useState<'create' | 'edit' | 'apply'>('create');
 
   // Fetch menu items and tables
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
@@ -36,6 +44,30 @@ export default function SetupTab() {
 
   const { data: tables = [] } = useQuery<Table[]>({
     queryKey: ['/api/tables'],
+  });
+  
+  // Fetch day templates and templates
+  const { data: dayTemplates = [] } = useQuery<DayTemplate[]>({
+    queryKey: ['/api/day-templates'],
+  });
+  
+  const { data: templates = [] } = useQuery<DayTemplate[]>({
+    queryKey: ['/api/day-templates/templates'],
+  });
+  
+  // Get current day template
+  const { data: currentDayTemplate } = useQuery<DayTemplate>({
+    queryKey: ['/api/day-templates/date', selectedDate?.toISOString().split('T')[0]],
+    queryFn: async () => {
+      if (!selectedDate) return null;
+      try {
+        return await apiRequest(`/api/day-templates/date/${selectedDate.toISOString().split('T')[0]}`);
+      } catch (error) {
+        // If no template exists for this date, return null
+        return null;
+      }
+    },
+    enabled: !!selectedDate,
   });
 
   // Mutations for menu items
@@ -108,6 +140,71 @@ export default function SetupTab() {
     }
   });
 
+  // Mutations for day templates
+  const createTemplateMutation = useMutation({
+    mutationFn: (template: { name: string; date?: Date; isTemplate: boolean }) => 
+      apiRequest('/api/day-templates', {
+        method: 'POST',
+        body: {
+          ...template,
+          date: template.date ? template.date.toISOString() : new Date().toISOString(),
+          menuItems: menuItems,
+          tables: tables
+        }
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates/templates'] });
+      setTemplateModalOpen(false);
+    }
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: ({ id, template }: { id: number; template: { name: string; date?: Date; isTemplate: boolean } }) => 
+      apiRequest(`/api/day-templates/${id}`, {
+        method: 'PUT',
+        body: {
+          ...template,
+          date: template.date ? template.date.toISOString() : new Date().toISOString(),
+          menuItems: menuItems,
+          tables: tables
+        }
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates/templates'] });
+      setTemplateModalOpen(false);
+      setEditingTemplate(null);
+    }
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest(`/api/day-templates/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates/templates'] });
+      setConfirmDeleteTemplate(null);
+    }
+  });
+
+  const applyTemplateMutation = useMutation({
+    mutationFn: ({ id, date }: { id: number; date: Date }) => 
+      apiRequest(`/api/day-templates/${id}/apply`, {
+        method: 'POST',
+        body: { date: date.toISOString() }
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates'] });
+      if (selectedDate) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/day-templates/date', selectedDate.toISOString().split('T')[0]] 
+        });
+      }
+      setTemplateModalOpen(false);
+    }
+  });
+
   // Handle edit menu item
   const handleEditMenuItem = (item: MenuItem) => {
     setEditingMenuItem(item);
@@ -118,6 +215,34 @@ export default function SetupTab() {
   const handleEditTable = (table: Table) => {
     setEditingTable(table);
     setTableModalOpen(true);
+  };
+
+  // Handle edit template
+  const handleEditTemplate = (template: DayTemplate) => {
+    setEditingTemplate(template);
+    setTemplateMode('edit');
+    setTemplateModalOpen(true);
+  };
+
+  // Handle apply template
+  const handleApplyTemplate = (template: DayTemplate) => {
+    setEditingTemplate(template);
+    setTemplateMode('apply');
+    setTemplateModalOpen(true);
+  };
+
+  // Handle create day configuration
+  const handleCreateDayConfig = () => {
+    setEditingTemplate(null);
+    setTemplateMode('create');
+    setTemplateModalOpen(true);
+  };
+
+  // Date click handler
+  const handleDateClick = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+    }
   };
 
   return (

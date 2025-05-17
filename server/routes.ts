@@ -305,5 +305,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Day Templates API Routes
+  app.get('/api/day-templates', async (req: Request, res: Response) => {
+    try {
+      const templates = await storage.getDayTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch day templates" });
+    }
+  });
+
+  app.get('/api/day-templates/templates', async (req: Request, res: Response) => {
+    try {
+      const templates = await storage.getTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  app.get('/api/day-templates/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const template = await storage.getDayTemplate(id);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch template" });
+    }
+  });
+
+  app.get('/api/day-templates/date/:date', async (req: Request, res: Response) => {
+    try {
+      const dateParam = req.params.date;
+      const date = new Date(dateParam);
+      
+      if (isNaN(date.getTime())) {
+        return res.status(400).json({ error: "Invalid date format" });
+      }
+      
+      const template = await storage.getDayTemplateByDate(date);
+      
+      if (!template) {
+        return res.status(404).json({ error: "No template found for this date" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch template by date" });
+    }
+  });
+
+  app.post('/api/day-templates', async (req: Request, res: Response) => {
+    try {
+      const data = insertDayTemplateSchema.parse(req.body);
+      const template = await storage.createDayTemplate(data);
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create day template" });
+    }
+  });
+
+  app.put('/api/day-templates/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const data = insertDayTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateDayTemplate(id, data);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
+  app.delete('/api/day-templates/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const success = await storage.deleteDayTemplate(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  app.post('/api/day-templates/:id/apply', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { date } = req.body;
+      
+      if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+      }
+      
+      const targetDate = new Date(date);
+      
+      if (isNaN(targetDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date format" });
+      }
+      
+      const result = await storage.applyTemplate(id, targetDate);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to apply template" });
+    }
+  });
+
   return httpServer;
 }
