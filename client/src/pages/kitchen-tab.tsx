@@ -11,8 +11,6 @@ import { apiRequest } from '@/lib/queryClient';
 export default function KitchenTab() {
   const queryClient = useQueryClient();
   const { addMessageListener, sendMessage } = useWebSocket();
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
   const [newOrderIds, setNewOrderIds] = useState<number[]>([]);
 
   // Fetch active orders
@@ -30,15 +28,6 @@ export default function KitchenTab() {
         // Add to new orders list
         const order = message.payload as OrderWithDetails;
         setNewOrderIds(prev => [...prev, order.id]);
-        
-        // Show toast notification
-        setToastMessage(`Table ${order.tableNumber} added ${order.menuItemName}`);
-        setShowToast(true);
-        
-        // Hide toast after 3 seconds
-        setTimeout(() => {
-          setShowToast(false);
-        }, 3000);
       } else if (message.type === 'COMPLETE_ORDER') {
         queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       }
@@ -156,11 +145,6 @@ export default function KitchenTab() {
             </Card>
           ))}
         </div>
-      )}
-      
-      {/* Toast Notification */}
-      {showToast && (
-        <ToastNotification message={toastMessage} onClose={() => setShowToast(false)} />
       )}
     </div>
   );

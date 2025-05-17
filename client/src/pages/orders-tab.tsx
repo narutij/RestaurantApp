@@ -9,14 +9,11 @@ import { formatPrice, formatTime, getActiveTime } from '@/lib/utils';
 import { WebSocketMessage, type MenuItem, type Table, type OrderWithDetails } from '@shared/schema';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus } from 'lucide-react';
-import { ToastNotification } from '@/components/ui/toast-notification';
 
 export default function OrderTab() {
   const queryClient = useQueryClient();
   const { addMessageListener } = useWebSocket();
   const [activeTableId, setActiveTableId] = useState<number | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
 
   // Fetch menu items and tables
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
@@ -39,16 +36,6 @@ export default function OrderTab() {
         if (activeTableId) {
           queryClient.invalidateQueries({ queryKey: ['/api/tables', activeTableId, 'orders'] });
         }
-        
-        // Show toast notification for new orders
-        const order = message.payload as OrderWithDetails;
-        setToastMessage(`New order added: ${order.menuItemName} to Table ${order.tableNumber}`);
-        setShowToast(true);
-        
-        // Hide toast after 3 seconds
-        setTimeout(() => {
-          setShowToast(false);
-        }, 3000);
       } else if (message.type === 'ACTIVATE_TABLE' || message.type === 'DEACTIVATE_TABLE') {
         queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       }
@@ -116,12 +103,6 @@ export default function OrderTab() {
     },
     onError: (error) => {
       console.error('Failed to add order:', error);
-      setToastMessage('Failed to add order. Please try again.');
-      setShowToast(true);
-      
-      setTimeout(() => {
-        setShowToast(false);
-      }, 3000);
     }
   });
 
@@ -133,16 +114,6 @@ export default function OrderTab() {
     // If not already active, activate it via API
     if (!isActive) {
       activateTableMutation.mutate(tableId);
-      
-      // Show toast notification for table activation
-      const tableNumber = tables.find(t => t.id === tableId)?.number || tableId;
-      setToastMessage(`Table ${tableNumber} activated`);
-      setShowToast(true);
-      
-      // Hide toast after 3 seconds
-      setTimeout(() => {
-        setShowToast(false);
-      }, 3000);
     }
   };
 
@@ -276,15 +247,6 @@ export default function OrderTab() {
                               menuItemId: item.id,
                               price: item.price
                             });
-                            
-                            // Show toast notification for added item
-                            setToastMessage(`Added ${item.name} to Table ${activeTable.number}`);
-                            setShowToast(true);
-                            
-                            // Hide toast after 3 seconds
-                            setTimeout(() => {
-                              setShowToast(false);
-                            }, 3000);
                           }}
                           disabled={addOrderMutation.isPending}
                         >
