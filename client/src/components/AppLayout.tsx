@@ -8,15 +8,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { connectedUsers, status } = useWebSocket();
   
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen dark:bg-slate-900">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm dark:bg-slate-800">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">Order Manager</h1>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Order Manager</h1>
           <div 
             id="sync-status" 
             className={`flex items-center text-xs ${
-              status === 'open' ? 'text-green-600' : 'text-amber-500'
+              status === 'open' ? 'text-green-600 dark:text-green-400' : 'text-amber-500 dark:text-amber-400'
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

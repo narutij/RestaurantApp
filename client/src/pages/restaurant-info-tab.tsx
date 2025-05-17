@@ -293,17 +293,17 @@ export default function RestaurantInfoTab() {
       {/* Option buttons - reduced spacing */}
       <div className="space-y-1">
         {/* App Theme with toggle */}
-        <div className="flex items-center justify-between w-full px-3 py-3 hover:bg-slate-100 rounded-lg">
-          <Button 
-            variant="ghost" 
-            className="flex-1 justify-start text-base py-3"
-            onClick={() => console.log(`Clicked: ${options[0].label}`)}
-          >
+        <Button 
+          variant="ghost" 
+          className="w-full justify-between text-base py-6 flex items-center"
+          onClick={() => console.log(`Clicked: ${options[0].label}`)}
+        >
+          <div className="flex items-center">
             {options[0].icon}
             {options[0].label}
-          </Button>
+          </div>
           <ThemeSwitch />
-        </div>
+        </Button>
         
         {/* Other options */}
         {options.slice(1).map((option, index) => (
