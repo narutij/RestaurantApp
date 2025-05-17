@@ -562,7 +562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Profile update endpoint that persists data to storage
-  app.post('/api/user-profile', async (req: Request, res: Response) => {
+  app.post('/api/user-profile', upload.single('avatar'), async (req: Request, res: Response) => {
     try {
       console.log('Received profile update request:', req.body);
       
@@ -572,11 +572,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name and role are required" });
       }
       
+      // Determine avatar URL - if a file was uploaded, use that, otherwise use existing or null
+      let finalAvatarUrl = avatarUrl || null;
+      
+      // If file was uploaded, use the file path instead
+      if (req.file) {
+        finalAvatarUrl = `/uploads/${req.file.filename}`;
+        console.log('File uploaded, new avatar URL:', finalAvatarUrl);
+      } else if (avatarUrl && avatarUrl.startsWith('data:image')) {
+        // Handle base64 image data
+        const base64Data = avatarUrl.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Data, 'base64');
+        const filename = `avatar-${Date.now()}.png`;
+        const filepath = path.join(process.cwd(), 'uploads', filename);
+        
+        // Ensure uploads directory exists
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        // Write the file
+        fs.writeFileSync(filepath, buffer);
+        finalAvatarUrl = `/uploads/${filename}`;
+        console.log('Base64 image saved, new avatar URL:', finalAvatarUrl);
+      }
+      
       // Update the profile in storage
       const profileData = {
         name,
         role,
-        avatarUrl: avatarUrl || null
+        avatarUrl: finalAvatarUrl
       };
       
       // Check if profile exists

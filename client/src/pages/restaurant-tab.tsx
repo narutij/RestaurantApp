@@ -150,17 +150,48 @@ export default function RestaurantInfoTab() {
     try {
       setIsUpdatingProfile(true);
       
-      const avatarUrl = selectedFile ? previewUrl : (profile?.avatarUrl || null);
+      let updatedProfile;
       
-      // Use apiRequest with profile picture
-      const updatedProfile = await apiRequest('/api/user-profile', {
-        method: 'POST',
-        body: {
-          name: editedUser.name,
-          role: editedUser.role,
-          avatarUrl: avatarUrl
+      if (selectedFile) {
+        // For file uploads, use FormData to send the file
+        const formData = new FormData();
+        formData.append('name', editedUser.name);
+        formData.append('role', editedUser.role);
+        formData.append('avatar', selectedFile);
+        
+        // Direct fetch for FormData
+        const response = await fetch('/api/user-profile', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to upload image');
         }
-      });
+        
+        updatedProfile = await response.json();
+      } else if (previewUrl && previewUrl.startsWith('data:image')) {
+        // If it's a base64 data URL (from canvas editing, etc.)
+        // Send the base64 data to the server
+        updatedProfile = await apiRequest('/api/user-profile', {
+          method: 'POST',
+          body: {
+            name: editedUser.name,
+            role: editedUser.role,
+            avatarUrl: previewUrl
+          }
+        });
+      } else {
+        // Normal update without changing the avatar
+        updatedProfile = await apiRequest('/api/user-profile', {
+          method: 'POST',
+          body: {
+            name: editedUser.name,
+            role: editedUser.role,
+            avatarUrl: profile?.avatarUrl || null
+          }
+        });
+      }
       
       // Force refetch to ensure the UI gets the latest data
       await queryClient.refetchQueries({ 
@@ -174,9 +205,12 @@ export default function RestaurantInfoTab() {
           ...profile,
           name: editedUser.name,
           role: editedUser.role,
-          avatarUrl: avatarUrl
+          avatarUrl: updatedProfile.avatarUrl
         });
       }
+      
+      // Reset file selection state
+      setSelectedFile(null);
       
       toast({
         title: "Profile updated",
