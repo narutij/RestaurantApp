@@ -428,15 +428,14 @@ export class MemStorage implements IStorage {
         data.avatar_url = profile.avatarUrl;
         console.log("Setting avatar_url in database to:", profile.avatarUrl);
         
-        // Direct SQL update for avatar to ensure it's saved properly
+        // Update using Drizzle ORM to properly handle parameters
         try {
-          await db.execute(
-            'UPDATE user_profiles SET avatar_url = $1 WHERE id = $2',
-            [profile.avatarUrl, id]
-          );
-          console.log("Used direct SQL to update avatar URL");
+          await db.update(userProfiles)
+            .set({ avatar_url: profile.avatarUrl })
+            .where(eq(userProfiles.id, id));
+          console.log("Successfully updated avatar URL with Drizzle ORM");
         } catch (err) {
-          console.error("Error in direct avatar update:", err);
+          console.error("Error in avatar update:", err);
         }
       }
       
