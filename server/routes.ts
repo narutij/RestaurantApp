@@ -6,6 +6,7 @@ import {
   insertMenuItemSchema, 
   insertTableSchema, 
   insertOrderSchema,
+  insertDayTemplateSchema,
   WebSocketMessage 
 } from "@shared/schema";
 import { log } from "./vite";

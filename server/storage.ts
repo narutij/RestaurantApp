@@ -67,10 +67,12 @@ export class MemStorage implements IStorage {
     this.menuItemsMap = new Map();
     this.tablesMap = new Map();
     this.ordersMap = new Map();
+    this.dayTemplatesMap = new Map();
     this.currentUserId = 1;
     this.currentMenuItemId = 1;
     this.currentTableId = 1;
     this.currentOrderId = 1;
+    this.currentDayTemplateId = 1;
   }
 
   // Users (from base template)
@@ -246,6 +248,74 @@ export class MemStorage implements IStorage {
         tableLabel: table?.label || ''
       };
     }));
+  }
+
+  // Day Templates
+  async getDayTemplates(): Promise<DayTemplate[]> {
+    return Array.from(this.dayTemplatesMap.values());
+  }
+
+  async getDayTemplate(id: number): Promise<DayTemplate | undefined> {
+    return this.dayTemplatesMap.get(id);
+  }
+
+  async getDayTemplateByDate(date: Date): Promise<DayTemplate | undefined> {
+    const dateString = date.toISOString().split('T')[0];
+    const templates = await this.getDayTemplates();
+    return templates.find(template => {
+      const templateDate = new Date(template.date);
+      return templateDate.toISOString().split('T')[0] === dateString && !template.isTemplate;
+    });
+  }
+
+  async createDayTemplate(template: InsertDayTemplate): Promise<DayTemplate> {
+    const id = this.currentDayTemplateId++;
+    const dayTemplate: DayTemplate = { ...template, id };
+    this.dayTemplatesMap.set(id, dayTemplate);
+    return dayTemplate;
+  }
+
+  async updateDayTemplate(id: number, template: Partial<InsertDayTemplate>): Promise<DayTemplate | undefined> {
+    const existingTemplate = await this.getDayTemplate(id);
+    if (!existingTemplate) {
+      return undefined;
+    }
+    
+    const updatedTemplate: DayTemplate = { 
+      ...existingTemplate, 
+      ...template,
+      id 
+    };
+    
+    this.dayTemplatesMap.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+
+  async deleteDayTemplate(id: number): Promise<boolean> {
+    return this.dayTemplatesMap.delete(id);
+  }
+
+  async getTemplates(): Promise<DayTemplate[]> {
+    const templates = await this.getDayTemplates();
+    return templates.filter(template => template.isTemplate);
+  }
+
+  async applyTemplate(templateId: number, date: Date): Promise<DayTemplate> {
+    const template = await this.getDayTemplate(templateId);
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    // Create a new day configuration based on the template
+    const newDayConfig: InsertDayTemplate = {
+      name: `${template.name} (${date.toLocaleDateString()})`,
+      date: date,
+      menuItems: template.menuItems,
+      tables: template.tables,
+      isTemplate: false
+    };
+
+    return this.createDayTemplate(newDayConfig);
   }
 }
 
