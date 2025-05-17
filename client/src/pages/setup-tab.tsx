@@ -247,113 +247,321 @@ export default function SetupTab() {
 
   return (
     <div className="p-4">
-      {/* Menu Items Section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Menu Items</h2>
-          <Button 
-            size="sm" 
-            onClick={() => {
-              setEditingMenuItem(null);
-              setMenuModalOpen(true);
-            }}
-            className="flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Item
-          </Button>
-        </div>
+      <Tabs defaultValue="menu-tables" className="mb-8">
+        <TabsList className="mb-4">
+          <TabsTrigger value="menu-tables">Menu & Tables</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar & Templates</TabsTrigger>
+        </TabsList>
         
-        <Card>
-          <CardContent className="p-0">
-            {menuItems.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                No menu items yet. Add your first menu item!
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-200">
-                {menuItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4">
-                    <div className="flex-1">
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-slate-500 text-sm">{formatPrice(item.price)}</div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditMenuItem(item)}>
-                        <Pencil className="h-5 w-5" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setConfirmDeleteMenu(item.id)}
-                      >
-                        <Trash className="h-5 w-5" />
-                      </Button>
-                    </div>
+        <TabsContent value="menu-tables">
+          {/* Menu Items Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Menu Items</h2>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  setEditingMenuItem(null);
+                  setMenuModalOpen(true);
+                }}
+                className="flex items-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Item
+              </Button>
+            </div>
+            
+            <Card>
+              <CardContent className="p-0">
+                {menuItems.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No menu items yet. Add your first menu item!
                   </div>
+                ) : (
+                  <div className="divide-y divide-slate-200">
+                    {menuItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-4">
+                        <div className="flex-1">
+                          <div className="font-medium">{item.name}</div>
+                          <div className="text-slate-500 text-sm">{formatPrice(item.price)}</div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditMenuItem(item)}>
+                            <Pencil className="h-5 w-5" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setConfirmDeleteMenu(item.id)}
+                          >
+                            <Trash className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tables Section */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Tables</h2>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  setEditingTable(null);
+                  setTableModalOpen(true);
+                }}
+                className="flex items-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Table
+              </Button>
+            </div>
+            
+            {tables.length === 0 ? (
+              <Card>
+                <CardContent className="p-4 text-center text-gray-500">
+                  No tables yet. Add your first table!
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {tables.map((table) => (
+                  <Card key={table.id} className="bg-white">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-semibold text-lg">Table {table.number}</span>
+                        <div className="flex space-x-1">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEditTable(table)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive" 
+                            onClick={() => setConfirmDeleteTable(table.id)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-500">Label: {table.label}</span>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tables Section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Tables</h2>
-          <Button 
-            size="sm" 
-            onClick={() => {
-              setEditingTable(null);
-              setTableModalOpen(true);
-            }}
-            className="flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Table
-          </Button>
-        </div>
+          </div>
+        </TabsContent>
         
-        {tables.length === 0 ? (
-          <Card>
-            <CardContent className="p-4 text-center text-gray-500">
-              No tables yet. Add your first table!
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {tables.map((table) => (
-              <Card key={table.id} className="bg-white">
+        <TabsContent value="calendar">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Calendar Section */}
+            <div className="lg:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold flex items-center">
+                  <CalendarFull className="mr-2 h-5 w-5" />
+                  Restaurant Calendar
+                </h2>
+                <Button
+                  size="sm"
+                  onClick={handleCreateDayConfig}
+                  className="flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create Day Configuration
+                </Button>
+              </div>
+              
+              <Card className="mb-6">
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-lg">Table {table.number}</span>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEditTable(table)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive" 
-                        onClick={() => setConfirmDeleteTable(table.id)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <span className="text-xs text-slate-500">Label: {table.label}</span>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={handleDateClick}
+                    className="rounded-md"
+                  />
                 </CardContent>
               </Card>
-            ))}
+              
+              {/* Selected Day Info */}
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="font-medium text-base mb-3">
+                    {selectedDate ? selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    }) : 'Select a date'}
+                  </h3>
+                  
+                  {currentDayTemplate ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">{currentDayTemplate.name}</h4>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEditTemplate(currentDayTemplate)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-destructive border-destructive hover:bg-destructive hover:text-white"
+                            onClick={() => setConfirmDeleteTemplate(currentDayTemplate.id)}
+                          >
+                            <Trash className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <h5 className="text-sm font-medium mb-2">Menu Items ({currentDayTemplate.menuItems?.length || 0})</h5>
+                          <div className="text-sm text-slate-500">
+                            {currentDayTemplate.menuItems && currentDayTemplate.menuItems.length > 0 ? (
+                              <ul className="list-disc list-inside">
+                                {currentDayTemplate.menuItems.slice(0, 3).map(item => (
+                                  <li key={item.id}>{item.name}</li>
+                                ))}
+                                {currentDayTemplate.menuItems.length > 3 && (
+                                  <li>+{currentDayTemplate.menuItems.length - 3} more items</li>
+                                )}
+                              </ul>
+                            ) : (
+                              <p>No menu items configured</p>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <h5 className="text-sm font-medium mb-2">Tables ({currentDayTemplate.tables?.length || 0})</h5>
+                          <div className="text-sm text-slate-500">
+                            {currentDayTemplate.tables && currentDayTemplate.tables.length > 0 ? (
+                              <ul className="list-disc list-inside">
+                                {currentDayTemplate.tables.slice(0, 3).map(table => (
+                                  <li key={table.id}>Table {table.number} ({table.label})</li>
+                                ))}
+                                {currentDayTemplate.tables.length > 3 && (
+                                  <li>+{currentDayTemplate.tables.length - 3} more tables</li>
+                                )}
+                              </ul>
+                            ) : (
+                              <p>No tables configured</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-slate-500 mb-4">No configuration exists for this date</p>
+                      <Button onClick={handleCreateDayConfig}>
+                        Create Configuration
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Templates Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold flex items-center">
+                  <SaveAll className="mr-2 h-5 w-5" />
+                  Saved Templates
+                </h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingTemplate(null);
+                    setTemplateMode('create');
+                    setTemplateModalOpen(true);
+                  }}
+                >
+                  New Template
+                </Button>
+              </div>
+              
+              <Card>
+                <CardContent className="p-0">
+                  {templates.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500">
+                      <p className="mb-4">No saved templates yet.</p>
+                      <p className="text-sm mb-4">Templates can be reused for different days.</p>
+                      <Button
+                        onClick={() => {
+                          setEditingTemplate(null);
+                          setTemplateMode('create');
+                          setTemplateModalOpen(true);
+                        }}
+                      >
+                        Create Template
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-200">
+                      {templates.map((template) => (
+                        <div key={template.id} className="p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-medium">{template.name}</h4>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleApplyTemplate(template)}
+                              >
+                                Apply
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleEditTemplate(template)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setConfirmDeleteTemplate(template.id)}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex text-sm text-slate-500 gap-x-4">
+                            <span>{template.menuItems?.length || 0} items</span>
+                            <span>{template.tables?.length || 0} tables</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        )}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       <AddMenuItemModal 
@@ -382,6 +590,35 @@ export default function SetupTab() {
         }}
         editingTable={editingTable}
         isSubmitting={createTableMutation.isPending || updateTableMutation.isPending}
+      />
+      
+      <DayTemplateModal
+        open={templateModalOpen}
+        onOpenChange={setTemplateModalOpen}
+        onSubmit={(data) => {
+          if (templateMode === 'apply' && editingTemplate) {
+            applyTemplateMutation.mutate({ 
+              id: editingTemplate.id, 
+              date: data.date || new Date() 
+            });
+          } else if (editingTemplate) {
+            updateTemplateMutation.mutate({ 
+              id: editingTemplate.id, 
+              template: data 
+            });
+          } else {
+            createTemplateMutation.mutate(data);
+          }
+        }}
+        editingTemplate={editingTemplate}
+        isSubmitting={
+          createTemplateMutation.isPending || 
+          updateTemplateMutation.isPending || 
+          applyTemplateMutation.isPending
+        }
+        mode={templateMode}
+        menuItems={menuItems}
+        tables={tables}
       />
 
       {/* Confirm Delete Menu Item Dialog */}
@@ -429,6 +666,31 @@ export default function SetupTab() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteTableMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Delete Template Dialog */}
+      <AlertDialog open={confirmDeleteTemplate !== null} onOpenChange={() => setConfirmDeleteTemplate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this day template.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteTemplate !== null) {
+                  deleteTemplateMutation.mutate(confirmDeleteTemplate);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTemplateMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
