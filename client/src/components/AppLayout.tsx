@@ -40,13 +40,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   return (
     <div className="flex flex-col min-h-screen dark:bg-slate-900">
-      {/* Restaurant Modal */}
-      <RestaurantModal
-        open={restaurantModalOpen}
-        onOpenChange={setRestaurantModalOpen}
-        selectedRestaurantId={selectedRestaurant?.id || null}
-        onSelectRestaurant={handleSelectRestaurant}
-      />
+      {/* Restaurant Modal - Only shown when button in header is clicked */}
+      {restaurantModalOpen && (
+        <RestaurantModal
+          open={restaurantModalOpen}
+          onOpenChange={setRestaurantModalOpen}
+          selectedRestaurantId={selectedRestaurant?.id || null}
+          onSelectRestaurant={handleSelectRestaurant}
+        />
+      )}
       
       {/* Header */}
       <header className="bg-white shadow-sm dark:bg-slate-800">
