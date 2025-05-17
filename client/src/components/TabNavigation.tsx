@@ -22,7 +22,7 @@ export default function TabNavigation() {
             location === '/' ? 'text-primary' : 'text-slate-500'
           }`}>
             <Settings className="h-6 w-6" />
-            <span className="text-xs mt-1">Setup</span>
+            <span className="text-xs mt-1">Restaurant</span>
           </a>
         </Link>
         <Link href="/orders">
