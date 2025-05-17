@@ -1,7 +1,7 @@
 import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { type OrderWithDetails } from '@shared/schema';
-import { Building2, LayoutGrid, BookOpen } from 'lucide-react';
+import { Building2, CalendarDays, Receipt, UtensilsCrossed } from 'lucide-react';
 
 export default function TabNavigation() {
   const [location] = useLocation();
@@ -17,19 +17,27 @@ export default function TabNavigation() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-md">
       <div className="max-w-md mx-auto flex justify-around">
+        <Link href="/restaurant">
+          <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
+            location === '/restaurant' ? 'text-primary' : 'text-slate-500'
+          }`}>
+            <Building2 className="h-6 w-6" />
+            <span className="text-xs mt-1">Restaurant</span>
+          </a>
+        </Link>
         <Link href="/">
           <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
             location === '/' ? 'text-primary' : 'text-slate-500'
           }`}>
-            <Building2 className="h-6 w-6" />
-            <span className="text-xs mt-1">Restaurant</span>
+            <CalendarDays className="h-6 w-6" />
+            <span className="text-xs mt-1">Workday</span>
           </a>
         </Link>
         <Link href="/orders">
           <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
             location === '/orders' ? 'text-primary' : 'text-slate-500'
           }`}>
-            <LayoutGrid className="h-6 w-6" />
+            <Receipt className="h-6 w-6" />
             <span className="text-xs mt-1">Orders</span>
           </a>
         </Link>
@@ -37,7 +45,7 @@ export default function TabNavigation() {
           <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 relative ${
             location === '/kitchen' ? 'text-primary' : 'text-slate-500'
           }`}>
-            <BookOpen className="h-6 w-6" />
+            <UtensilsCrossed className="h-6 w-6" />
             <span className="text-xs mt-1">Kitchen</span>
             {newOrdersCount > 0 && (
               <span className="absolute top-2 right-6 bg-warning text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">

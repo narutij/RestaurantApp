@@ -6,7 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 
 import AppLayout from "./components/AppLayout";
-import RestaurantTab from "./pages/restaurant-tab";
+import RestaurantInfoTab from "./pages/restaurant-info-tab";
+import WorkdayTab from "./pages/restaurant-tab";
 import OrderTab from "./pages/order-tab";
 import KitchenTab from "./pages/kitchen-tab";
 import NotFound from "@/pages/not-found";
@@ -15,7 +16,8 @@ function Router() {
   return (
     <AppLayout>
       <Switch>
-        <Route path="/" component={RestaurantTab} />
+        <Route path="/restaurant" component={RestaurantInfoTab} />
+        <Route path="/" component={WorkdayTab} />
         <Route path="/orders" component={OrderTab} />
         <Route path="/kitchen" component={KitchenTab} />
         <Route component={NotFound} />
