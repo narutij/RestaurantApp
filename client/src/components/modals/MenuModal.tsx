@@ -402,6 +402,7 @@ export function MenuModal({
           open={categoryModalOpen}
           onOpenChange={setCategoryModalOpen}
           menuId={selectedMenu.id}
+          categoryId={editingCategoryId || undefined}
         />
       )}
     </>
