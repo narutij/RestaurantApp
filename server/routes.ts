@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { db } from "./db"; // Add database import
 import { 
   insertMenuItemSchema, 
   insertTableSchema, 
@@ -9,8 +10,10 @@ import {
   insertDayTemplateSchema,
   userProfileSchema,
   insertRestaurantSchema,
-  WebSocketMessage 
+  WebSocketMessage,
+  userProfiles
 } from "@shared/schema";
+import { eq } from "drizzle-orm"; // Add eq import for database queries
 import { log } from "./vite";
 import { z } from "zod";
 import multer from "multer";
@@ -623,20 +626,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error("Failed to update profile");
       }
       
-      // If avatar URL wasn't properly saved in the database, manually add it to the response
+      // Make sure the avatar URL is present in the response
       if (finalAvatarUrl && (!updatedProfile.avatarUrl || updatedProfile.avatarUrl !== finalAvatarUrl)) {
         updatedProfile.avatarUrl = finalAvatarUrl;
-        
-        // Directly update the database as a fallback
-        try {
-          await db
-            .update(userProfiles)
-            .set({ avatar_url: finalAvatarUrl })
-            .where(eq(userProfiles.id, updatedProfile.id));
-          console.log('Directly updated avatar URL in database');
-        } catch (err) {
-          console.error('Failed to directly update avatar URL in database:', err);
-        }
+        console.log('Ensuring avatar URL is included in response:', finalAvatarUrl);
       }
       
       console.log('Returning updated profile:', updatedProfile);

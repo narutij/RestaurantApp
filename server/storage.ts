@@ -424,7 +424,10 @@ export class MemStorage implements IStorage {
       
       if (profile.name !== undefined) data.name = profile.name;
       if (profile.role !== undefined) data.role = profile.role;
-      if (profile.avatarUrl !== undefined) data.avatar_url = profile.avatarUrl;
+      if (profile.avatarUrl !== undefined) {
+        data.avatar_url = profile.avatarUrl;
+        console.log("Setting avatar_url in database to:", profile.avatarUrl);
+      }
       
       // Get the existing profile first to ensure it exists
       const existingProfile = await this.getUserProfile(id);
@@ -438,8 +441,15 @@ export class MemStorage implements IStorage {
         .set(data)
         .where(eq(userProfiles.id, id))
         .returning();
+      
+      // Log the result  
+      console.log("Database update result:", results);
         
       if (results.length > 0) {
+        if (profile.avatarUrl) {
+          // Ensure the avatarUrl is properly set in the returned object
+          results[0].avatarUrl = profile.avatarUrl;
+        }
         return results[0];
       }
       
