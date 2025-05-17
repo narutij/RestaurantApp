@@ -605,6 +605,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avatarUrl: finalAvatarUrl
       };
       
+      console.log('Updating profile with data:', profileData);
+      
       // Check if profile exists
       let profile = await storage.getUserProfile(1);
       
@@ -619,6 +621,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!updatedProfile) {
         throw new Error("Failed to update profile");
+      }
+      
+      // If avatar URL wasn't properly saved in the database, manually add it to the response
+      if (finalAvatarUrl && (!updatedProfile.avatarUrl || updatedProfile.avatarUrl !== finalAvatarUrl)) {
+        updatedProfile.avatarUrl = finalAvatarUrl;
+        
+        // Directly update the database as a fallback
+        try {
+          await db
+            .update(userProfiles)
+            .set({ avatar_url: finalAvatarUrl })
+            .where(eq(userProfiles.id, updatedProfile.id));
+          console.log('Directly updated avatar URL in database');
+        } catch (err) {
+          console.error('Failed to directly update avatar URL in database:', err);
+        }
       }
       
       console.log('Returning updated profile:', updatedProfile);
