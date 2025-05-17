@@ -256,7 +256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`API Success: Menu category with ID ${id} and all its items deleted successfully`);
-      res.status(204).send();
+      // Return JSON success response instead of empty 204
+      return res.status(200).json({ success: true, message: "Category deleted successfully" });
     } catch (error) {
       console.error(`API Error: Exception when deleting menu category:`, error);
       res.status(500).json({ error: "Failed to delete category" });
@@ -338,7 +339,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`API Success: Menu item with ID ${id} deleted successfully`);
-      res.status(204).send();
+      // Return JSON success response instead of empty 204
+      return res.status(200).json({ 
+        success: true, 
+        message: "Menu item deleted successfully",
+        itemId: id,
+        categoryId: item.categoryId 
+      });
     } catch (error) {
       console.error(`API Error: Exception when deleting menu item:`, error);
       res.status(500).json({ error: "Failed to delete menu item" });

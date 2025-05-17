@@ -424,8 +424,8 @@ function CategoryList({ menuId }: { menuId: number }) {
         method: 'DELETE'
       });
     },
-    onSuccess: () => {
-      console.log(`Delete category success! Menu ID: ${menuId}, Category ID: ${deletingCategoryId}`);
+    onSuccess: (data) => {
+      console.log(`Delete category success!`, data);
       
       // Store category ID before clearing it
       const catId = deletingCategoryId;
@@ -448,6 +448,9 @@ function CategoryList({ menuId }: { menuId: number }) {
         queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       }
       
+      // Completely refresh the menus list too
+      queryClient.invalidateQueries({ queryKey: ['/api/menus'] });
+      
       toast({
         title: "Category Deleted",
         description: "Category and all its items have been deleted successfully.",
@@ -455,6 +458,7 @@ function CategoryList({ menuId }: { menuId: number }) {
     },
     onError: (error) => {
       console.error("Error deleting category:", error);
+      // Show clear error message with details
       toast({
         title: "Error Deleting Category",
         description: "There was an error deleting the category. Please try again.",
@@ -471,19 +475,22 @@ function CategoryList({ menuId }: { menuId: number }) {
         method: 'DELETE'
       });
     },
-    onSuccess: () => {
-      console.log(`Delete menu item success! Category ID: ${selectedCategoryId}, Item ID: ${deletingItemId}`);
+    onSuccess: (data) => {
+      console.log(`Delete menu item success!`, data);
       
       // Store these values before clearing them
-      const catId = selectedCategoryId;
-      const itemId = deletingItemId;
+      const catId = data?.categoryId || selectedCategoryId;
+      const itemId = data?.itemId || deletingItemId;
       const itemName = deletingItemName;
       
-      // First invalidate the cache to trigger a refresh
+      // Ensure we invalidate the correct cache entries
       if (catId) {
         console.log(`Invalidating cache for category ${catId}`);
         queryClient.invalidateQueries({ queryKey: ['/api/menu-items', catId] });
       }
+      
+      // Also invalidate the general menu items cache
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       
       // Then update UI state
       setDeleteItemDialogOpen(false);
