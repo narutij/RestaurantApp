@@ -5,12 +5,9 @@ import { useLocation } from 'wouter';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { connectedUsers, status } = useWebSocket();
-
   
   return (
     <div className="flex flex-col min-h-screen dark:bg-slate-900">
-
-      
       {/* Header */}
       <header className="bg-white shadow-sm dark:bg-slate-800">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">

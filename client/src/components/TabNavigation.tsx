@@ -1,13 +1,13 @@
 import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { type OrderWithDetails, Restaurant } from '@shared/schema';
-import { Building2, CalendarDays, Receipt, UtensilsCrossed, Store } from 'lucide-react';
+import { type OrderWithDetails, type Restaurant } from '@shared/schema';
+import { Building2, CalendarDays, Receipt, UtensilsCrossed } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { RestaurantModal } from './modals/RestaurantModal'; 
+import { RestaurantModal } from '@/components/modals/RestaurantModal';
 import { useToast } from '@/hooks/use-toast';
 
 export default function TabNavigation() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const { toast } = useToast();
@@ -44,9 +44,15 @@ export default function TabNavigation() {
     });
   };
 
+  const handleRestaurantClick = (e: React.MouseEvent) => {
+    console.log("Clicked: Restaurants");
+    e.preventDefault();
+    setRestaurantModalOpen(true);
+  };
+
   return (
     <>
-      {/* Restaurant Modal */}
+      {/* Restaurant Selection Modal */}
       <RestaurantModal
         open={restaurantModalOpen}
         onOpenChange={setRestaurantModalOpen}
@@ -56,28 +62,16 @@ export default function TabNavigation() {
       
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 shadow-md">
         <div className="max-w-md mx-auto flex justify-around">
-          <Link href="/restaurant">
-            <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
+          <a 
+            href="#" 
+            onClick={handleRestaurantClick}
+            className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
               location === '/restaurant' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'
-            }`}>
-              <Building2 className="h-6 w-6" />
-              <span className="text-xs mt-1">Setup</span>
-            </a>
-          </Link>
-          
-          {/* New Restaurants Tab Button */}
-          <button
-            id="restaurants-button"
-            onClick={() => setRestaurantModalOpen(true)}
-            className={`tab-button flex-1 flex flex-col items-center justify-center py-3
-              text-slate-500 dark:text-slate-400
-              ${restaurantModalOpen ? 'text-primary' : ''}
-            `}
+            }`}
           >
-            <Store className="h-6 w-6" />
+            <Building2 className="h-6 w-6" />
             <span className="text-xs mt-1">Restaurants</span>
-          </button>
-          
+          </a>
           <Link href="/">
             <a className={`tab-button flex-1 flex flex-col items-center justify-center py-3 ${
               location === '/' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'
