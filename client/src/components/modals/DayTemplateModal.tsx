@@ -146,7 +146,7 @@ export function DayTemplateModal({
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 className="rounded-md border"
-                disabled={mode === 'edit' && editingTemplate?.isTemplate}
+                disabled={mode === 'edit' && editingTemplate?.isTemplate === true}
               />
             </div>
 

@@ -358,7 +358,7 @@ export class MemStorage implements IStorage {
     // Create a new day configuration based on the template
     const newDayConfig: InsertDayTemplate = {
       name: `${template.name} (${date.toLocaleDateString()})`,
-      date: date,
+      date: date.toISOString().split('T')[0],
       menuItems: template.menuItems,
       tables: template.tables,
       isTemplate: false
@@ -401,12 +401,14 @@ export class MemStorage implements IStorage {
       
       // Fallback to memory storage implementation
       const id = this.currentUserProfileId++;
-      const newProfile: UserProfile = {
-        ...profile,
+      const newProfile = {
         id,
+        name: profile.name,
+        role: profile.role,
+        avatarUrl: profile.avatarUrl ?? null,
         createdAt: new Date(),
         updatedAt: new Date()
-      };
+      } as UserProfile;
       this.userProfilesMap.set(id, newProfile);
       return newProfile;
     }

@@ -134,7 +134,7 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 export const dayTemplates = pgTable("day_templates", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  date: date("date").notNull(),
+  date: text("date").notNull(),
   menuItems: jsonb("menu_items").$type<MenuItem[]>(),
   tables: jsonb("tables").$type<Table[]>(),
   isTemplate: boolean("is_template").default(false),
