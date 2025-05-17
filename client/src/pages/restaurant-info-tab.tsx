@@ -176,7 +176,7 @@ export default function RestaurantInfoTab() {
       ) : (
         <Button 
           variant="ghost" 
-          className="flex items-center justify-start w-full h-auto p-4 mb-4 mt-2 hover:bg-slate-100 rounded-lg"
+          className="flex items-center justify-start w-full h-auto p-4 mb-4 mt-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg"
           onClick={handleProfileClick}
           disabled={isLoadingProfile}
         >
@@ -295,7 +295,7 @@ export default function RestaurantInfoTab() {
         {/* App Theme with toggle */}
         <Button 
           variant="ghost" 
-          className="w-full justify-between text-base py-6 flex items-center"
+          className="w-full justify-between text-base py-6 flex items-center hover:bg-slate-200 dark:hover:bg-slate-700"
           onClick={() => console.log(`Clicked: ${options[0].label}`)}
         >
           <div className="flex items-center">
@@ -310,7 +310,7 @@ export default function RestaurantInfoTab() {
           <Button 
             key={index} 
             variant="ghost" 
-            className="w-full justify-start text-base py-6"
+            className="w-full justify-start text-base py-6 hover:bg-slate-200 dark:hover:bg-slate-700"
             onClick={() => console.log(`Clicked: ${option.label}`)}
           >
             {option.icon}
@@ -319,7 +319,7 @@ export default function RestaurantInfoTab() {
         ))}
         
         {/* Logout button below options with a small gap */}
-        <div className="pt-4 mt-2 border-t border-gray-100">
+        <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
           <Button 
             variant="destructive" 
             className="w-full py-6 text-base"
