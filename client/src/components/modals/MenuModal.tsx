@@ -400,8 +400,10 @@ function CategoryList({ menuId }: { menuId: number }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteItemDialogOpen, setDeleteItemDialogOpen] = useState(false);
+  const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false);
   const [deletingItemName, setDeletingItemName] = useState("");
+  const [deletingCategoryName, setDeletingCategoryName] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -443,7 +445,7 @@ function CategoryList({ menuId }: { menuId: number }) {
       if (selectedCategoryId) {
         queryClient.invalidateQueries({ queryKey: ['/api/menu-items', selectedCategoryId] });
       }
-      setDeleteDialogOpen(false);
+      setDeleteItemDialogOpen(false);
       setDeletingItemId(null);
       toast({
         title: "Menu Item Deleted",
@@ -459,8 +461,17 @@ function CategoryList({ menuId }: { menuId: number }) {
     }
   });
 
-  const handleDeleteCategory = (id: number) => {
-    deleteCategoryMutation.mutate(id);
+  const handleDeleteCategoryClick = (id: number, name: string) => {
+    setDeletingCategoryId(id);
+    setDeletingCategoryName(name);
+    setDeleteCategoryDialogOpen(true);
+  };
+
+  const confirmDeleteCategory = () => {
+    if (deletingCategoryId) {
+      deleteCategoryMutation.mutate(deletingCategoryId);
+      setDeleteCategoryDialogOpen(false);
+    }
   };
 
   const handleAddItem = (categoryId: number) => {
@@ -485,12 +496,13 @@ function CategoryList({ menuId }: { menuId: number }) {
     setSelectedCategoryId(categoryId);
     setDeletingItemId(itemId);
     setDeletingItemName(itemName);
-    setDeleteDialogOpen(true);
+    setDeleteItemDialogOpen(true);
   };
 
   const confirmDeleteItem = () => {
     if (deletingItemId) {
       deleteMenuItemMutation.mutate(deletingItemId);
+      setDeleteItemDialogOpen(false);
     }
   };
 
@@ -544,7 +556,7 @@ function CategoryList({ menuId }: { menuId: number }) {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleDeleteCategory(category.id)}
+                  onClick={() => handleDeleteCategoryClick(category.id, category.name)}
                 >
                   <Trash className="h-3 w-3 mr-1" />
                   Delete
@@ -572,8 +584,8 @@ function CategoryList({ menuId }: { menuId: number }) {
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      {/* Delete Menu Item Confirmation Dialog */}
+      <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -584,6 +596,22 @@ function CategoryList({ menuId }: { menuId: number }) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteItem}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Delete Category Confirmation Dialog */}
+      <AlertDialog open={deleteCategoryDialogOpen} onOpenChange={setDeleteCategoryDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the category "{deletingCategoryName}" and all items within it. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCategory}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
