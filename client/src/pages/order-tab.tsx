@@ -90,12 +90,15 @@ export default function OrderTab() {
   
   const addOrderMutation = useMutation({
     mutationFn: (data: { tableId: number; menuItemId: number; price: number }) => 
-      apiRequest('POST', '/api/orders', {
-        tableId: data.tableId,
-        menuItemId: data.menuItemId,
-        price: data.price,
-        // Remove timestamp as the server will handle this with defaultNow()
-        completed: false
+      apiRequest('/api/orders', { 
+        method: 'POST',
+        body: {
+          tableId: data.tableId,
+          menuItemId: data.menuItemId,
+          price: data.price,
+          // Remove timestamp as the server will handle this with defaultNow()
+          completed: false
+        }
       }),
     onSuccess: () => {
       // Refresh the table's orders
@@ -120,7 +123,7 @@ export default function OrderTab() {
   });
 
   // Handle table activation - immediately shows table and avoids blank page issue
-  const handleTableActivation = (tableId: number, isActive: boolean) => {
+  const handleTableActivation = (tableId: number, isActive: boolean | null) => {
     // Always set the active table ID right away to avoid blank screen
     setActiveTableId(tableId);
     
@@ -174,7 +177,7 @@ export default function OrderTab() {
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          onClick={() => handleTableActivation(table.id, table.isActive)}
+                          onClick={() => handleTableActivation(table.id, Boolean(table.isActive))}
                         >
                           Select
                         </Button>
@@ -184,7 +187,7 @@ export default function OrderTab() {
                     <Button 
                       size="sm" 
                       className="text-xs rounded-full px-3 py-1 h-auto"
-                      onClick={() => handleTableActivation(table.id, table.isActive)}
+                      onClick={() => handleTableActivation(table.id, Boolean(table.isActive))}
                     >
                       Activate
                     </Button>

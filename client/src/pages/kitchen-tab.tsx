@@ -51,7 +51,7 @@ export default function KitchenTab() {
   // Complete order mutation
   const completeOrderMutation = useMutation({
     mutationFn: (id: number) => 
-      apiRequest('POST', `/api/orders/${id}/complete`),
+      apiRequest(`/api/orders/${id}/complete`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
     }
