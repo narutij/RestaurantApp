@@ -79,6 +79,23 @@ export type OrderWithDetails = {
   tableLabel: string;
 };
 
+// Restaurants
+export const restaurants = pgTable("restaurants", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRestaurantSchema = createInsertSchema(restaurants).pick({
+  name: true,
+  address: true,
+});
+
+export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
+export type Restaurant = typeof restaurants.$inferSelect;
+
 // User schema from the base template
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),

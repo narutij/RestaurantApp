@@ -5,7 +5,8 @@ import {
   orders, type Order, type InsertOrder,
   dayTemplates, type DayTemplate, type InsertDayTemplate,
   type OrderWithDetails,
-  userProfiles, type UserProfile, type UserProfileData
+  userProfiles, type UserProfile, type UserProfileData,
+  restaurants, type Restaurant, type InsertRestaurant
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -21,6 +22,12 @@ export interface IStorage {
   createUserProfile(profile: UserProfileData): Promise<UserProfile>;
   updateUserProfile(id: number, profile: Partial<UserProfileData>): Promise<UserProfile | undefined>;
 
+  // Restaurants
+  getRestaurants(): Promise<Restaurant[]>;
+  getRestaurant(id: number): Promise<Restaurant | undefined>;
+  createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
+  updateRestaurant(id: number, restaurant: Partial<InsertRestaurant>): Promise<Restaurant | undefined>;
+  
   // Menu Items
   getMenuItems(): Promise<MenuItem[]>;
   getMenuItem(id: number): Promise<MenuItem | undefined>;
@@ -65,12 +72,14 @@ export class MemStorage implements IStorage {
   private ordersMap: Map<number, Order>;
   private dayTemplatesMap: Map<number, DayTemplate>;
   private userProfilesMap: Map<number, UserProfile>;
+  private restaurantsMap: Map<number, Restaurant>;
   private currentUserId: number;
   private currentMenuItemId: number;
   private currentTableId: number;
   private currentOrderId: number;
   private currentDayTemplateId: number;
   private currentUserProfileId: number;
+  private currentRestaurantId: number;
 
   constructor() {
     this.users = new Map();
@@ -79,12 +88,14 @@ export class MemStorage implements IStorage {
     this.ordersMap = new Map();
     this.dayTemplatesMap = new Map();
     this.userProfilesMap = new Map();
+    this.restaurantsMap = new Map();
     this.currentUserId = 1;
     this.currentMenuItemId = 1;
     this.currentTableId = 1;
     this.currentOrderId = 1;
     this.currentDayTemplateId = 1;
     this.currentUserProfileId = 1;
+    this.currentRestaurantId = 1;
     
     // Add a default user profile
     this.userProfilesMap.set(1, {
