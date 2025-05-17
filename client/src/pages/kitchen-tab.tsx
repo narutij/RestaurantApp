@@ -7,7 +7,6 @@ import { Check } from 'lucide-react';
 import { formatTime, getActiveTime } from '@/lib/utils';
 import { type OrderWithDetails, WebSocketMessage } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
-import { ToastNotification } from '@/components/ui/toast-notification';
 
 export default function KitchenTab() {
   const queryClient = useQueryClient();
