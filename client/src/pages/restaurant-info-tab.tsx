@@ -69,32 +69,47 @@ export default function RestaurantInfoTab() {
     }
   });
 
-  // Update user profile mutation
-  const { mutate: updateProfile, isPending: isUpdatingProfile } = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const response = await apiRequest('/api/user-profile', {
+  // Update profile function - simplified approach
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  
+  const updateProfile = async (formData: FormData) => {
+    setIsUpdatingProfile(true);
+    
+    try {
+      const response = await fetch('/api/user-profile', {
         method: 'POST',
-        body: formData,
+        body: formData
       });
-      return response as UserProfile;
-    },
-    onSuccess: () => {
+      
+      if (!response.ok) {
+        throw new Error('Failed to save profile');
+      }
+      
+      // Get the updated profile
+      await response.json();
+      
+      // Invalidate query to trigger refetch
       queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
+      
+      // Close dialog and show success message
       setIsProfileDialogOpen(false);
+      setSelectedFile(null);
+      
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated",
       });
-    },
-    onError: (error) => {
+    } catch (error) {
       console.error('Error updating profile:', error);
       toast({
         title: "Update failed",
         description: "There was a problem updating your profile",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdatingProfile(false);
     }
-  });
+  };
 
   const handleLogout = () => {
     // In a real app, this would call a logout function
@@ -139,28 +154,45 @@ export default function RestaurantInfoTab() {
   
   const saveProfile = async () => {
     try {
-      // Create FormData for multipart/form-data request (file upload)
-      const formData = new FormData();
-      formData.append('name', editedUser.name);
-      formData.append('role', editedUser.role);
+      // Simple approach - just save the name and role without avatar upload for now
+      setIsUpdatingProfile(true);
       
-      // Only append file if a new one was selected
-      if (selectedFile) {
-        formData.append('avatar', selectedFile);
-      } else if (profile?.avatarUrl) {
-        // If no new file selected but there's an existing avatar, pass it along
-        formData.append('avatarUrl', profile.avatarUrl);
+      // This is the simplest approach - just a JSON request
+      const response = await fetch('/api/user-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editedUser.name,
+          role: editedUser.role,
+          avatarUrl: profile?.avatarUrl || null
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save profile');
       }
       
-      // Use the mutation to update profile
-      updateProfile(formData);
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
+      
+      // Show success message and close dialog
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated"
+      });
+      
+      setIsProfileDialogOpen(false);
     } catch (error) {
       console.error('Error saving profile:', error);
       toast({
         title: "Update failed",
         description: "There was a problem updating your profile",
-        variant: "destructive",
+        variant: "destructive"
       });
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 

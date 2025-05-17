@@ -474,27 +474,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post('/api/user-profile', upload.single('avatar'), async (req: Request, res: Response) => {
+  app.post('/api/user-profile', async (req: Request, res: Response) => {
     try {
-      const { name, role } = req.body;
+      console.log('Received profile update request:', req.body);
+      
+      const { name, role, avatarUrl } = req.body;
       
       if (!name || !role) {
         return res.status(400).json({ error: "Name and role are required" });
       }
       
-      // Get the file path if an image was uploaded
-      let avatarUrl = undefined;
-      if (req.file) {
-        avatarUrl = `/uploads/${req.file.filename}`;
-      } else if (req.body.avatarUrl) {
-        // If no new file was uploaded but existing avatar URL was passed
-        avatarUrl = req.body.avatarUrl;
-      }
-      
       const profileData = {
         name,
         role,
-        avatarUrl
+        avatarUrl: avatarUrl || null
       };
       
       console.log('Updating profile with data:', profileData);
@@ -507,6 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profile = await storage.createUserProfile(profileData);
       }
       
+      console.log('Updated profile:', profile);
       res.json(profile);
     } catch (error) {
       console.error('Error updating profile:', error);
