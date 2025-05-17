@@ -12,6 +12,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { connectedUsers, status } = useWebSocket();
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  
+  // For debugging
+  useEffect(() => {
+    console.log("Selected restaurant:", selectedRestaurant);
+  }, [selectedRestaurant]);
   const { toast } = useToast();
   
   // Load selected restaurant from localStorage on mount
@@ -19,7 +24,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const savedRestaurant = localStorage.getItem('selectedRestaurant');
     if (savedRestaurant) {
       try {
-        setSelectedRestaurant(JSON.parse(savedRestaurant));
+        const parsed = JSON.parse(savedRestaurant);
+        console.log("Loading saved restaurant:", parsed);
+        setSelectedRestaurant(parsed);
       } catch (e) {
         console.error('Failed to parse saved restaurant', e);
         localStorage.removeItem('selectedRestaurant');
@@ -51,16 +58,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header className="bg-white shadow-sm dark:bg-slate-800">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex flex-col">
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
-              {selectedRestaurant ? selectedRestaurant.name : "Order Manager"}
-            </h1>
-            {selectedRestaurant && (
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedRestaurant.address}
-              </span>
-            )}
-          </div>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
+            {selectedRestaurant ? selectedRestaurant.name : "Order Manager"}
+          </h1>
           <div className="flex items-center">
             {!selectedRestaurant && (
               <Button 
