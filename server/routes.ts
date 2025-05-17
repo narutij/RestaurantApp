@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -7,10 +7,33 @@ import {
   insertTableSchema, 
   insertOrderSchema,
   insertDayTemplateSchema,
+  userProfileSchema,
   WebSocketMessage 
 } from "@shared/schema";
 import { log } from "./vite";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import express from "express";
+
+// Configure multer for file uploads
+const storage_uploads = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'avatar-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ storage: storage_uploads });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -426,6 +449,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to apply template" });
+    }
+  });
+  
+  // Create uploads directory if it doesn't exist
+  const uploadDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  
+  // Serve static files from uploads directory
+  app.use('/uploads', express.static(uploadDir));
+  
+  // User Profile API endpoints
+  app.get('/api/user-profile', async (req: Request, res: Response) => {
+    try {
+      const profile = await storage.getUserProfile(1); // For now, we're using a fixed ID
+      if (!profile) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user profile" });
+    }
+  });
+  
+  app.post('/api/user-profile', upload.single('avatar'), async (req: Request, res: Response) => {
+    try {
+      const { name, role } = req.body;
+      
+      if (!name || !role) {
+        return res.status(400).json({ error: "Name and role are required" });
+      }
+      
+      // Get the file path if an image was uploaded
+      let avatarUrl = undefined;
+      if (req.file) {
+        avatarUrl = `/uploads/${req.file.filename}`;
+      }
+      
+      const profileData = {
+        name,
+        role,
+        avatarUrl
+      };
+      
+      // Try to update first, if not found, create new profile
+      let profile = await storage.getUserProfile(1);
+      if (profile) {
+        profile = await storage.updateUserProfile(1, profileData);
+      } else {
+        profile = await storage.createUserProfile(profileData);
+      }
+      
+      res.json(profile);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      res.status(500).json({ error: "Failed to update user profile" });
     }
   });
 
