@@ -342,55 +342,96 @@ export class MemStorage implements IStorage {
   
   // User Profile methods
   async getUserProfile(id: number): Promise<UserProfile | undefined> {
-    // For database implementation, we would use:
-    // const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
-    // return profiles.length > 0 ? profiles[0] : undefined;
-    
-    // For memory storage implementation:
-    return this.userProfilesMap.get(id);
+    try {
+      // For database implementation
+      const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
+      if (profiles.length > 0) {
+        return profiles[0];
+      }
+      
+      // Fallback to memory storage if not found in DB
+      return this.userProfilesMap.get(id);
+    } catch (error) {
+      console.error("Error getting user profile:", error);
+      // Fallback to memory storage
+      return this.userProfilesMap.get(id);
+    }
   }
   
   async createUserProfile(profile: UserProfileData): Promise<UserProfile> {
-    // For database implementation, we would use:
-    // const [newProfile] = await db.insert(userProfiles).values(profile).returning();
-    // return newProfile;
-    
-    // For memory storage implementation:
-    const id = this.currentUserProfileId++;
-    const newProfile: UserProfile = {
-      ...profile,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.userProfilesMap.set(id, newProfile);
-    return newProfile;
+    try {
+      // For database implementation
+      const data = {
+        name: profile.name,
+        role: profile.role,
+        avatar_url: profile.avatarUrl || null
+      };
+      
+      const [newProfile] = await db.insert(userProfiles).values(data).returning();
+      return newProfile;
+    } catch (error) {
+      console.error("Error creating user profile:", error);
+      
+      // Fallback to memory storage implementation
+      const id = this.currentUserProfileId++;
+      const newProfile: UserProfile = {
+        ...profile,
+        id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      this.userProfilesMap.set(id, newProfile);
+      return newProfile;
+    }
   }
   
   async updateUserProfile(id: number, profile: Partial<UserProfileData>): Promise<UserProfile | undefined> {
-    // For database implementation, we would use:
-    // const updatedProfile = { ...profile, updatedAt: new Date() };
-    // const results = await db
-    //   .update(userProfiles)
-    //   .set(updatedProfile)
-    //   .where(eq(userProfiles.id, id))
-    //   .returning();
-    // return results.length > 0 ? results[0] : undefined;
-    
-    // For memory storage implementation:
-    const existingProfile = this.userProfilesMap.get(id);
-    if (!existingProfile) {
+    try {
+      // For database implementation
+      const data: any = {
+        updated_at: new Date()
+      };
+      
+      if (profile.name !== undefined) data.name = profile.name;
+      if (profile.role !== undefined) data.role = profile.role;
+      if (profile.avatarUrl !== undefined) data.avatar_url = profile.avatarUrl;
+      
+      // Get the existing profile first to ensure it exists
+      const existingProfile = await this.getUserProfile(id);
+      if (!existingProfile) {
+        return undefined;
+      }
+      
+      // Update the profile in the database
+      const results = await db
+        .update(userProfiles)
+        .set(data)
+        .where(eq(userProfiles.id, id))
+        .returning();
+        
+      if (results.length > 0) {
+        return results[0];
+      }
+      
       return undefined;
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      
+      // Fallback to memory storage implementation
+      const existingProfile = this.userProfilesMap.get(id);
+      if (!existingProfile) {
+        return undefined;
+      }
+      
+      const updatedProfile: UserProfile = {
+        ...existingProfile,
+        ...profile,
+        updatedAt: new Date()
+      };
+      
+      this.userProfilesMap.set(id, updatedProfile);
+      return updatedProfile;
     }
-    
-    const updatedProfile: UserProfile = {
-      ...existingProfile,
-      ...profile,
-      updatedAt: new Date()
-    };
-    
-    this.userProfilesMap.set(id, updatedProfile);
-    return updatedProfile;
   }
 }
 

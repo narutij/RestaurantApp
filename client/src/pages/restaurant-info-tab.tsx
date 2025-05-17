@@ -147,6 +147,9 @@ export default function RestaurantInfoTab() {
       // Only append file if a new one was selected
       if (selectedFile) {
         formData.append('avatar', selectedFile);
+      } else if (profile?.avatarUrl) {
+        // If no new file selected but there's an existing avatar, pass it along
+        formData.append('avatarUrl', profile.avatarUrl);
       }
       
       // Use the mutation to update profile

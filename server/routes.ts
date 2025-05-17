@@ -486,6 +486,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let avatarUrl = undefined;
       if (req.file) {
         avatarUrl = `/uploads/${req.file.filename}`;
+      } else if (req.body.avatarUrl) {
+        // If no new file was uploaded but existing avatar URL was passed
+        avatarUrl = req.body.avatarUrl;
       }
       
       const profileData = {
@@ -493,6 +496,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role,
         avatarUrl
       };
+      
+      console.log('Updating profile with data:', profileData);
       
       // Try to update first, if not found, create new profile
       let profile = await storage.getUserProfile(1);
