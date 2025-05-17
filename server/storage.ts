@@ -274,7 +274,48 @@ export class MemStorage implements IStorage {
   
   async deleteMenu(id: number): Promise<boolean> {
     try {
+      console.log(`Retrieving menu with id: ${id}`);
+      const menu = await this.getMenu(id);
+      if (!menu) {
+        console.log(`Menu not found with id: ${id}`);
+        return false;
+      }
+      
+      // First identify and delete menu categories associated with this menu
+      try {
+        console.log(`Finding categories for menu id: ${id}`);
+        const menuCats = await db.select().from(menuCategories).where(eq(menuCategories.menuId, id));
+        
+        if (menuCats.length > 0) {
+          console.log(`Found ${menuCats.length} categories to delete for menu ${id}`);
+          
+          // For each category, delete its menu items first
+          for (const category of menuCats) {
+            try {
+              console.log(`Finding items for category id: ${category.id}`);
+              await db.delete(menuItems).where(eq(menuItems.categoryId, category.id));
+              console.log(`Deleted items for category ${category.id}`);
+            } catch (err) {
+              console.error(`Error deleting menu items for category ${category.id}:`, err);
+            }
+          }
+          
+          // Then delete all the categories
+          await db.delete(menuCategories).where(eq(menuCategories.menuId, id));
+          console.log(`Deleted all categories for menu ${id}`);
+        }
+      } catch (err) {
+        console.error(`Error handling categories for menu ${id}:`, err);
+      }
+      
+      // Finally delete the menu itself
+      console.log(`Deleting menu with id: ${id}`);
       const result = await db.delete(menus).where(eq(menus.id, id)).returning();
+      
+      // Also remove from memory storage to keep things in sync
+      this.menusMap.delete(id);
+      
+      console.log(`Menu deletion result:`, result);
       return result.length > 0;
     } catch (error) {
       console.error("Error deleting menu:", error);

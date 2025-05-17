@@ -160,14 +160,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/menus/:id', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
-      const result = await storage.deleteMenu(id);
+      console.log(`API Request: Deleting menu with ID: ${id}`);
       
-      if (!result) {
+      // First check if the menu exists
+      const menu = await storage.getMenu(id);
+      if (!menu) {
+        console.log(`API Error: Menu with ID ${id} not found`);
         return res.status(404).json({ error: "Menu not found" });
       }
       
-      res.status(204).send();
+      // Get all categories for this menu so we can delete them first
+      const categories = await storage.getMenuCategories(id);
+      if (categories.length > 0) {
+        console.log(`Found ${categories.length} categories to delete for menu ${id}`);
+        
+        // Delete each category (which will also delete its items)
+        for (const category of categories) {
+          await storage.deleteMenuCategory(category.id);
+          console.log(`Deleted category ${category.id} from menu ${id}`);
+        }
+      }
+      
+      // Now delete the menu itself
+      const result = await storage.deleteMenu(id);
+      
+      if (!result) {
+        console.log(`API Error: Failed to delete menu with ID ${id}`);
+        return res.status(500).json({ error: "Failed to delete the menu" });
+      }
+      
+      console.log(`API Success: Menu with ID ${id} deleted successfully`);
+      return res.status(200).json({ 
+        success: true, 
+        message: "Menu deleted successfully",
+        menuId: id
+      });
     } catch (error) {
+      console.error(`API Error: Exception when deleting menu:`, error);
       res.status(500).json({ error: "Failed to delete menu" });
     }
   });

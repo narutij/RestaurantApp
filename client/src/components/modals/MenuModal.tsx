@@ -110,8 +110,22 @@ export function MenuModal({
       apiRequest(`/api/menus/${id}`, {
         method: 'DELETE'
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/menus', restaurant?.id] });
+    onSuccess: (data) => {
+      console.log(`Delete menu success!`, data);
+      // Invalidate all relevant cache entries
+      queryClient.invalidateQueries({ queryKey: ['/api/menus'] });
+      
+      // Also invalidate restaurant-specific menu queries
+      if (restaurant?.id) {
+        queryClient.invalidateQueries({ queryKey: ['/api/menus', restaurant.id] });
+      }
+      
+      // Also invalidate menu categories that might have been associated with this menu
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-categories'] });
+      
+      // And invalidate all menu items to be safe
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+      
       setDeleteDialogOpen(false);
       setMenuToDelete(null);
       toast({
@@ -120,6 +134,7 @@ export function MenuModal({
       });
     },
     onError: (error) => {
+      console.error("Error deleting menu:", error);
       toast({
         title: "Error Deleting Menu",
         description: "There was an error deleting your menu. Please try again.",
