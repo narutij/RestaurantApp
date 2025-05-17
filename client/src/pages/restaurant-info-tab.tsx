@@ -1,9 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Palette, 
   Store, 
@@ -11,21 +14,31 @@ import {
   Grid2X2, 
   LogOut,
   Camera,
-  Edit
+  Edit,
+  Loader2
 } from 'lucide-react';
 
+// Type for user profile
+type UserProfile = {
+  id: number;
+  name: string;
+  role: string;
+  avatarUrl: string | null;
+};
+
 export default function RestaurantInfoTab() {
-  // User state for profile information
-  const [user, setUser] = useState({
-    name: "John Doe",
-    role: "Restaurant Manager",
-    avatar: "" // Empty for now, will use fallback
-  });
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Profile editing state
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  const [editedUser, setEditedUser] = useState({ ...user });
-  const [previewUrl, setPreviewUrl] = useState(user.avatar);
+  const [editedUser, setEditedUser] = useState({
+    name: "",
+    role: "",
+    avatar: ""
+  });
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Navigation options
@@ -36,27 +49,80 @@ export default function RestaurantInfoTab() {
     { icon: <Grid2X2 className="mr-2 h-5 w-5" />, label: "Table Layouts", href: "#tables" },
   ];
 
+  // Fetch user profile
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['/api/user-profile'],
+    queryFn: async () => {
+      try {
+        const data = await apiRequest('/api/user-profile');
+        return data as UserProfile;
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        // Return default profile if none exists yet
+        return {
+          id: 1,
+          name: "John Doe",
+          role: "Restaurant Manager",
+          avatarUrl: null
+        } as UserProfile;
+      }
+    }
+  });
+
+  // Update user profile mutation
+  const { mutate: updateProfile, isPending: isUpdatingProfile } = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await apiRequest('/api/user-profile', {
+        method: 'POST',
+        body: formData,
+      });
+      return response as UserProfile;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
+      setIsProfileDialogOpen(false);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Update failed",
+        description: "There was a problem updating your profile",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleLogout = () => {
     // In a real app, this would call a logout function
     console.log("Logout clicked");
   };
   
   const handleProfileClick = () => {
-    setEditedUser({ ...user });
-    setPreviewUrl(user.avatar);
-    setIsProfileDialogOpen(true);
+    if (profile) {
+      setEditedUser({
+        name: profile.name,
+        role: profile.role,
+        avatar: profile.avatarUrl || ""
+      });
+      setPreviewUrl(profile.avatarUrl || "");
+      setIsProfileDialogOpen(true);
+    }
   };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Save the file for later upload
+    setSelectedFile(file);
+    
     // Create a preview URL for the selected image
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
-    
-    // In a full implementation, we would handle the file upload to a server
-    // and update the editedUser.avatar with the file path or URL
   };
   
   const triggerFileInput = () => {
@@ -73,51 +139,59 @@ export default function RestaurantInfoTab() {
   
   const saveProfile = async () => {
     try {
-      // In a real app, this would send the data to a server API
-      // Example:
-      // const response = await fetch('/api/user/profile', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(editedUser)
-      // });
+      // Create FormData for multipart/form-data request (file upload)
+      const formData = new FormData();
+      formData.append('name', editedUser.name);
+      formData.append('role', editedUser.role);
       
-      // For now, we'll just update our local state
-      console.log('Saving profile:', editedUser);
-      setUser({
-        ...editedUser,
-        avatar: previewUrl // In a real app, this would be the URL from the server
-      });
+      // Only append file if a new one was selected
+      if (selectedFile) {
+        formData.append('avatar', selectedFile);
+      }
       
-      setIsProfileDialogOpen(false);
+      // Use the mutation to update profile
+      updateProfile(formData);
     } catch (error) {
       console.error('Error saving profile:', error);
+      toast({
+        title: "Update failed",
+        description: "There was a problem updating your profile",
+        variant: "destructive",
+      });
     }
   };
 
   return (
     <div className="p-4 flex flex-col min-h-[calc(100vh-70px)]">
       {/* User avatar block as a button - horizontal layout */}
-      <Button 
-        variant="ghost" 
-        className="flex items-center justify-start w-full h-auto p-4 mb-8 mt-4 hover:bg-slate-100 rounded-lg"
-        onClick={handleProfileClick}
-      >
-        <div className="relative">
-          <Avatar className="h-16 w-16">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-              {user.name.split(' ').map(n => n[0]).join('')}
-            </AvatarFallback>
-          </Avatar>
-          <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1">
-            <Edit className="h-3 w-3" />
+      {isLoadingProfile ? (
+        <div className="flex items-center justify-center my-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <Button 
+          variant="ghost" 
+          className="flex items-center justify-start w-full h-auto p-4 mb-8 mt-4 hover:bg-slate-100 rounded-lg"
+          onClick={handleProfileClick}
+          disabled={isLoadingProfile}
+        >
+          <div className="relative">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={profile?.avatarUrl || ""} alt={profile?.name || "User"} />
+              <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                {profile?.name.split(' ').map(n => n[0]).join('') || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1">
+              <Edit className="h-3 w-3" />
+            </div>
           </div>
-        </div>
-        <div className="ml-4 text-left">
-          <h2 className="text-xl font-semibold">{user.name}</h2>
-          <p className="text-muted-foreground text-sm">{user.role}</p>
-        </div>
-      </Button>
+          <div className="ml-4 text-left">
+            <h2 className="text-xl font-semibold">{profile?.name}</h2>
+            <p className="text-muted-foreground text-sm">{profile?.role}</p>
+          </div>
+        </Button>
+      )}
       
       {/* Profile Edit Dialog */}
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
@@ -132,7 +206,7 @@ export default function RestaurantInfoTab() {
               <Avatar className="h-24 w-24 cursor-pointer" onClick={triggerFileInput}>
                 <AvatarImage src={previewUrl} alt={editedUser.name} />
                 <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                  {editedUser.name.split(' ').map(n => n[0]).join('')}
+                  {editedUser.name.split(' ').map(n => n[0]).join('') || "U"}
                 </AvatarFallback>
               </Avatar>
               
@@ -180,11 +254,21 @@ export default function RestaurantInfoTab() {
               type="button" 
               variant="outline" 
               onClick={() => setIsProfileDialogOpen(false)}
+              disabled={isUpdatingProfile}
             >
               Cancel
             </Button>
-            <Button type="button" onClick={saveProfile}>
-              Save Changes
+            <Button 
+              type="button" 
+              onClick={saveProfile}
+              disabled={isUpdatingProfile}
+            >
+              {isUpdatingProfile ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

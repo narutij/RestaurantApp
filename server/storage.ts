@@ -339,6 +339,59 @@ export class MemStorage implements IStorage {
 
     return this.createDayTemplate(newDayConfig);
   }
+  
+  // User Profile methods
+  async getUserProfile(id: number): Promise<UserProfile | undefined> {
+    // For database implementation, we would use:
+    // const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
+    // return profiles.length > 0 ? profiles[0] : undefined;
+    
+    // For memory storage implementation:
+    return this.userProfilesMap.get(id);
+  }
+  
+  async createUserProfile(profile: UserProfileData): Promise<UserProfile> {
+    // For database implementation, we would use:
+    // const [newProfile] = await db.insert(userProfiles).values(profile).returning();
+    // return newProfile;
+    
+    // For memory storage implementation:
+    const id = this.currentUserProfileId++;
+    const newProfile: UserProfile = {
+      ...profile,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.userProfilesMap.set(id, newProfile);
+    return newProfile;
+  }
+  
+  async updateUserProfile(id: number, profile: Partial<UserProfileData>): Promise<UserProfile | undefined> {
+    // For database implementation, we would use:
+    // const updatedProfile = { ...profile, updatedAt: new Date() };
+    // const results = await db
+    //   .update(userProfiles)
+    //   .set(updatedProfile)
+    //   .where(eq(userProfiles.id, id))
+    //   .returning();
+    // return results.length > 0 ? results[0] : undefined;
+    
+    // For memory storage implementation:
+    const existingProfile = this.userProfilesMap.get(id);
+    if (!existingProfile) {
+      return undefined;
+    }
+    
+    const updatedProfile: UserProfile = {
+      ...existingProfile,
+      ...profile,
+      updatedAt: new Date()
+    };
+    
+    this.userProfilesMap.set(id, updatedProfile);
+    return updatedProfile;
+  }
 }
 
 export const storage = new MemStorage();
