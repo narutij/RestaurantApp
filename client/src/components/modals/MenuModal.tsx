@@ -34,6 +34,12 @@ export function MenuModal({
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  
+  // Function to open the category modal for editing
+  const openEditCategoryModal = (categoryId: number) => {
+    setEditingCategoryId(categoryId);
+    setCategoryModalOpen(true);
+  };
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -272,7 +278,10 @@ export function MenuModal({
                     <AccordionContent>
                       <CategoryList 
                       menuId={selectedMenu.id} 
-                      onEditCategory={openEditCategoryModal} 
+                      onEditCategory={(categoryId) => {
+                        setEditingCategoryId(categoryId);
+                        setCategoryModalOpen(true);
+                      }} 
                     />
                     </AccordionContent>
                   </AccordionItem>
@@ -634,10 +643,7 @@ function CategoryList({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => {
-                    setEditingCategoryId(category.id);
-                    setCategoryModalOpen(true);
-                  }}
+                  onClick={() => onEditCategory(category.id)}
                 >
                   <Edit className="h-3 w-3 mr-1" />
                   Edit
