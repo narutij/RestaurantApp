@@ -175,23 +175,23 @@ export default function RestaurantInfoTab() {
       ) : (
         <Button 
           variant="ghost" 
-          className="flex items-center justify-start w-full h-auto p-4 mb-8 mt-4 hover:bg-slate-100 rounded-lg"
+          className="flex items-center justify-start w-full h-auto p-4 mb-4 mt-2 hover:bg-slate-100 rounded-lg"
           onClick={handleProfileClick}
           disabled={isLoadingProfile}
         >
           <div className="relative">
-            <Avatar className="h-16 w-16">
+            <Avatar className="h-14 w-14">
               <AvatarImage 
                 src={profile?.avatarUrl || ""} 
                 alt={profile?.name || "User"} 
                 className="object-cover"
               />
-              <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+              <AvatarFallback className="text-lg bg-primary text-primary-foreground">
                 {profile?.name.split(' ').map(n => n[0]).join('') || "U"}
               </AvatarFallback>
             </Avatar>
             <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1">
-              <Edit className="h-3 w-3" />
+              <Edit className="h-2.5 w-2.5" />
             </div>
           </div>
           <div className="ml-4 text-left">
