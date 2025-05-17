@@ -6,9 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 
 import AppLayout from "./components/AppLayout";
-import RestaurantInfoTab from "./pages/restaurant-info-tab";
+import RestaurantInfoTab from "./pages/restaurant-tab";
 import WorkdayTab from "./pages/workday-tab";
-import OrderTab from "./pages/order-tab";
+import OrderTab from "./pages/orders-tab";
 import KitchenTab from "./pages/kitchen-tab";
 import NotFound from "@/pages/not-found";
 

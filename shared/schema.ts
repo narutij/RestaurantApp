@@ -42,7 +42,7 @@ export const orders = pgTable("orders", {
   tableId: integer("table_id").notNull(),
   menuItemId: integer("menu_item_id").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
-  completed: boolean("completed").default(false),
+  completed: boolean("completed").notNull().default(false),
   price: doublePrecision("price").notNull(),
 });
 

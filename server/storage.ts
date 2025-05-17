@@ -166,7 +166,12 @@ export class MemStorage implements IStorage {
 
   async createTable(table: InsertTable): Promise<Table> {
     const id = this.currentTableId++;
-    const newTable: Table = { ...table, id };
+    const newTable: Table = { 
+      ...table, 
+      id,
+      isActive: table.isActive ?? false,
+      activatedAt: table.activatedAt ?? null
+    };
     this.tablesMap.set(id, newTable);
     return newTable;
   }
@@ -253,7 +258,12 @@ export class MemStorage implements IStorage {
 
   async createOrder(order: InsertOrder): Promise<Order> {
     const id = this.currentOrderId++;
-    const newOrder: Order = { ...order, id };
+    const newOrder: Order = { 
+      ...order, 
+      id,
+      timestamp: order.timestamp || new Date(),
+      completed: order.completed ?? false
+    };
     this.ordersMap.set(id, newOrder);
     return newOrder;
   }
@@ -303,7 +313,13 @@ export class MemStorage implements IStorage {
 
   async createDayTemplate(template: InsertDayTemplate): Promise<DayTemplate> {
     const id = this.currentDayTemplateId++;
-    const dayTemplate: DayTemplate = { ...template, id };
+    const dayTemplate: DayTemplate = { 
+      ...template, 
+      id,
+      tables: template.tables || null,
+      menuItems: template.menuItems || null,
+      isTemplate: template.isTemplate ?? null
+    };
     this.dayTemplatesMap.set(id, dayTemplate);
     return dayTemplate;
   }
