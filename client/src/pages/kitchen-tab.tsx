@@ -111,7 +111,9 @@ export default function KitchenTab() {
             <Card key={tableData.tableId} className="overflow-hidden">
               <CardHeader className="bg-slate-800 text-white p-3 font-medium flex items-center justify-between">
                 <span>Table {tableData.tableNumber} - {tableData.tableLabel}</span>
-                <span className="text-sm">Active for {getActiveTime(tableData.activeSince)}</span>
+                <span className="text-sm">
+                  {tableData.activeSince ? `Active for ${getActiveTime(tableData.activeSince)}` : 'Active'}
+                </span>
               </CardHeader>
               
               <CardContent className="p-0">

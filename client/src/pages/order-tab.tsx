@@ -35,6 +35,11 @@ export default function OrderTab() {
         queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
         queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
         
+        // If active table has orders, refresh them
+        if (activeTableId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/tables', activeTableId, 'orders'] });
+        }
+        
         // Show toast notification for new orders
         const order = message.payload as OrderWithDetails;
         setToastMessage(`New order added: ${order.menuItemName} to Table ${order.tableNumber}`);
@@ -50,7 +55,7 @@ export default function OrderTab() {
     });
     
     return () => removeListener();
-  }, [addMessageListener, queryClient]);
+  }, [addMessageListener, queryClient, activeTableId]);
 
   // Get active tables with their orders
   const activeTable = tables.find(table => table.id === activeTableId);
@@ -89,7 +94,12 @@ export default function OrderTab() {
         completed: false
       }),
     onSuccess: () => {
+      // Refresh the table's orders
       queryClient.invalidateQueries({ queryKey: ['/api/tables', activeTableId, 'orders'] });
+      
+      // Also refresh kitchen view orders
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/new'] });
     }
   });
 
@@ -100,6 +110,15 @@ export default function OrderTab() {
     } else {
       activateTableMutation.mutate(tableId);
       setActiveTableId(tableId);
+      
+      // Show toast notification for table activation
+      setToastMessage(`Table ${tables.find(t => t.id === tableId)?.number || tableId} activated`);
+      setShowToast(true);
+      
+      // Hide toast after 3 seconds
+      setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
     }
   };
 
@@ -164,11 +183,9 @@ export default function OrderTab() {
         <div className="mb-6">
           <div className="bg-slate-200 p-3 rounded-t-lg font-medium flex items-center">
             <span>Table {activeTable.number} - {activeTable.label}</span>
-            {activeTable.activatedAt && (
-              <span className="ml-auto text-sm text-slate-500">
-                Active for {getActiveTime(activeTable.activatedAt)}
-              </span>
-            )}
+            <span className="ml-auto text-sm text-slate-500">
+              {activeTable.activatedAt ? `Active for ${getActiveTime(activeTable.activatedAt)}` : 'Active'}
+            </span>
           </div>
           
           <Card className="rounded-t-none shadow border-t-0">
