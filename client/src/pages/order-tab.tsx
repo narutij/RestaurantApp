@@ -64,23 +64,25 @@ export default function OrderTab() {
   const { data: tableOrders = [] } = useQuery<OrderWithDetails[]>({
     queryKey: ['/api/tables', activeTableId, 'orders'],
     enabled: activeTableId !== null,
+    // Refetch at regular intervals to keep orders up to date
+    refetchInterval: 2000
   });
 
   // Mutations for table activation and orders
   const activateTableMutation = useMutation({
-    mutationFn: (id: number) => 
-      apiRequest('POST', `/api/tables/${id}/activate`),
+    mutationFn: (tableId: number) => 
+      apiRequest(`/api/tables/${tableId}/activate`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
     }
   });
   
   const deactivateTableMutation = useMutation({
-    mutationFn: (id: number) => 
-      apiRequest('POST', `/api/tables/${id}/deactivate`),
-    onSuccess: () => {
+    mutationFn: (tableId: number) => 
+      apiRequest(`/api/tables/${tableId}/deactivate`, { method: 'POST' }),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
-      if (activeTableId === id) {
+      if (activeTableId === variables) {
         setActiveTableId(null);
       }
     }
@@ -99,9 +101,12 @@ export default function OrderTab() {
       // Refresh the table's orders
       queryClient.invalidateQueries({ queryKey: ['/api/tables', activeTableId, 'orders'] });
       
-      // Also refresh kitchen view orders
+      // Also refresh kitchen view orders and table orders
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/new'] });
+      
+      // Force a refetch of the current table's orders immediately
+      queryClient.invalidateQueries({ queryKey: ['/api/tables', activeTableId, 'orders'] });
     },
     onError: (error) => {
       console.error('Failed to add order:', error);
