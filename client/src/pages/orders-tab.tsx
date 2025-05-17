@@ -267,11 +267,6 @@ export default function OrderTab() {
           </CardContent>
         </Card>
       )}
-
-      {/* Toast Notification */}
-      {showToast && (
-        <ToastNotification message={toastMessage} onClose={() => setShowToast(false)} />
-      )}
     </div>
   );
 }

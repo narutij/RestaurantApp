@@ -11,7 +11,6 @@ import { apiRequest } from '@/lib/queryClient';
 export default function KitchenTab() {
   const queryClient = useQueryClient();
   const { addMessageListener, sendMessage } = useWebSocket();
-  const [newOrderIds, setNewOrderIds] = useState<number[]>([]);
 
   // Fetch active orders
   const { data: orders = [] } = useQuery<OrderWithDetails[]>({
@@ -24,10 +23,6 @@ export default function KitchenTab() {
       if (message.type === 'NEW_ORDER' && typeof message.payload === 'object') {
         // Invalidate queries to get fresh data
         queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-        
-        // Add to new orders list
-        const order = message.payload as OrderWithDetails;
-        setNewOrderIds(prev => [...prev, order.id]);
       } else if (message.type === 'COMPLETE_ORDER') {
         queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       }
@@ -48,8 +43,6 @@ export default function KitchenTab() {
   // Handle marking an order as complete
   const handleMarkComplete = (orderId: number) => {
     completeOrderMutation.mutate(orderId);
-    // Also remove from new orders list
-    setNewOrderIds(prev => prev.filter(id => id !== orderId));
   };
 
   // Group orders by table
@@ -80,8 +73,7 @@ export default function KitchenTab() {
     table.orders.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   });
 
-  // Count new/uncompleted orders
-  const newOrdersCount = orders.filter(order => !order.completed).length;
+
 
   return (
     <div className="p-4">
@@ -109,7 +101,7 @@ export default function KitchenTab() {
                   {tableData.orders.map((order) => (
                     <div 
                       key={order.id} 
-                      className={`p-4 flex items-center relative ${newOrderIds.includes(order.id) ? 'appear-animation' : ''}`}
+                      className="p-4 flex items-center relative"
                     >
                       {!order.completed && (
                         <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-warning rounded-full"></div>
@@ -122,9 +114,6 @@ export default function KitchenTab() {
                           Added at {formatTime(order.timestamp)} ({getActiveTime(order.timestamp)} ago)
                         </div>
                       </div>
-                      {newOrderIds.includes(order.id) && !order.completed && (
-                        <div className="notification-dot"></div>
-                      )}
                       <Button 
                         variant="outline"
                         size="icon"
