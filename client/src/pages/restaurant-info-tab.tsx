@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -14,7 +14,8 @@ import {
   Grid2X2, 
   LogOut,
   Edit,
-  Loader2
+  Loader2,
+  Camera
 } from 'lucide-react';
 
 // Type for user profile
@@ -34,8 +35,12 @@ export default function RestaurantInfoTab() {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [editedUser, setEditedUser] = useState({
     name: "",
-    role: ""
+    role: "",
+    avatar: ""
   });
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Navigation options
   const options = [
@@ -76,10 +81,28 @@ export default function RestaurantInfoTab() {
     if (profile) {
       setEditedUser({
         name: profile.name,
-        role: profile.role
+        role: profile.role,
+        avatar: profile.avatarUrl || ""
       });
+      setPreviewUrl(profile.avatarUrl || "");
       setIsProfileDialogOpen(true);
     }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Save the file for later upload
+    setSelectedFile(file);
+    
+    // Create a preview URL for the selected image
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+  };
+  
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
   
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,18 +113,20 @@ export default function RestaurantInfoTab() {
     setEditedUser({ ...editedUser, role: e.target.value });
   };
 
-  // Function to update the profile with simplified data
+  // Function to update the profile with the profile picture
   const saveProfile = async () => {
     try {
       setIsUpdatingProfile(true);
       
-      // Use apiRequest with the simplified data structure
+      const avatarUrl = selectedFile ? previewUrl : (profile?.avatarUrl || null);
+      
+      // Use apiRequest with profile picture
       const updatedProfile = await apiRequest('/api/user-profile', {
         method: 'POST',
         body: {
           name: editedUser.name,
           role: editedUser.role,
-          avatarUrl: null // Set avatarUrl to null for simplicity
+          avatarUrl: avatarUrl
         }
       });
       
@@ -116,7 +141,8 @@ export default function RestaurantInfoTab() {
         queryClient.setQueryData(['/api/user-profile'], {
           ...profile,
           name: editedUser.name,
-          role: editedUser.role
+          role: editedUser.role,
+          avatarUrl: avatarUrl
         });
       }
       
@@ -155,6 +181,7 @@ export default function RestaurantInfoTab() {
         >
           <div className="relative">
             <Avatar className="h-16 w-16">
+              <AvatarImage src={profile?.avatarUrl || ""} alt={profile?.name || "User"} />
               <AvatarFallback className="text-xl bg-primary text-primary-foreground">
                 {profile?.name.split(' ').map(n => n[0]).join('') || "U"}
               </AvatarFallback>
@@ -170,7 +197,7 @@ export default function RestaurantInfoTab() {
         </Button>
       )}
       
-      {/* Profile Edit Dialog - Simplified Version */}
+      {/* Profile Edit Dialog with Avatar */}
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -181,6 +208,35 @@ export default function RestaurantInfoTab() {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
+            {/* Avatar with change option */}
+            <div className="flex flex-col items-center justify-center gap-2">
+              <Avatar className="h-24 w-24 cursor-pointer" onClick={triggerFileInput}>
+                <AvatarImage src={previewUrl} alt={editedUser.name} />
+                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                  {editedUser.name.split(' ').map(n => n[0]).join('') || "U"}
+                </AvatarFallback>
+              </Avatar>
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileChange}
+              />
+              
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={triggerFileInput}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Change Picture
+              </Button>
+            </div>
+            
             <div className="grid gap-2">
               <Label htmlFor="name">Name</Label>
               <Input 
