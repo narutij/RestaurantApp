@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { ThemeSwitch } from "@/components/ThemeToggle";
 import { 
   Palette, 
   Store, 
@@ -291,7 +292,21 @@ export default function RestaurantInfoTab() {
       
       {/* Option buttons - reduced spacing */}
       <div className="space-y-1">
-        {options.map((option, index) => (
+        {/* App Theme with toggle */}
+        <div className="flex items-center justify-between w-full px-3 py-3 hover:bg-slate-100 rounded-lg">
+          <Button 
+            variant="ghost" 
+            className="flex-1 justify-start text-base py-3"
+            onClick={() => console.log(`Clicked: ${options[0].label}`)}
+          >
+            {options[0].icon}
+            {options[0].label}
+          </Button>
+          <ThemeSwitch />
+        </div>
+        
+        {/* Other options */}
+        {options.slice(1).map((option, index) => (
           <Button 
             key={index} 
             variant="ghost" 
