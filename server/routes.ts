@@ -464,12 +464,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Profile API endpoints
   app.get('/api/user-profile', async (req: Request, res: Response) => {
     try {
-      const profile = await storage.getUserProfile(1); // For now, we're using a fixed ID
-      if (!profile) {
-        return res.status(404).json({ error: "Profile not found" });
+      // Use the simple file-based profile manager
+      const profileManager = require('./simple-profile');
+      
+      // Get the profile directly from file
+      const profile = profileManager.getProfileById(1);
+      
+      if (profile) {
+        res.json(profile);
+      } else {
+        // Return default profile if none exists
+        res.json({
+          id: 1,
+          name: "John Doe",
+          role: "Restaurant Manager",
+          avatarUrl: null
+        });
       }
-      res.json(profile);
     } catch (error) {
+      console.error('Error fetching user profile:', error);
       res.status(500).json({ error: "Failed to fetch user profile" });
     }
   });
@@ -484,6 +497,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name and role are required" });
       }
       
+      // Use the simple file-based profile manager
+      const profileManager = require('./simple-profile');
+      
       const profileData = {
         name,
         role,
@@ -492,28 +508,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Updating profile with data:', profileData);
       
-      // Try to update first, if not found, create new profile
-      let profile = await storage.getUserProfile(1);
-      if (profile) {
-        profile = await storage.updateUserProfile(1, profileData);
-      } else {
-        profile = await storage.createUserProfile(profileData);
-      }
+      // Update the profile in the file
+      const updatedProfile = profileManager.updateProfile(1, profileData);
       
-      if (!profile) {
-        throw new Error("Failed to update or create profile");
-      }
+      console.log('Updated profile:', updatedProfile);
       
-      console.log('Updated profile:', profile);
-      
-      // Return the full updated profile
-      res.json({
-        id: profile.id,
-        name: profile.name,
-        role: profile.role,
-        avatarUrl: profile.avatarUrl,
-        success: true
-      });
+      // Return the updated profile directly from the file
+      res.json(updatedProfile);
     } catch (error) {
       console.error('Error updating profile:', error);
       res.status(500).json({ error: "Failed to update user profile" });
