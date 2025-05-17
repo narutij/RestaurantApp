@@ -27,6 +27,7 @@ export interface IStorage {
   getRestaurant(id: number): Promise<Restaurant | undefined>;
   createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
   updateRestaurant(id: number, restaurant: Partial<InsertRestaurant>): Promise<Restaurant | undefined>;
+  deleteRestaurant(id: number): Promise<boolean>;
   
   // Menu Items
   getMenuItems(): Promise<MenuItem[]>;
@@ -546,6 +547,27 @@ export class MemStorage implements IStorage {
       
       this.restaurantsMap.set(id, updatedRestaurant);
       return updatedRestaurant;
+    }
+  }
+  
+  async deleteRestaurant(id: number): Promise<boolean> {
+    try {
+      // For database implementation
+      const result = await db
+        .delete(restaurants)
+        .where(eq(restaurants.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting restaurant:", error);
+      
+      // Fallback to memory storage implementation
+      const exists = this.restaurantsMap.has(id);
+      if (exists) {
+        this.restaurantsMap.delete(id);
+      }
+      return exists;
     }
   }
 }

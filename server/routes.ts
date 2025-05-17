@@ -523,6 +523,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  app.delete('/api/restaurants/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const success = await storage.deleteRestaurant(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Error deleting restaurant:', error);
+      res.status(500).json({ error: "Failed to delete restaurant" });
+    }
+  });
+  
   // User Profile API endpoints
   app.get('/api/user-profile', async (req: Request, res: Response) => {
     try {

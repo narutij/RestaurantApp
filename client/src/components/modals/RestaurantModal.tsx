@@ -9,12 +9,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Trash2 } from "lucide-react";
 
 type RestaurantModalProps = {
   open: boolean;
@@ -32,6 +44,8 @@ export function RestaurantModal({
   const [createMode, setCreateMode] = useState(false);
   const [newRestaurantName, setNewRestaurantName] = useState("");
   const [newRestaurantAddress, setNewRestaurantAddress] = useState("");
+  const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
