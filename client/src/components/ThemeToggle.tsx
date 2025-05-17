@@ -31,7 +31,7 @@ export function ThemeSwitch() {
   
   return (
     <div className="flex items-center space-x-2">
-      <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input cursor-pointer"
+      <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 bg-primary cursor-pointer"
            data-state={theme === "dark" ? "checked" : "unchecked"}
            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       >
