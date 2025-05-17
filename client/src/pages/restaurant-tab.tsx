@@ -67,6 +67,16 @@ export default function RestaurantTab() {
     }
     setSelectedDate(newDate);
   };
+  
+  // Format date for display
+  const formatDisplayDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
 
   // Fetch menu items and tables
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
@@ -86,8 +96,12 @@ export default function RestaurantTab() {
     queryKey: ['/api/day-templates/templates'],
   });
   
-  // Get current day template
-  const { data: currentDayTemplate, isLoading: isLoadingDayTemplate } = useQuery<DayTemplate>({
+  // Get template for the selected date
+  const { 
+    data: currentDayTemplate, 
+    isLoading: isLoadingDayTemplate,
+    isError: isDayTemplateError
+  } = useQuery<DayTemplate>({
     queryKey: ['/api/day-templates/date', selectedDate?.toISOString().split('T')[0]],
     queryFn: async () => {
       if (!selectedDate) return null;
@@ -300,13 +314,34 @@ export default function RestaurantTab() {
 
   // Handle creating a new template for the current day
   const handleCreateNewTemplate = () => {
+    setNewDayDialogOpen(false);
     setEditingTemplate(null);
+    const templateData = {
+      name: `Config for ${selectedDate.toLocaleDateString()}`,
+      date: selectedDate,
+      isTemplate: false
+    };
+    // Initialize with empty template for the current day
+    setEditingTemplate({
+      id: 0,
+      name: templateData.name,
+      date: selectedDate.toISOString().split('T')[0],
+      tables: [],
+      menuItems: [],
+      isTemplate: false
+    });
     setTemplateMode('create');
     setTemplateModalOpen(true);
   };
 
+  // Handle starting a new day
+  const handleStartNewDay = () => {
+    setNewDayDialogOpen(true);
+  };
+
   // Handle choosing a template for the current day
   const handleUseTemplate = () => {
+    setNewDayDialogOpen(false);
     setTemplateSelectionOpen(true);
   };
 
