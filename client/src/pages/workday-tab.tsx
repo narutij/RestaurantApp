@@ -38,7 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function RestaurantTab() {
+export default function WorkdayTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [menuModalOpen, setMenuModalOpen] = useState(false);
