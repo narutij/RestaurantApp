@@ -386,30 +386,6 @@ export default function RestaurantTab() {
         selectedRestaurantId={selectedRestaurantId}
         onSelectRestaurant={handleSelectRestaurant}
       />
-
-      {/* Restaurant Management Tabs */}
-      <div className="flex gap-3 mb-6">
-        <Button 
-          variant="outline" 
-          onClick={() => setRestaurantModalOpen(true)}
-          className="flex-1"
-        >
-          <Store className="h-4 w-4 mr-2" />
-          Restaurants
-        </Button>
-        <Button 
-          variant="outline"
-          className="flex-1"
-        >
-          Menus
-        </Button>
-        <Button 
-          variant="outline"
-          className="flex-1"
-        >
-          Table Layouts
-        </Button>
-      </div>
       
       {/* Day Selection Header */}
       <div className="flex items-center justify-between mb-6 mt-6">
