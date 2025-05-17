@@ -444,6 +444,92 @@ export class MemStorage implements IStorage {
       return updatedProfile;
     }
   }
+
+  // Restaurant Methods
+  async getRestaurants(): Promise<Restaurant[]> {
+    try {
+      // For database implementation
+      const results = await db.select().from(restaurants);
+      return results;
+    } catch (error) {
+      console.error("Error getting restaurants:", error);
+      
+      // Fallback to memory storage implementation
+      return Array.from(this.restaurantsMap.values());
+    }
+  }
+
+  async getRestaurant(id: number): Promise<Restaurant | undefined> {
+    try {
+      // For database implementation
+      const [result] = await db.select().from(restaurants).where(eq(restaurants.id, id));
+      return result;
+    } catch (error) {
+      console.error("Error getting restaurant:", error);
+      
+      // Fallback to memory storage implementation
+      return this.restaurantsMap.get(id);
+    }
+  }
+
+  async createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant> {
+    try {
+      // For database implementation
+      const [newRestaurant] = await db.insert(restaurants).values(restaurant).returning();
+      return newRestaurant;
+    } catch (error) {
+      console.error("Error creating restaurant:", error);
+      
+      // Fallback to memory storage implementation
+      const id = this.currentRestaurantId++;
+      const now = new Date();
+      const newRestaurant: Restaurant = {
+        ...restaurant,
+        id,
+        createdAt: now,
+        updatedAt: now
+      };
+      this.restaurantsMap.set(id, newRestaurant);
+      return newRestaurant;
+    }
+  }
+
+  async updateRestaurant(id: number, restaurant: Partial<InsertRestaurant>): Promise<Restaurant | undefined> {
+    try {
+      // For database implementation
+      const data: any = {
+        updated_at: new Date()
+      };
+      
+      if (restaurant.name !== undefined) data.name = restaurant.name;
+      if (restaurant.address !== undefined) data.address = restaurant.address;
+      
+      const [updatedRestaurant] = await db
+        .update(restaurants)
+        .set(data)
+        .where(eq(restaurants.id, id))
+        .returning();
+      
+      return updatedRestaurant;
+    } catch (error) {
+      console.error("Error updating restaurant:", error);
+      
+      // Fallback to memory storage implementation
+      const existingRestaurant = this.restaurantsMap.get(id);
+      if (!existingRestaurant) {
+        return undefined;
+      }
+      
+      const updatedRestaurant: Restaurant = {
+        ...existingRestaurant,
+        ...restaurant,
+        updatedAt: new Date()
+      };
+      
+      this.restaurantsMap.set(id, updatedRestaurant);
+      return updatedRestaurant;
+    }
+  }
 }
 
 export const storage = new MemStorage();

@@ -461,6 +461,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve static files from uploads directory
   app.use('/uploads', express.static(uploadDir));
   
+  // Restaurant API endpoints
+  app.get('/api/restaurants', async (req: Request, res: Response) => {
+    try {
+      const restaurants = await storage.getRestaurants();
+      res.json(restaurants);
+    } catch (error) {
+      console.error('Error fetching restaurants:', error);
+      res.status(500).json({ error: "Failed to fetch restaurants" });
+    }
+  });
+  
+  app.get('/api/restaurants/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const restaurant = await storage.getRestaurant(id);
+      
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      res.json(restaurant);
+    } catch (error) {
+      console.error('Error fetching restaurant:', error);
+      res.status(500).json({ error: "Failed to fetch restaurant" });
+    }
+  });
+  
+  app.post('/api/restaurants', async (req: Request, res: Response) => {
+    try {
+      const data = insertRestaurantSchema.parse(req.body);
+      const restaurant = await storage.createRestaurant(data);
+      res.status(201).json(restaurant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Error creating restaurant:', error);
+      res.status(500).json({ error: "Failed to create restaurant" });
+    }
+  });
+  
+  app.put('/api/restaurants/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const data = insertRestaurantSchema.partial().parse(req.body);
+      const restaurant = await storage.updateRestaurant(id, data);
+      
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      res.json(restaurant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Error updating restaurant:', error);
+      res.status(500).json({ error: "Failed to update restaurant" });
+    }
+  });
+  
   // User Profile API endpoints
   app.get('/api/user-profile', async (req: Request, res: Response) => {
     try {
