@@ -50,7 +50,7 @@ export default function RestaurantInfoTab() {
   ];
 
   // Fetch user profile
-  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+  const { data: profile, isLoading: isLoadingProfile, refetch: refetchProfile } = useQuery({
     queryKey: ['/api/user-profile'],
     queryFn: async () => {
       try {
@@ -66,7 +66,8 @@ export default function RestaurantInfoTab() {
           avatarUrl: null
         } as UserProfile;
       }
-    }
+    },
+    refetchOnWindowFocus: true
   });
 
   // Update profile function - simplified approach
@@ -174,8 +175,11 @@ export default function RestaurantInfoTab() {
         throw new Error('Failed to save profile');
       }
       
-      // Refresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
+      // Get the updated profile
+      const updatedProfile = await response.json();
+      
+      // Force a refetch to update the UI
+      await refetchProfile();
       
       // Show success message and close dialog
       toast({
