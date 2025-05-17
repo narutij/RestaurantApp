@@ -374,22 +374,6 @@ export class MemStorage implements IStorage {
       // For database implementation
       const profiles = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
       if (profiles.length > 0) {
-        // Use a direct query to get the avatar_url from the database
-        try {
-          const result = await db.execute(
-            `SELECT avatar_url FROM user_profiles WHERE id = $1`, 
-            [id]
-          );
-          
-          if (result && result.rows && result.rows.length > 0) {
-            // Make sure the avatarUrl is directly taken from the database
-            profiles[0].avatarUrl = result.rows[0].avatar_url;
-            console.log("Successfully retrieved avatar URL from database:", profiles[0].avatarUrl);
-          }
-        } catch (err) {
-          console.error("Error getting avatar URL directly:", err);
-        }
-        
         return profiles[0];
       }
       
@@ -443,6 +427,17 @@ export class MemStorage implements IStorage {
       if (profile.avatarUrl !== undefined) {
         data.avatar_url = profile.avatarUrl;
         console.log("Setting avatar_url in database to:", profile.avatarUrl);
+        
+        // Direct SQL update for avatar to ensure it's saved properly
+        try {
+          await db.execute(
+            'UPDATE user_profiles SET avatar_url = $1 WHERE id = $2',
+            [profile.avatarUrl, id]
+          );
+          console.log("Used direct SQL to update avatar URL");
+        } catch (err) {
+          console.error("Error in direct avatar update:", err);
+        }
       }
       
       // Get the existing profile first to ensure it exists
@@ -451,25 +446,19 @@ export class MemStorage implements IStorage {
         return undefined;
       }
       
-      // Update the profile in the database
-      const results = await db
-        .update(userProfiles)
-        .set(data)
-        .where(eq(userProfiles.id, id))
-        .returning();
+      // Create the return object with up-to-date avatar URL
+      const updatedProfile: UserProfile = {
+        ...existingProfile,
+        name: profile.name !== undefined ? profile.name : existingProfile.name,
+        role: profile.role !== undefined ? profile.role : existingProfile.role,
+        avatarUrl: profile.avatarUrl !== undefined ? profile.avatarUrl : existingProfile.avatarUrl,
+        updatedAt: new Date()
+      };
       
-      // Log the result  
-      console.log("Database update result:", results);
-        
-      if (results.length > 0) {
-        if (profile.avatarUrl) {
-          // Ensure the avatarUrl is properly set in the returned object
-          results[0].avatarUrl = profile.avatarUrl;
-        }
-        return results[0];
-      }
+      // Also update memory storage as fallback
+      this.userProfilesMap.set(id, updatedProfile);
       
-      return undefined;
+      return updatedProfile;
     } catch (error) {
       console.error("Error updating user profile:", error);
       
