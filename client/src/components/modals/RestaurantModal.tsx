@@ -42,9 +42,11 @@ export function RestaurantModal({
   onSelectRestaurant,
 }: RestaurantModalProps) {
   const [createMode, setCreateMode] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [newRestaurantName, setNewRestaurantName] = useState("");
   const [newRestaurantAddress, setNewRestaurantAddress] = useState("");
   const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
+  const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -89,6 +91,36 @@ export function RestaurantModal({
     },
   });
   
+  // Update restaurant mutation
+  const updateRestaurantMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: { name: string; address: string } }) => 
+      apiRequest(`/api/restaurants/${id}`, { method: "PUT", body: data }),
+    onSuccess: (data) => {
+      // Reset edit mode and form
+      setEditMode(false);
+      setRestaurantToEdit(null);
+      setNewRestaurantName("");
+      setNewRestaurantAddress("");
+      
+      // Invalidate the restaurants query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+      
+      // Show success toast
+      toast({
+        title: "Restaurant Updated",
+        description: `${data.name} has been updated successfully.`,
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating restaurant:", error);
+      toast({
+        title: "Failed to Update Restaurant",
+        description: "There was a problem updating the restaurant. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Delete restaurant mutation
   const deleteRestaurantMutation = useMutation({
     mutationFn: (id: number) => 
@@ -135,6 +167,8 @@ export function RestaurantModal({
 
   const handleCancel = () => {
     setCreateMode(false);
+    setEditMode(false);
+    setRestaurantToEdit(null);
     setNewRestaurantName("");
     setNewRestaurantAddress("");
   };
@@ -149,6 +183,33 @@ export function RestaurantModal({
     setDeleteDialogOpen(true);
   };
   
+  const handleEditClick = (e: React.MouseEvent, restaurant: Restaurant) => {
+    e.stopPropagation(); // Prevent restaurant selection
+    setRestaurantToEdit(restaurant);
+    setNewRestaurantName(restaurant.name);
+    setNewRestaurantAddress(restaurant.address);
+    setEditMode(true);
+  };
+  
+  const handleUpdateRestaurant = () => {
+    if (!newRestaurantName.trim() || !newRestaurantAddress.trim() || !restaurantToEdit) {
+      toast({
+        title: "Invalid Input",
+        description: "Restaurant name and address are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateRestaurantMutation.mutate({
+      id: restaurantToEdit.id,
+      data: {
+        name: newRestaurantName.trim(),
+        address: newRestaurantAddress.trim(),
+      }
+    });
+  };
+  
   const confirmDelete = () => {
     if (restaurantToDelete) {
       deleteRestaurantMutation.mutate(restaurantToDelete.id);
@@ -160,15 +221,23 @@ export function RestaurantModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{createMode ? "Create New Restaurant" : "Select Restaurant"}</DialogTitle>
+            <DialogTitle>
+              {createMode 
+                ? "Create New Restaurant" 
+                : editMode 
+                  ? "Edit Restaurant" 
+                  : "Select Restaurant"}
+            </DialogTitle>
             <DialogDescription>
               {createMode 
                 ? "Enter the details for the new restaurant." 
-                : "Choose a restaurant or create a new one."}
+                : editMode
+                  ? "Update the restaurant information."
+                  : "Choose a restaurant or create a new one."}
             </DialogDescription>
           </DialogHeader>
 
-          {createMode ? (
+          {createMode || editMode ? (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="restaurant-name">Restaurant Name</Label>
@@ -201,21 +270,36 @@ export function RestaurantModal({
                     <div key={restaurant.id} className="flex items-center mb-2">
                       <Button
                         variant={selectedRestaurantId === restaurant.id ? "default" : "outline"}
-                        className="w-full justify-start text-left h-auto py-3 pr-12 relative"
+                        className="w-full justify-start text-left h-auto py-3 pr-24 relative"
                         onClick={() => handleRestaurantClick(restaurant)}
                       >
                         <div>
                           <div className="font-medium">{restaurant.name}</div>
                           <div className="text-sm text-muted-foreground">{restaurant.address}</div>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="absolute right-1 p-1 h-8 w-8"
-                          onClick={(e) => handleDeleteClick(e, restaurant)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        <div className="absolute right-1 flex">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="p-1 h-8 w-8 mr-1"
+                            onClick={(e) => handleEditClick(e, restaurant)}
+                            title="Edit restaurant"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+                              <path d="M12 20h9"></path>
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="p-1 h-8 w-8"
+                            onClick={(e) => handleDeleteClick(e, restaurant)}
+                            title="Delete restaurant"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
                       </Button>
                     </div>
                   ))
