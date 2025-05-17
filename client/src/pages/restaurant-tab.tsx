@@ -21,10 +21,12 @@ import {
 import { AddMenuItemModal } from '@/components/modals/AddMenuItemModal';
 import { AddTableModal } from '@/components/modals/AddTableModal';
 import { DayTemplateModal } from '@/components/modals/DayTemplateModal';
+import { RestaurantModal } from '@/components/modals/RestaurantModal';
 import { apiRequest } from '@/lib/queryClient';
-import { Pencil, Trash, ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarFull, SaveAll, Sunrise } from 'lucide-react';
+import { Pencil, Trash, ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarFull, SaveAll, Sunrise, Store } from 'lucide-react';
 import { formatPrice, formatTime } from '@/lib/utils';
-import { type MenuItem, type Table, type DayTemplate } from '@shared/schema';
+import { type MenuItem, type Table, type DayTemplate, type Restaurant } from '@shared/schema';
+import { useToast } from '@/hooks/use-toast';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -38,12 +40,15 @@ import {
 
 export default function RestaurantTab() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [newDayDialogOpen, setNewDayDialogOpen] = useState(false);
   const [templateSelectionOpen, setTemplateSelectionOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<DayTemplate | null>(null);
@@ -78,7 +83,11 @@ export default function RestaurantTab() {
     });
   };
 
-  // Fetch menu items and tables
+  // Fetch restaurants, menu items and tables
+  const { data: restaurants = [] } = useQuery<Restaurant[]>({
+    queryKey: ['/api/restaurants'],
+  });
+
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
     queryKey: ['/api/menu-items'],
   });
@@ -358,10 +367,40 @@ export default function RestaurantTab() {
     return !currentDayTemplate.isTemplate;
   };
 
+  // Handle selecting a restaurant
+  const handleSelectRestaurant = (restaurant: Restaurant) => {
+    setSelectedRestaurant(restaurant);
+    setRestaurantModalOpen(false);
+    toast({
+      title: "Restaurant Selected",
+      description: `${restaurant.name} has been selected.`,
+    });
+  };
+
   return (
     <div className="p-4">
+      {/* Restaurant Selection Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Restaurant Management</h2>
+        <Button 
+          onClick={() => setRestaurantModalOpen(true)}
+          className="bg-primary hover:bg-primary/90 text-white"
+        >
+          <Store className="h-4 w-4 mr-2" />
+          {selectedRestaurant ? selectedRestaurant.name : 'Select Restaurant'}
+        </Button>
+      </div>
+
+      {/* Restaurant Modal */}
+      <RestaurantModal 
+        open={restaurantModalOpen} 
+        onOpenChange={setRestaurantModalOpen}
+        selectedRestaurant={selectedRestaurant}
+        onSelectRestaurant={handleSelectRestaurant}
+      />
+
       {/* Day Selection Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 mt-6">
         <div className="font-semibold text-lg">
           {selectedDate.toLocaleDateString('en-US', { 
             weekday: 'long', 
