@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { ThemeSwitch } from "@/components/ThemeToggle";
+import { RestaurantModal } from "@/components/modals/RestaurantModal";
+import { Restaurant } from "@shared/schema";
 import { 
   Palette, 
   Store, 
@@ -43,10 +45,19 @@ export default function RestaurantInfoTab() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // State for restaurant modal
+  const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
+
   // Navigation options
   const options = [
     { icon: <Palette className="mr-2 h-5 w-5" />, label: "App Theme", href: "#theme" },
-    { icon: <Store className="mr-2 h-5 w-5" />, label: "Restaurants", href: "#restaurants" },
+    { 
+      icon: <Store className="mr-2 h-5 w-5" />, 
+      label: "Restaurants", 
+      href: "#restaurants",
+      action: () => setRestaurantModalOpen(true)
+    },
     { icon: <MenuSquare className="mr-2 h-5 w-5" />, label: "Menus", href: "#menus" },
     { icon: <Grid2X2 className="mr-2 h-5 w-5" />, label: "Table Layouts", href: "#tables" },
   ];
@@ -72,6 +83,16 @@ export default function RestaurantInfoTab() {
     refetchOnWindowFocus: true,
     staleTime: 0
   });
+
+  // Handle selecting a restaurant
+  const handleSelectRestaurant = (restaurant: Restaurant) => {
+    setSelectedRestaurantId(restaurant.id);
+    setRestaurantModalOpen(false);
+    toast({
+      title: "Restaurant Selected",
+      description: `${restaurant.name} has been selected.`,
+    });
+  };
 
   const handleLogout = () => {
     // In a real app, this would call a logout function
@@ -311,7 +332,7 @@ export default function RestaurantInfoTab() {
             key={index} 
             variant="ghost" 
             className="w-full justify-start text-base py-6 hover:bg-slate-200 dark:hover:bg-slate-700"
-            onClick={() => console.log(`Clicked: ${option.label}`)}
+            onClick={() => option.action ? option.action() : console.log(`Clicked: ${option.label}`)}
           >
             {option.icon}
             {option.label}
