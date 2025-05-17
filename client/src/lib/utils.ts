@@ -12,7 +12,10 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
-export function formatTime(date: Date | string): string {
+export function formatTime(date: Date | string | null | undefined): string {
+  if (!date) {
+    return 'just now';
+  }
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   return dateObj.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -21,7 +24,11 @@ export function formatTime(date: Date | string): string {
   });
 }
 
-export function getActiveTime(startTime: Date | string): string {
+export function getActiveTime(startTime: Date | string | null | undefined): string {
+  if (!startTime) {
+    return 'just now';
+  }
+  
   const start = typeof startTime === 'string' ? new Date(startTime) : startTime;
   const now = new Date();
   const diffMs = now.getTime() - start.getTime();

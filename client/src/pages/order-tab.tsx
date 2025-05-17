@@ -103,16 +103,18 @@ export default function OrderTab() {
     }
   });
 
-  // Handle table activation
+  // Handle table activation - immediately shows table and avoids blank page issue
   const handleTableActivation = (tableId: number, isActive: boolean) => {
-    if (isActive) {
-      setActiveTableId(tableId);
-    } else {
+    // Always set the active table ID right away to avoid blank screen
+    setActiveTableId(tableId);
+    
+    // If not already active, activate it via API
+    if (!isActive) {
       activateTableMutation.mutate(tableId);
-      setActiveTableId(tableId);
       
       // Show toast notification for table activation
-      setToastMessage(`Table ${tables.find(t => t.id === tableId)?.number || tableId} activated`);
+      const tableNumber = tables.find(t => t.id === tableId)?.number || tableId;
+      setToastMessage(`Table ${tableNumber} activated`);
       setShowToast(true);
       
       // Hide toast after 3 seconds
