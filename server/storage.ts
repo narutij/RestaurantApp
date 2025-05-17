@@ -377,19 +377,39 @@ export class MemStorage implements IStorage {
 
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
     try {
+      console.log(`Retrieving menu item with id: ${id}`);
       const result = await db.select().from(menuItems).where(eq(menuItems.id, id));
-      return result[0];
+      console.log(`Database query result for menu item ${id}:`, result);
+      
+      if (result.length > 0) {
+        return result[0];
+      }
+      
+      // If not found in database, try memory storage
+      const memoryItem = this.menuItemsMap.get(id);
+      console.log(`Memory storage result for menu item ${id}:`, memoryItem || 'Not found');
+      return memoryItem;
     } catch (error) {
       console.error("Error getting menu item:", error);
-      return this.menuItemsMap.get(id);
+      // Fallback to memory storage
+      const memoryItem = this.menuItemsMap.get(id);
+      console.log(`Memory storage fallback for menu item ${id}:`, memoryItem || 'Not found');
+      return memoryItem;
     }
   }
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
     try {
+      console.log(`Creating menu item:`, item);
       const result = await db.insert(menuItems).values(item).returning();
+      console.log(`Database result for creating menu item:`, result);
+      
       if (result.length > 0) {
-        return result[0];
+        // Also store in memory for consistent access
+        const newItem = result[0];
+        this.menuItemsMap.set(newItem.id, newItem);
+        console.log(`Stored new menu item in memory with id: ${newItem.id}`);
+        return newItem;
       }
     } catch (error) {
       console.error("Error creating menu item:", error);
@@ -404,6 +424,8 @@ export class MemStorage implements IStorage {
       createdAt: now,
       updatedAt: now
     };
+    
+    console.log(`Fallback: Creating menu item in memory with id: ${id}`);
     this.menuItemsMap.set(id, menuItem);
     return menuItem;
   }
