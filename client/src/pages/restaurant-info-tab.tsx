@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   Palette, 
@@ -32,6 +32,7 @@ export default function RestaurantInfoTab() {
   
   // Profile editing state
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [editedUser, setEditedUser] = useState({
     name: "",
     role: "",
@@ -50,7 +51,7 @@ export default function RestaurantInfoTab() {
   ];
 
   // Fetch user profile
-  const { data: profile, isLoading: isLoadingProfile, refetch: refetchProfile } = useQuery({
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['/api/user-profile'],
     queryFn: async () => {
       try {
@@ -67,50 +68,9 @@ export default function RestaurantInfoTab() {
         } as UserProfile;
       }
     },
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
+    staleTime: 0
   });
-
-  // Update profile function - simplified approach
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  
-  const updateProfile = async (formData: FormData) => {
-    setIsUpdatingProfile(true);
-    
-    try {
-      const response = await fetch('/api/user-profile', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save profile');
-      }
-      
-      // Get the updated profile
-      await response.json();
-      
-      // Invalidate query to trigger refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
-      
-      // Close dialog and show success message
-      setIsProfileDialogOpen(false);
-      setSelectedFile(null);
-      
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been successfully updated",
-      });
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: "Update failed",
-        description: "There was a problem updating your profile",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingProfile(false);
-    }
-  };
 
   const handleLogout = () => {
     // In a real app, this would call a logout function
@@ -152,13 +112,13 @@ export default function RestaurantInfoTab() {
   const handleRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditedUser({ ...editedUser, role: e.target.value });
   };
-  
+
+  // Save profile changes
   const saveProfile = async () => {
     try {
-      // Simple approach - just save the name and role without avatar upload for now
       setIsUpdatingProfile(true);
       
-      // This is the simplest approach - just a JSON request
+      // Make the request
       const response = await fetch('/api/user-profile', {
         method: 'POST',
         headers: {
@@ -172,22 +132,26 @@ export default function RestaurantInfoTab() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to save profile');
+        throw new Error('Failed to update profile');
       }
+            
+      // Close the dialog and show success message
+      setIsProfileDialogOpen(false);
       
-      // Get the updated profile
-      const updatedProfile = await response.json();
+      // Invalidate the query cache to force a refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/user-profile'] });
       
-      // Force a refetch to update the UI
-      await refetchProfile();
-      
-      // Show success message and close dialog
+      // Show success message
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated"
       });
       
-      setIsProfileDialogOpen(false);
+      // Hard reload only if needed as a fallback
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+      
     } catch (error) {
       console.error('Error saving profile:', error);
       toast({
