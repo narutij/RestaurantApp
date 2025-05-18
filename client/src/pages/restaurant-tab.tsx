@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { ThemeSwitch } from "@/components/ThemeToggle";
 import { RestaurantModal } from "@/components/modals/RestaurantModal";
 import { MenuModal } from "@/components/modals/MenuModal";
+import { TableLayoutModal } from "@/components/modals/TableLayoutModal";
 import { Restaurant } from "@shared/schema";
 import { 
   Palette, 
@@ -54,6 +55,9 @@ export default function RestaurantInfoTab() {
   // State for menu modal
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   
+  // State for table layout modal
+  const [tableLayoutModalOpen, setTableLayoutModalOpen] = useState(false);
+  
   // Effect to load selected restaurant from localStorage
   useEffect(() => {
     try {
@@ -81,7 +85,12 @@ export default function RestaurantInfoTab() {
       href: "#menus",
       action: () => setMenuModalOpen(true)
     },
-    { icon: <Grid2X2 className="mr-2 h-5 w-5" />, label: "Table Layouts", href: "#tables" },
+    { 
+      icon: <Grid2X2 className="mr-2 h-5 w-5" />, 
+      label: "Table Layouts", 
+      href: "#tables",
+      action: () => setTableLayoutModalOpen(true)
+    },
   ];
 
   // Fetch user profile
@@ -430,6 +439,13 @@ export default function RestaurantInfoTab() {
       <MenuModal
         open={menuModalOpen}
         onOpenChange={setMenuModalOpen}
+        restaurant={selectedRestaurant}
+      />
+      
+      {/* Table Layout Modal */}
+      <TableLayoutModal
+        open={tableLayoutModalOpen}
+        onOpenChange={setTableLayoutModalOpen}
         restaurant={selectedRestaurant}
       />
     </div>
