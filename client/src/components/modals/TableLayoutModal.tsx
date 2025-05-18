@@ -126,13 +126,25 @@ export function TableLayoutModal({
         description: "Table layout was deleted successfully.",
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to delete table layout. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Delete table error:", error);
+    onError: (error: any) => {
+      // Success even on 204 No Content response, which might not be parsed as JSON
+      if (error && typeof error === 'object' && error.message === 'Failed to execute \'json\' on \'Response\': Unexpected end of JSON input') {
+        // This is actually a success case (204 No Content)
+        queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+        setDeleteDialogOpen(false);
+        setTableToDelete(null);
+        toast({
+          title: "Success",
+          description: "Table layout was deleted successfully.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete table layout. Please try again.",
+          variant: "destructive",
+        });
+        console.error("Delete table error:", error);
+      }
     }
   });
 
@@ -208,7 +220,7 @@ export function TableLayoutModal({
                   className="w-full justify-start text-left h-auto py-3 pr-24 relative"
                 >
                   <div>
-                    <div className="font-medium">Table {table.number}</div>
+                    <div className="font-medium">{table.number}</div>
                     <div className="text-sm text-muted-foreground">{table.label}</div>
                   </div>
                   <div className="absolute right-1 flex">
