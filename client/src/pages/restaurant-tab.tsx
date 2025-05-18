@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { ThemeSwitch } from "@/components/ThemeToggle";
 import { RestaurantModal } from "@/components/modals/RestaurantModal";
 import { MenuModal } from "@/components/modals/MenuModal";
-import { TableLayoutModal } from "@/components/modals/TableLayoutModal";
+import { TableLayoutsModal } from "@/components/modals/TableLayoutsModal";
 import { Restaurant } from "@shared/schema";
 import { 
   Palette, 
@@ -443,7 +443,7 @@ export default function RestaurantInfoTab() {
       />
       
       {/* Table Layout Modal */}
-      <TableLayoutModal
+      <TableLayoutsModal
         open={tableLayoutModalOpen}
         onOpenChange={setTableLayoutModalOpen}
         restaurant={selectedRestaurant}
