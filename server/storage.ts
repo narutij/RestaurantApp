@@ -52,8 +52,15 @@ export interface IStorage {
   updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem | undefined>;
   deleteMenuItem(id: number): Promise<boolean>;
 
+  // Table Layouts
+  getTableLayouts(restaurantId?: number): Promise<TableLayout[]>;
+  getTableLayout(id: number): Promise<TableLayout | undefined>;
+  createTableLayout(layout: InsertTableLayout): Promise<TableLayout>;
+  updateTableLayout(id: number, layout: Partial<InsertTableLayout>): Promise<TableLayout | undefined>;
+  deleteTableLayout(id: number): Promise<boolean>;
+  
   // Tables
-  getTables(): Promise<Table[]>;
+  getTables(layoutId?: number): Promise<Table[]>;
   getTable(id: number): Promise<Table | undefined>;
   createTable(table: InsertTable): Promise<Table>;
   updateTable(id: number, table: Partial<InsertTable>): Promise<Table | undefined>;
@@ -86,6 +93,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private menuItemsMap: Map<number, MenuItem>;
   private tablesMap: Map<number, Table>;
+  private tableLayoutsMap: Map<number, TableLayout>;
   private ordersMap: Map<number, Order>;
   private dayTemplatesMap: Map<number, DayTemplate>;
   private userProfilesMap: Map<number, UserProfile>;
@@ -95,6 +103,7 @@ export class MemStorage implements IStorage {
   private currentUserId: number;
   private currentMenuItemId: number;
   private currentTableId: number;
+  private currentTableLayoutId: number;
   private currentOrderId: number;
   private currentDayTemplateId: number;
   private currentUserProfileId: number;

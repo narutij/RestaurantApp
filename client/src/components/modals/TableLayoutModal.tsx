@@ -3,13 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash } from 'lucide-react';
+import { Plus, Edit, Trash, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { Restaurant, Table } from '@shared/schema';
+import { Restaurant, TableLayout } from '@shared/schema';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { formatTime } from '@/lib/utils';
+import { TableEntryModal } from './TableEntryModal';
 
 type TableLayoutModalProps = {
   open: boolean;
@@ -24,11 +24,13 @@ export function TableLayoutModal({
 }: TableLayoutModalProps) {
   const [createMode, setCreateMode] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [tableNumber, setTableNumber] = useState("");
-  const [tableLabel, setTableLabel] = useState("");
-  const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
-  const [tableToEdit, setTableToEdit] = useState<Table | null>(null);
+  const [layoutName, setLayoutName] = useState("");
+  const [layoutToDelete, setLayoutToDelete] = useState<TableLayout | null>(null);
+  const [layoutToEdit, setLayoutToEdit] = useState<TableLayout | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedLayout, setSelectedLayout] = useState<TableLayout | null>(null);
+  const [tableEntryModalOpen, setTableEntryModalOpen] = useState(false);
+  const [editingTableId, setEditingTableId] = useState<number | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -38,35 +40,32 @@ export function TableLayoutModal({
     if (!open) {
       setCreateMode(false);
       setEditMode(false);
-      setTableNumber("");
-      setTableLabel("");
-      setTableToEdit(null);
+      setLayoutName("");
+      setLayoutToEdit(null);
+      setSelectedLayout(null);
     }
   }, [open]);
 
-  // Fetch tables data
-  const { data: tables = [], isLoading } = useQuery({
-    queryKey: ["/api/tables"],
-    queryFn: () => apiRequest("/api/tables"),
-    enabled: open,
+  // Fetch table layouts for the current restaurant
+  const { data: layouts = [], isLoading } = useQuery({
+    queryKey: ["/api/table-layouts", restaurant?.id],
+    queryFn: () => restaurant?.id 
+      ? apiRequest(`/api/table-layouts?restaurantId=${restaurant.id}`) 
+      : Promise.resolve([]),
+    enabled: open && !!restaurant?.id,
   });
 
-  // Create table mutation
-  const createTableMutation = useMutation({
-    mutationFn: (data: { number: string; label: string }) => 
-      apiRequest('/api/tables', { 
+  // Create table layout mutation
+  const createLayoutMutation = useMutation({
+    mutationFn: (data: { name: string; restaurantId: number }) => 
+      apiRequest('/api/table-layouts', { 
         method: 'POST',
-        body: {
-          number: data.number,
-          label: data.label,
-          isActive: false,
-        }
+        body: data
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
       setCreateMode(false);
-      setTableNumber("");
-      setTableLabel("");
+      setLayoutName("");
       toast({
         title: "Success",
         description: "Table layout was created successfully.",
@@ -78,26 +77,22 @@ export function TableLayoutModal({
         description: "Failed to create table layout. Please try again.",
         variant: "destructive",
       });
-      console.error("Create table error:", error);
+      console.error("Create layout error:", error);
     }
   });
 
-  // Update table mutation
-  const updateTableMutation = useMutation({
-    mutationFn: (data: { id: number; data: { number: string; label: string } }) => 
-      apiRequest(`/api/tables/${data.id}`, { 
+  // Update table layout mutation
+  const updateLayoutMutation = useMutation({
+    mutationFn: (data: { id: number; data: { name: string } }) => 
+      apiRequest(`/api/table-layouts/${data.id}`, { 
         method: 'PUT',
-        body: {
-          number: data.data.number,
-          label: data.data.label,
-        }
+        body: data.data
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
       setEditMode(false);
-      setTableToEdit(null);
-      setTableNumber("");
-      setTableLabel("");
+      setLayoutToEdit(null);
+      setLayoutName("");
       toast({
         title: "Success",
         description: "Table layout was updated successfully.",
@@ -109,18 +104,18 @@ export function TableLayoutModal({
         description: "Failed to update table layout. Please try again.",
         variant: "destructive",
       });
-      console.error("Update table error:", error);
+      console.error("Update layout error:", error);
     }
   });
 
-  // Delete table mutation
-  const deleteTableMutation = useMutation({
+  // Delete table layout mutation
+  const deleteLayoutMutation = useMutation({
     mutationFn: (id: number) => 
-      apiRequest(`/api/tables/${id}`, { method: 'DELETE' }),
+      apiRequest(`/api/table-layouts/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
       setDeleteDialogOpen(false);
-      setTableToDelete(null);
+      setLayoutToDelete(null);
       toast({
         title: "Success",
         description: "Table layout was deleted successfully.",
@@ -130,9 +125,9 @@ export function TableLayoutModal({
       // Success even on 204 No Content response, which might not be parsed as JSON
       if (error && typeof error === 'object' && error.message === 'Failed to execute \'json\' on \'Response\': Unexpected end of JSON input') {
         // This is actually a success case (204 No Content)
-        queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
         setDeleteDialogOpen(false);
-        setTableToDelete(null);
+        setLayoutToDelete(null);
         toast({
           title: "Success",
           description: "Table layout was deleted successfully.",
@@ -143,105 +138,124 @@ export function TableLayoutModal({
           description: "Failed to delete table layout. Please try again.",
           variant: "destructive",
         });
-        console.error("Delete table error:", error);
+        console.error("Delete layout error:", error);
       }
     }
   });
 
-  const handleCreateTable = () => {
-    if (!tableNumber.trim() || !tableLabel.trim()) {
+  const handleCreateLayout = () => {
+    if (!layoutName.trim() || !restaurant?.id) {
       toast({
         title: "Invalid Input",
-        description: "Table number and label are required.",
+        description: "Layout name and restaurant are required.",
         variant: "destructive",
       });
       return;
     }
 
-    createTableMutation.mutate({
-      number: tableNumber.trim(),
-      label: tableLabel.trim(),
+    createLayoutMutation.mutate({
+      name: layoutName.trim(),
+      restaurantId: restaurant.id
     });
   };
 
-  const handleUpdateTable = () => {
-    if (!tableNumber.trim() || !tableLabel.trim() || !tableToEdit) {
+  const handleUpdateLayout = () => {
+    if (!layoutName.trim() || !layoutToEdit) {
       toast({
         title: "Invalid Input",
-        description: "Table number and label are required.",
+        description: "Layout name is required.",
         variant: "destructive",
       });
       return;
     }
 
-    updateTableMutation.mutate({
-      id: tableToEdit.id,
+    updateLayoutMutation.mutate({
+      id: layoutToEdit.id,
       data: {
-        number: tableNumber.trim(),
-        label: tableLabel.trim(),
+        name: layoutName.trim()
       }
     });
   };
   
-  const handleDeleteClick = (e: React.MouseEvent, table: Table) => {
+  const handleDeleteClick = (e: React.MouseEvent, layout: TableLayout) => {
     e.stopPropagation(); // Prevent other actions
-    setTableToDelete(table);
+    setLayoutToDelete(layout);
     setDeleteDialogOpen(true);
   };
   
-  const handleEditClick = (e: React.MouseEvent, table: Table) => {
+  const handleEditClick = (e: React.MouseEvent, layout: TableLayout) => {
     e.stopPropagation(); // Prevent other actions
-    setTableToEdit(table);
-    setTableNumber(table.number);
-    setTableLabel(table.label);
+    setLayoutToEdit(layout);
+    setLayoutName(layout.name);
     setEditMode(true);
   };
   
   const confirmDelete = () => {
-    if (tableToDelete) {
-      deleteTableMutation.mutate(tableToDelete.id);
+    if (layoutToDelete) {
+      deleteLayoutMutation.mutate(layoutToDelete.id);
     }
   };
 
+  const handleSelectLayout = (layout: TableLayout) => {
+    setSelectedLayout(layout);
+  };
+
+  const handleBackToList = () => {
+    setSelectedLayout(null);
+  };
+
+  // Fetch tables for selected layout
+  const { data: tables = [] } = useQuery({
+    queryKey: ["/api/tables", selectedLayout?.id],
+    queryFn: () => selectedLayout?.id 
+      ? apiRequest(`/api/tables?layoutId=${selectedLayout.id}`) 
+      : Promise.resolve([]),
+    enabled: !!selectedLayout?.id,
+  });
+
   // Render functions
-  const renderTableList = () => {
+  const renderLayoutList = () => {
     return (
       <div className="py-4">
         <div className="max-h-[300px] overflow-y-auto space-y-2">
           {isLoading ? (
-            <div className="text-center py-4">Loading tables...</div>
-          ) : tables.length === 0 ? (
+            <div className="text-center py-4">Loading layouts...</div>
+          ) : layouts.length === 0 ? (
             <div className="text-center py-4">No table layouts found</div>
           ) : (
-            tables.map((table: Table) => (
-              <div key={table.id} className="flex items-center mb-2">
+            layouts.map((layout: TableLayout) => (
+              <div key={layout.id} className="flex items-center mb-2">
                 <Button
                   variant="outline"
                   className="w-full justify-start text-left h-auto py-3 pr-24 relative"
+                  onClick={() => handleSelectLayout(layout)}
                 >
                   <div>
-                    <div className="font-medium">{table.number}</div>
-                    <div className="text-sm text-muted-foreground">{table.label}</div>
+                    <div className="font-medium">{layout.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {new Date(layout.createdAt).toLocaleDateString()}
+                    </div>
                   </div>
                   <div className="absolute right-1 flex">
                     <Button 
                       variant="ghost" 
                       size="sm"
                       className="p-1 h-8 w-8 mr-1"
-                      onClick={(e) => handleEditClick(e, table)}
-                      title="Edit table"
+                      onClick={(e) => handleEditClick(e, layout)}
+                      title="Edit layout"
                     >
                       <Edit className="h-4 w-4 text-blue-500" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="p-1 h-8 w-8"
-                      onClick={(e) => handleDeleteClick(e, table)}
-                      title="Delete table"
+                      className="p-1 h-8 w-8 mr-1"
+                      onClick={(e) => handleDeleteClick(e, layout)}
+                      title="Delete layout"
                     >
                       <Trash className="h-4 w-4 text-red-500" />
                     </Button>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
                   </div>
                 </Button>
               </div>
@@ -267,22 +281,81 @@ export function TableLayoutModal({
     return (
       <div className="space-y-4 py-4">
         <div className="space-y-2">
-          <Label htmlFor="table-number">Table Number</Label>
+          <Label htmlFor="layout-name">Layout Name</Label>
           <Input
-            id="table-number"
-            placeholder="Enter table number"
-            value={tableNumber}
-            onChange={(e) => setTableNumber(e.target.value)}
+            id="layout-name"
+            placeholder="Enter layout name"
+            value={layoutName}
+            onChange={(e) => setLayoutName(e.target.value)}
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="table-label">Table Label/Comment</Label>
-          <Input
-            id="table-label"
-            placeholder="Enter label or description"
-            value={tableLabel}
-            onChange={(e) => setTableLabel(e.target.value)}
-          />
+      </div>
+    );
+  };
+
+  const renderLayoutDetail = () => {
+    if (!selectedLayout) return null;
+
+    return (
+      <div className="py-4">
+        <Button variant="ghost" onClick={handleBackToList} className="mb-4 pl-0">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to layouts
+        </Button>
+        
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">{selectedLayout.name}</h3>
+          <Button 
+            size="sm" 
+            onClick={() => {
+              setEditingTableId(null);
+              setTableEntryModalOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Table
+          </Button>
+        </div>
+
+        <div className="max-h-[300px] overflow-y-auto space-y-2">
+          {tables.length === 0 ? (
+            <div className="text-center py-4">No tables in this layout. Add your first table!</div>
+          ) : (
+            <div className="grid gap-2">
+              {tables.map(table => (
+                <div key={table.id} className="border rounded-md p-3 flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">{table.number}</div>
+                    <div className="text-sm text-muted-foreground">{table.label}</div>
+                  </div>
+                  <div className="flex space-x-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="p-1 h-8 w-8"
+                      onClick={() => {
+                        setEditingTableId(table.id);
+                        setTableEntryModalOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4 text-blue-500" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="p-1 h-8 w-8"
+                      onClick={(e) => {
+                        // We would handle table deletion here
+                        // Similar to layout deletion
+                      }}
+                    >
+                      <Trash className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -294,15 +367,19 @@ export function TableLayoutModal({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {createMode
-                ? "Create New Table Layout"
-                : editMode
-                ? "Edit Table Layout"
-                : "Manage Table Layouts"}
+              {selectedLayout
+                ? `Layout: ${selectedLayout.name}`
+                : createMode
+                  ? "Create New Table Layout"
+                  : editMode
+                    ? "Edit Table Layout"
+                    : "Manage Table Layouts"}
             </DialogTitle>
           </DialogHeader>
           
-          {createMode || editMode ? (
+          {selectedLayout ? (
+            renderLayoutDetail()
+          ) : createMode || editMode ? (
             <>
               {renderFormContent()}
               <DialogFooter>
@@ -317,19 +394,19 @@ export function TableLayoutModal({
                 </Button>
                 <Button
                   type="submit"
-                  onClick={createMode ? handleCreateTable : handleUpdateTable}
-                  disabled={createTableMutation.isPending || updateTableMutation.isPending}
+                  onClick={createMode ? handleCreateLayout : handleUpdateLayout}
+                  disabled={createLayoutMutation.isPending || updateLayoutMutation.isPending}
                 >
-                  {createTableMutation.isPending || updateTableMutation.isPending
+                  {createLayoutMutation.isPending || updateLayoutMutation.isPending
                     ? "Saving..."
                     : createMode
-                    ? "Create Table"
-                    : "Update Table"}
+                    ? "Create Layout"
+                    : "Update Layout"}
                 </Button>
               </DialogFooter>
             </>
           ) : (
-            renderTableList()
+            renderLayoutList()
           )}
         </DialogContent>
       </Dialog>
@@ -340,7 +417,7 @@ export function TableLayoutModal({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete table "{tableToDelete?.number}". This action cannot be undone.
+              This will permanently delete the layout "{layoutToDelete?.name}" and all its tables. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -349,6 +426,16 @@ export function TableLayoutModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Table Entry Modal */}
+      {selectedLayout && (
+        <TableEntryModal
+          open={tableEntryModalOpen}
+          onOpenChange={setTableEntryModalOpen}
+          layoutId={selectedLayout.id}
+          tableId={editingTableId || undefined}
+        />
+      )}
     </>
   );
 }

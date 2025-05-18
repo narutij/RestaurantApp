@@ -61,18 +61,39 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).pick({
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 export type MenuItem = typeof menuItems.$inferSelect;
 
+// Table Layouts
+export const tableLayouts = pgTable("table_layouts", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  restaurantId: integer("restaurant_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTableLayoutSchema = createInsertSchema(tableLayouts).pick({
+  name: true,
+  restaurantId: true,
+});
+
+export type InsertTableLayout = z.infer<typeof insertTableLayoutSchema>;
+export type TableLayout = typeof tableLayouts.$inferSelect;
+
 // Tables
 export const tables = pgTable("tables", {
   id: serial("id").primaryKey(),
   number: text("number").notNull(),
   label: text("label").notNull(),
+  layoutId: integer("layout_id"),
   isActive: boolean("is_active").default(false),
   activatedAt: timestamp("activated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertTableSchema = createInsertSchema(tables).pick({
   number: true,
   label: true,
+  layoutId: true,
   isActive: true,
   activatedAt: true,
 });
