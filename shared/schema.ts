@@ -66,6 +66,9 @@ export const tableLayouts = pgTable("table_layouts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   restaurantId: integer("restaurant_id").notNull(),
+  layoutId: integer("layout_id"),
+  isActive: boolean("is_active").default(false),
+  activatedAt: timestamp("activated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -73,6 +76,9 @@ export const tableLayouts = pgTable("table_layouts", {
 export const insertTableLayoutSchema = createInsertSchema(tableLayouts).pick({
   name: true,
   restaurantId: true,
+  layoutId: true,
+  isActive: true,
+  activatedAt: true,
 });
 
 export type InsertTableLayout = z.infer<typeof insertTableLayoutSchema>;

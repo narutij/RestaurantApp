@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,8 +15,9 @@ function Router() {
   return (
     <AppLayout>
       <Switch>
+        <Route path="/" component={() => <Redirect to="/workday" />} />
         <Route path="/restaurant" component={RestaurantInfoTab} />
-        <Route path="/" component={WorkdayTab} />
+        <Route path="/workday" component={WorkdayTab} />
         <Route path="/orders" component={OrderTab} />
         <Route path="/kitchen" component={KitchenTab} />
         <Route component={NotFound} />

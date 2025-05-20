@@ -49,21 +49,48 @@ export function TableLayoutModal({
   // Fetch table layouts for the current restaurant
   const { data: layouts = [], isLoading } = useQuery({
     queryKey: ["/api/table-layouts", restaurant?.id],
-    queryFn: () => restaurant?.id 
-      ? apiRequest(`/api/table-layouts?restaurantId=${restaurant.id}`) 
-      : Promise.resolve([]),
-    enabled: open && !!restaurant?.id,
+    queryFn: async () => {
+      if (!restaurant?.id) {
+        console.log('No restaurant ID available, returning empty array');
+        return [];
+      }
+      console.log(`Fetching table layouts for restaurant ${restaurant.id}`);
+      try {
+        const response = await apiRequest(`/api/table-layouts?restaurantId=${restaurant.id}`);
+        console.log('Table layouts response:', response);
+        return response;
+      } catch (error) {
+        console.error('Error fetching table layouts:', error);
+        return [];
+      }
+    },
+    enabled: !!restaurant?.id,
   });
+
+  // Add debug logging for layouts and loading state
+  useEffect(() => {
+    console.log('Current layouts:', layouts);
+    console.log('Loading state:', isLoading);
+    console.log('Current restaurant:', restaurant);
+  }, [layouts, isLoading, restaurant]);
 
   // Create table layout mutation
   const createLayoutMutation = useMutation({
-    mutationFn: (data: { name: string; restaurantId: number }) => 
-      apiRequest('/api/table-layouts', { 
+    mutationFn: (data: { name: string; restaurantId: number }) => {
+      console.log('Creating layout with data:', data);
+      return apiRequest('/api/table-layouts', {
         method: 'POST',
-        body: data
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
+        body: {
+          name: data.name,
+          restaurantId: data.restaurantId,
+          isActive: false,
+          activatedAt: null
+        }
+      });
+    },
+    onSuccess: (data) => {
+      console.log('Layout created successfully:', data);
+      queryClient.invalidateQueries({ queryKey: ["/api/table-layouts", restaurant?.id] });
       setCreateMode(false);
       setLayoutName("");
       toast({
@@ -72,12 +99,12 @@ export function TableLayoutModal({
       });
     },
     onError: (error) => {
+      console.error('Error creating layout:', error);
       toast({
         title: "Error",
         description: "Failed to create table layout. Please try again.",
         variant: "destructive",
       });
-      console.error("Create layout error:", error);
     }
   });
 

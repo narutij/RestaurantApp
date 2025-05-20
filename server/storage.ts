@@ -8,10 +8,11 @@ import {
   userProfiles, type UserProfile, type UserProfileData,
   restaurants, type Restaurant, type InsertRestaurant,
   menus, type Menu, type InsertMenu,
-  menuCategories, type MenuCategory, type InsertMenuCategory
+  menuCategories, type MenuCategory, type InsertMenuCategory,
+  tableLayouts, type TableLayout, type InsertTableLayout
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users (from base template)
@@ -47,10 +48,6 @@ export interface IStorage {
   
   // Menu Items
   getMenuItems(categoryId?: number): Promise<MenuItem[]>;
-  getMenuItem(id: number): Promise<MenuItem | undefined>;
-  createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
-  updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem | undefined>;
-  deleteMenuItem(id: number): Promise<boolean>;
 
   // Table Layouts
   getTableLayouts(restaurantId?: number): Promise<TableLayout[]>;
@@ -87,13 +84,16 @@ export interface IStorage {
   deleteDayTemplate(id: number): Promise<boolean>;
   getTemplates(): Promise<DayTemplate[]>;
   applyTemplate(templateId: number, date: Date): Promise<DayTemplate>;
+
+  // Fetch menu items for a specific menu
+  getMenuItemsByMenuId(menuId: number): Promise<MenuItem[]>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private menuItemsMap: Map<number, MenuItem>;
   private tablesMap: Map<number, Table>;
-  private tableLayoutsMap: Map<number, TableLayout>;
+  private tableLayoutsMap: Map<number, TableLayout> = new Map();
   private ordersMap: Map<number, Order>;
   private dayTemplatesMap: Map<number, DayTemplate>;
   private userProfilesMap: Map<number, UserProfile>;
@@ -103,7 +103,7 @@ export class MemStorage implements IStorage {
   private currentUserId: number;
   private currentMenuItemId: number;
   private currentTableId: number;
-  private currentTableLayoutId: number;
+  private currentTableLayoutId: number = 1;
   private currentOrderId: number;
   private currentDayTemplateId: number;
   private currentUserProfileId: number;
@@ -520,52 +520,37 @@ export class MemStorage implements IStorage {
   // Menu Items
   async getMenuItems(categoryId?: number): Promise<MenuItem[]> {
     console.log(`Getting menu items ${categoryId ? `for category ${categoryId}` : 'for all categories'}`);
-    
     try {
       let dbResults: MenuItem[] = [];
-      
       if (categoryId) {
         dbResults = await db.select().from(menuItems).where(eq(menuItems.categoryId, categoryId));
       } else {
         dbResults = await db.select().from(menuItems);
       }
-      
       console.log(`Found ${dbResults.length} menu items in database`);
-      
-      // Sync with memory cache
       for (const item of dbResults) {
         if (!this.menuItemsMap.has(item.id)) {
           this.menuItemsMap.set(item.id, item);
         }
       }
-      
-      // Get all items from memory cache
       let allItems = Array.from(this.menuItemsMap.values());
-      
-      // Filter by category if needed
       if (categoryId) {
         allItems = allItems.filter(item => item.categoryId === categoryId);
       }
-      
-      // Sort by order
       return allItems.sort((a, b) => {
-        const orderA = a.order === null ? 0 : a.order;
-        const orderB = b.order === null ? 0 : b.order;
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
         return orderA - orderB;
       });
     } catch (error) {
       console.error("Error getting menu items:", error);
-      
-      // Fallback to memory storage only
       let memoryItems = Array.from(this.menuItemsMap.values());
-      
       if (categoryId) {
         memoryItems = memoryItems.filter(item => item.categoryId === categoryId);
       }
-      
       return memoryItems.sort((a, b) => {
-        const orderA = a.order === null ? 0 : a.order;
-        const orderB = b.order === null ? 0 : b.order;
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
         return orderA - orderB;
       });
     }
@@ -612,33 +597,28 @@ export class MemStorage implements IStorage {
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
     console.log(`Creating menu item:`, item);
-    
     try {
-      // Insert into database
       const result = await db.insert(menuItems).values(item).returning();
-      
       if (result.length > 0) {
         const newItem = result[0];
         console.log(`Created menu item in database: ${newItem.name} with id ${newItem.id}`);
-        
-        // Also store in memory cache
         this.menuItemsMap.set(newItem.id, newItem);
         return newItem;
       }
     } catch (error) {
       console.error("Error creating menu item in database:", error);
     }
-    
-    // Fallback to memory only storage
     const id = this.currentMenuItemId++;
     const now = new Date();
     const menuItem: MenuItem = { 
       ...item, 
       id,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      order: item.order ?? 0,
+      categoryId: item.categoryId ?? null,
+      description: item.description ?? null
     };
-    
     console.log(`Fallback: Created menu item in memory: ${menuItem.name} with id ${id}`);
     this.menuItemsMap.set(id, menuItem);
     return menuItem;
@@ -894,30 +874,32 @@ export class MemStorage implements IStorage {
   }
 
   async createDayTemplate(template: InsertDayTemplate): Promise<DayTemplate> {
+    console.log('Creating DayTemplate with menuItems:', template.menuItems);
     const id = this.currentDayTemplateId++;
     const dayTemplate: DayTemplate = { 
       ...template, 
       id,
-      tables: template.tables || null,
-      menuItems: template.menuItems || null,
-      isTemplate: template.isTemplate ?? null
+      tables: template.tables || [],
+      menuItems: template.menuItems || [],
+      isTemplate: template.isTemplate ?? false
     };
     this.dayTemplatesMap.set(id, dayTemplate);
     return dayTemplate;
   }
 
   async updateDayTemplate(id: number, template: Partial<InsertDayTemplate>): Promise<DayTemplate | undefined> {
+    console.log('Updating DayTemplate with menuItems:', template.menuItems);
     const existingTemplate = await this.getDayTemplate(id);
     if (!existingTemplate) {
       return undefined;
     }
-    
     const updatedTemplate: DayTemplate = { 
       ...existingTemplate, 
       ...template,
-      id 
+      id,
+      menuItems: template.menuItems || existingTemplate.menuItems || [],
+      tables: template.tables || existingTemplate.tables || []
     };
-    
     this.dayTemplatesMap.set(id, updatedTemplate);
     return updatedTemplate;
   }
@@ -1201,6 +1183,166 @@ export class MemStorage implements IStorage {
         this.restaurantsMap.delete(id);
       }
       return exists;
+    }
+  }
+
+  // Fetch menu items for a specific menu
+  async getMenuItemsByMenuId(menuId: number): Promise<MenuItem[]> {
+    console.log(`Getting menu items for menu ${menuId}`);
+    try {
+      // First get all categories for this menu
+      const categories = await db.select().from(menuCategories).where(eq(menuCategories.menuId, menuId));
+      console.log(`Found ${categories.length} categories for menu ${menuId}`);
+      
+      if (categories.length === 0) {
+        console.log('No categories found for menu, returning empty array');
+        return [];
+      }
+
+      // Get all menu items for these categories
+      const categoryIds = categories.map(category => category.id);
+      const items = await db.select().from(menuItems).where(inArray(menuItems.categoryId, categoryIds));
+      console.log(`Found ${items.length} menu items for menu ${menuId}`);
+      
+      // Sort items by their order
+      const sortedItems = items.sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
+
+      return sortedItems;
+    } catch (error) {
+      console.error("Error getting menu items by menu ID:", error);
+      return [];
+    }
+  }
+
+  // Table Layouts
+  async getTableLayouts(restaurantId?: number): Promise<TableLayout[]> {
+    console.log(`Getting table layouts ${restaurantId ? `for restaurant ${restaurantId}` : 'for all restaurants'}`);
+    try {
+      let dbResults: TableLayout[] = [];
+      if (restaurantId) {
+        console.log(`Querying database for layouts with restaurantId: ${restaurantId}`);
+        dbResults = await db.select().from(tableLayouts).where(eq(tableLayouts.restaurantId, restaurantId));
+        console.log(`Database query returned ${dbResults.length} layouts:`, dbResults);
+      } else {
+        console.log('Querying database for all layouts');
+        dbResults = await db.select().from(tableLayouts);
+        console.log(`Database query returned ${dbResults.length} layouts:`, dbResults);
+      }
+
+      // If no results from DB, try memory storage
+      if (dbResults.length === 0) {
+        console.log('No results from database, checking memory storage');
+        const memoryLayouts = Array.from(this.tableLayoutsMap.values())
+          .filter(l => !restaurantId || l.restaurantId === restaurantId);
+        console.log(`Found ${memoryLayouts.length} layouts in memory storage:`, memoryLayouts);
+        return memoryLayouts;
+      }
+
+      // Update memory storage with database results
+      dbResults.forEach(layout => {
+        this.tableLayoutsMap.set(layout.id, layout);
+      });
+
+      return dbResults;
+    } catch (error) {
+      console.error("Error getting table layouts:", error);
+      console.log('Falling back to memory storage due to error');
+      const memoryLayouts = Array.from(this.tableLayoutsMap.values())
+        .filter(l => !restaurantId || l.restaurantId === restaurantId);
+      console.log(`Found ${memoryLayouts.length} layouts in memory storage:`, memoryLayouts);
+      return memoryLayouts;
+    }
+  }
+
+  async getTableLayout(id: number): Promise<TableLayout | undefined> {
+    console.log(`Getting table layout with id: ${id}`);
+    try {
+      const result = await db.select().from(tableLayouts).where(eq(tableLayouts.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting table layout:", error);
+      return this.tableLayoutsMap.get(id);
+    }
+  }
+
+  async createTableLayout(layout: InsertTableLayout): Promise<TableLayout> {
+    console.log(`Creating table layout:`, layout);
+    try {
+      const result = await db.insert(tableLayouts).values(layout).returning();
+      if (result.length > 0) {
+        const newLayout = result[0];
+        console.log(`Created table layout in database: ${newLayout.name} with id ${newLayout.id}`);
+        this.tableLayoutsMap.set(newLayout.id, newLayout);
+        return newLayout;
+      }
+    } catch (error) {
+      console.error("Error creating table layout in database:", error);
+    }
+    const id = this.currentTableLayoutId++;
+    const now = new Date();
+    const tableLayout: TableLayout = { 
+      ...layout, 
+      id,
+      createdAt: now,
+      updatedAt: now,
+      layoutId: layout.layoutId ?? null,
+      isActive: layout.isActive ?? null,
+      activatedAt: layout.activatedAt ?? null
+    };
+    console.log(`Fallback: Created table layout in memory: ${tableLayout.name} with id ${id}`);
+    this.tableLayoutsMap.set(id, tableLayout);
+    return tableLayout;
+  }
+
+  async updateTableLayout(id: number, layout: Partial<InsertTableLayout>): Promise<TableLayout | undefined> {
+    console.log(`Updating table layout with id ${id}:`, layout);
+    try {
+      const existingLayout = await this.getTableLayout(id);
+      if (!existingLayout) {
+        console.log(`Table layout with id ${id} not found, cannot update`);
+        return undefined;
+      }
+      const result = await db.update(tableLayouts)
+        .set({ ...layout, updatedAt: new Date() })
+        .where(eq(tableLayouts.id, id))
+        .returning();
+      if (result.length > 0) {
+        const updatedLayout = result[0];
+        console.log(`Updated table layout in database: ${updatedLayout.name}`);
+        this.tableLayoutsMap.set(id, updatedLayout);
+        return updatedLayout;
+      }
+    } catch (error) {
+      console.error("Error updating table layout in database:", error);
+    }
+    const memoryLayout = this.tableLayoutsMap.get(id);
+    if (!memoryLayout) {
+      console.log(`Table layout with id ${id} not found in memory, cannot update`);
+      return undefined;
+    }
+    const updatedLayout = { 
+      ...memoryLayout, 
+      ...layout,
+      updatedAt: new Date()
+    };
+    console.log(`Fallback: Updated table layout in memory: ${updatedLayout.name}`);
+    this.tableLayoutsMap.set(id, updatedLayout);
+    return updatedLayout;
+  }
+
+  async deleteTableLayout(id: number): Promise<boolean> {
+    console.log(`Deleting table layout with id: ${id}`);
+    try {
+      const result = await db.delete(tableLayouts).where(eq(tableLayouts.id, id)).returning();
+      this.tableLayoutsMap.delete(id);
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting table layout:", error);
+      return this.tableLayoutsMap.delete(id);
     }
   }
 }

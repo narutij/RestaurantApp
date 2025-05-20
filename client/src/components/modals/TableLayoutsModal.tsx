@@ -28,12 +28,14 @@ type TableLayoutsModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   restaurant: Restaurant | null;
+  onSelectLayout?: (layout: Layout) => void;
 };
 
 export function TableLayoutsModal({
   open,
   onOpenChange,
   restaurant,
+  onSelectLayout,
 }: TableLayoutsModalProps) {
   const [layouts, setLayouts] = useState<Layout[]>([]);
   const [selectedLayout, setSelectedLayout] = useState<Layout | null>(null);
@@ -410,6 +412,10 @@ export function TableLayoutsModal({
 
   const handleSelectLayout = (layout: Layout) => {
     setSelectedLayout(layout);
+    if (onSelectLayout) {
+      onSelectLayout(layout);
+      onOpenChange(false);
+    }
   };
 
   const handleEditLayout = (layout: Layout) => {

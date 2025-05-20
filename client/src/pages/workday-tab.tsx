@@ -25,7 +25,7 @@ import { RestaurantModal } from '@/components/modals/RestaurantModal';
 import { apiRequest } from '@/lib/queryClient';
 import { Pencil, Trash, ChevronLeft, ChevronRight, CalendarIcon, Calendar as CalendarFull, SaveAll, Sunrise, Store } from 'lucide-react';
 import { formatPrice, formatTime } from '@/lib/utils';
-import { type MenuItem, type Table, type DayTemplate, type Restaurant } from '@shared/schema';
+import { type MenuItem, type Table, type DayTemplate, type Restaurant, type Menu, type TableLayout, type MenuCategory } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 import { 
   AlertDialog,
@@ -37,6 +37,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TableLayoutModal } from '@/components/modals/TableLayoutModal';
+import { TableLayoutsModal } from '@/components/modals/TableLayoutsModal';
 
 export default function WorkdayTab() {
   const queryClient = useQueryClient();
@@ -56,11 +58,84 @@ export default function WorkdayTab() {
   const [confirmDeleteTable, setConfirmDeleteTable] = useState<number | null>(null);
   const [confirmDeleteTemplate, setConfirmDeleteTemplate] = useState<number | null>(null);
   const [templateMode, setTemplateMode] = useState<'create' | 'edit' | 'apply'>('create');
+  const [selectedMenuId, setSelectedMenuId] = useState<number | null>(null);
+  const [selectedTableLayoutId, setSelectedTableLayoutId] = useState<number | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
   
   // Date selection functionality
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [dayConfigExists, setDayConfigExists] = useState(false);
+
+  // Add state for table layout selection
+  const [tableLayoutSelectionOpen, setTableLayoutSelectionOpen] = useState(false);
+  const [tableLayoutModalOpen, setTableLayoutModalOpen] = useState(false);
+
+  // Fetch menus and table layouts
+  const { data: menus = [] } = useQuery<Menu[]>({
+    queryKey: ['/api/menus', selectedRestaurantId],
+    queryFn: async () => {
+      if (!selectedRestaurantId) return [];
+      try {
+        const response = await apiRequest(`/api/menus?restaurantId=${selectedRestaurantId}`);
+        console.log('[DEBUG] Fetched menus for restaurant:', selectedRestaurantId, response);
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error('[DEBUG] Error fetching menus:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedRestaurantId,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
+  });
+
+  useEffect(() => {
+    console.log('[DEBUG] selectedRestaurantId in WorkdayTab:', selectedRestaurantId);
+  }, [selectedRestaurantId]);
+
+  // Fetch table layouts for the selected restaurant
+  const { data: tableLayouts = [], isLoading: isLoadingTableLayouts } = useQuery<TableLayout[]>({
+    queryKey: ['/api/table-layouts', selectedRestaurantId],
+    queryFn: async () => {
+      if (!selectedRestaurantId) {
+        console.log('[DEBUG] No restaurant selected');
+        return [];
+      }
+      try {
+        const response = await apiRequest(`/api/table-layouts?restaurantId=${selectedRestaurantId}`);
+        console.log('[DEBUG] Fetched table layouts:', response);
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error('[DEBUG] Error fetching table layouts:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedRestaurantId,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
+  });
+
+  // Add debug log before the Table Layout Selection Modal
+  console.log('Table Layouts from API:', tableLayouts);
+  console.log('Is Loading Table Layouts:', isLoadingTableLayouts);
+  const tableLayoutsList = Array.isArray(tableLayouts) ? tableLayouts : [];
+  console.log('Table Layouts List:', tableLayoutsList);
+
+  // Add debug log for table layouts
+  useEffect(() => {
+    console.log('[DEBUG] Current table layouts:', tableLayouts);
+  }, [tableLayouts]);
+
+  // Load selected restaurant from localStorage on mount
+  useEffect(() => {
+    const selectedRestaurant = localStorage.getItem('selectedRestaurant');
+    if (selectedRestaurant) {
+      const { id } = JSON.parse(selectedRestaurant);
+      setSelectedRestaurantId(id);
+      console.log('[DEBUG] Loaded restaurant ID from localStorage:', id);
+    }
+  }, []);
 
   // Function to change the selected date
   const changeDay = (direction: 'next' | 'prev') => {
@@ -83,9 +158,21 @@ export default function WorkdayTab() {
     });
   };
 
-  // Fetch restaurants, menu items and tables
+  // Fetch restaurants with proper error handling
   const { data: restaurants = [] } = useQuery<Restaurant[]>({
     queryKey: ['/api/restaurants'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('/api/restaurants');
+        console.log('[DEBUG] Fetched restaurants:', response);
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error('[DEBUG] Error fetching restaurants:', error);
+        return [];
+      }
+    },
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
@@ -199,14 +286,12 @@ export default function WorkdayTab() {
 
   // Mutations for day templates
   const createTemplateMutation = useMutation({
-    mutationFn: (template: { name: string; date?: Date; isTemplate: boolean }) => 
+    mutationFn: (template: { name: string; date?: Date; isTemplate: boolean; menuItems: MenuItem[]; tables: Table[] }) => 
       apiRequest('/api/day-templates', {
         method: 'POST',
         body: {
           ...template,
           date: template.date ? template.date.toISOString() : new Date().toISOString(),
-          menuItems: menuItems,
-          tables: tables
         }
       }),
     onSuccess: () => {
@@ -224,14 +309,12 @@ export default function WorkdayTab() {
   });
 
   const updateTemplateMutation = useMutation({
-    mutationFn: ({ id, template }: { id: number; template: { name: string; date?: Date; isTemplate: boolean } }) => 
+    mutationFn: ({ id, template }: { id: number; template: { name: string; date?: Date; isTemplate: boolean; menuItems: MenuItem[]; tables: Table[] } }) => 
       apiRequest(`/api/day-templates/${id}`, {
         method: 'PUT',
         body: {
           ...template,
           date: template.date ? template.date.toISOString() : new Date().toISOString(),
-          menuItems: menuItems,
-          tables: tables
         }
       }),
     onSuccess: () => {
@@ -318,15 +401,10 @@ export default function WorkdayTab() {
   const handleCreateNewTemplate = () => {
     setNewDayDialogOpen(false);
     setEditingTemplate(null);
-    const templateData = {
-      name: `Config for ${selectedDate.toLocaleDateString()}`,
-      date: selectedDate,
-      isTemplate: false
-    };
     // Initialize with empty template for the current day
     setEditingTemplate({
       id: 0,
-      name: templateData.name,
+      name: `Config for ${selectedDate.toLocaleDateString()}`,
       date: selectedDate.toISOString().split('T')[0],
       tables: [],
       menuItems: [],
@@ -367,24 +445,177 @@ export default function WorkdayTab() {
     return !currentDayTemplate.isTemplate;
   };
 
-  // Handle selecting a restaurant
+  // Handle restaurant selection
   const handleSelectRestaurant = (restaurant: Restaurant) => {
+    console.log('[DEBUG] Selecting restaurant:', restaurant);
     setSelectedRestaurantId(restaurant.id);
-    setRestaurantModalOpen(false);
+    setSelectedMenuId(null); // Reset menu selection
+    setSelectedTableLayoutId(null); // Reset table layout selection
     
-    console.log("Selected restaurant:", restaurant);
-    
-    // Save to localStorage and dispatch a custom event to update app-level state
+    // Save to localStorage
     localStorage.setItem('selectedRestaurant', JSON.stringify(restaurant));
     
-    // Create and dispatch a custom event to notify the app layout component
-    const event = new Event('restaurantSelected');
-    window.dispatchEvent(event);
+    // Dispatch event for app-level state update
+    window.dispatchEvent(new Event('restaurantSelected'));
     
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['/api/menus'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/table-layouts'] });
+    
+    setRestaurantModalOpen(false);
     toast({
       title: "Restaurant Selected",
       description: `${restaurant.name} has been selected.`,
     });
+  };
+
+  // Handle menu selection
+  const handleMenuSelect = async (menuId: number) => {
+    console.log('[DEBUG] Selecting menu:', menuId);
+    setSelectedMenuId(menuId);
+    
+    try {
+      // Fetch menu items for the selected menu
+      const menuItems = await apiRequest(`/api/menus/${menuId}/items`);
+      console.log('[DEBUG] Fetched menu items:', menuItems);
+
+      if (!Array.isArray(menuItems)) {
+        throw new Error('Invalid menu items response');
+      }
+
+      // Initialize expanded categories
+      const categories = await apiRequest(`/api/menu-categories?menuId=${menuId}`);
+      const initialExpandedState = categories.reduce((acc: Record<number, boolean>, category: MenuCategory) => {
+        acc[category.id] = true;
+        return acc;
+      }, {});
+      setExpandedCategories(initialExpandedState);
+
+      // Update or create day template
+      if (currentDayTemplate) {
+        await updateTemplateMutation.mutateAsync({
+          id: currentDayTemplate.id,
+          template: {
+            ...currentDayTemplate,
+            date: new Date(currentDayTemplate.date),
+            isTemplate: currentDayTemplate.isTemplate || false,
+            menuItems: menuItems,
+            tables: currentDayTemplate.tables || []
+          }
+        });
+      } else {
+        await createTemplateMutation.mutateAsync({
+          name: `Config for ${selectedDate.toLocaleDateString()}`,
+          date: selectedDate,
+          isTemplate: false,
+          menuItems: menuItems,
+          tables: []
+        });
+      }
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates'] });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/day-templates/date', selectedDate.toISOString().split('T')[0]] 
+      });
+
+      setMenuModalOpen(false);
+      toast({
+        title: "Success",
+        description: "Menu applied successfully",
+      });
+    } catch (error) {
+      console.error('[DEBUG] Error applying menu:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply menu",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle table layout selection
+  const handleTableLayoutSelect = async (layoutId: number) => {
+    console.log('[DEBUG] Selecting table layout:', layoutId);
+    setSelectedTableLayoutId(layoutId);
+    
+    try {
+      // Fetch tables for the selected layout
+      const tables = await apiRequest(`/api/tables?layoutId=${layoutId}`);
+      console.log('[DEBUG] Fetched tables for layout:', tables);
+
+      if (!Array.isArray(tables)) {
+        throw new Error('Invalid tables response');
+      }
+
+      // Update or create day template
+      if (currentDayTemplate) {
+        await updateTemplateMutation.mutateAsync({
+          id: currentDayTemplate.id,
+          template: {
+            ...currentDayTemplate,
+            date: new Date(currentDayTemplate.date),
+            isTemplate: currentDayTemplate.isTemplate || false,
+            menuItems: currentDayTemplate.menuItems || [],
+            tables: tables
+          }
+        });
+      } else {
+        await createTemplateMutation.mutateAsync({
+          name: `Config for ${selectedDate.toLocaleDateString()}`,
+          date: selectedDate,
+          isTemplate: false,
+          menuItems: [],
+          tables: tables
+        });
+      }
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['/api/day-templates'] });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/day-templates/date', selectedDate.toISOString().split('T')[0]] 
+      });
+
+      setTableLayoutSelectionOpen(false);
+      toast({
+        title: "Success",
+        description: "Table layout applied successfully",
+      });
+    } catch (error) {
+      console.error('[DEBUG] Error applying table layout:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply table layout",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Fetch menu categories for the selected menu
+  const { data: menuCategories = [] } = useQuery<MenuCategory[]>({
+    queryKey: ['/api/menu-categories', selectedMenuId],
+    queryFn: async () => {
+      if (!selectedMenuId) return [];
+      try {
+        const response = await apiRequest(`/api/menu-categories?menuId=${selectedMenuId}`);
+        console.log('[DEBUG] Fetched menu categories:', response);
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error('[DEBUG] Error fetching menu categories:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedMenuId,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
+  });
+
+  // Toggle category expansion
+  const toggleCategory = (categoryId: number) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
   };
 
   return (
@@ -398,7 +629,7 @@ export default function WorkdayTab() {
       />
       
       {/* Day Selection Header */}
-      <div className="flex items-center justify-between mb-6 mt-6">
+      <div className="flex items-center justify-between mb-4 mt-6">
         <div className="font-semibold text-lg">
           {selectedDate.toLocaleDateString('en-US', { 
             weekday: 'long', 
@@ -406,20 +637,20 @@ export default function WorkdayTab() {
             month: 'long', 
             day: 'numeric' 
           })}
-          {isNewDay && <span className="ml-2 text-sm font-normal text-muted-foreground">(New Day)</span>}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           <Button 
             variant="outline" 
-            size="icon"
+            size="sm"
             onClick={() => changeDay('prev')}
+            className="h-8 w-8 p-0"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-9 p-0">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
                 <CalendarIcon className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
@@ -435,143 +666,139 @@ export default function WorkdayTab() {
           
           <Button 
             variant="outline" 
-            size="icon"
+            size="sm"
             onClick={() => changeDay('next')}
+            className="h-8 w-8 p-0"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          
-          {isNewDay && (
-            <Button onClick={handleStartNewDay} className="ml-2 bg-amber-500 hover:bg-amber-600">
-              <Sunrise className="h-4 w-4 mr-2" />
-              Bright New Day
-            </Button>
-          )}
-          
-          {needToSaveTemplate() && (
-            <Button 
-              variant="outline"
-              onClick={handleCreateNewTemplate}
-              className="ml-2"
-            >
-              <SaveAll className="h-4 w-4 mr-2" />
-              Save New Template
-            </Button>
-          )}
         </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex space-x-4 mb-6">
+        <Button 
+          variant="outline"
+          onClick={() => setMenuModalOpen(true)}
+          className="flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Menu
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => {
+            if (!selectedRestaurantId) {
+              toast({
+                title: "No Restaurant Selected",
+                description: "Please select a restaurant first.",
+                variant: "destructive"
+              });
+              setRestaurantModalOpen(true);
+              return;
+            }
+            setTableLayoutSelectionOpen(true);
+          }}
+          className="flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Tables
+        </Button>
       </div>
 
       {/* Main content */}
       <div className="space-y-8">
-        {/* Menu Items Section */}
+        {/* Menu for Today Section */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Menu Items</h2>
-            <Button 
-              size="sm" 
-              onClick={() => {
-                setEditingMenuItem(null);
-                setMenuModalOpen(true);
-              }}
-              className="flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Item
-            </Button>
-          </div>
-          
+          <h2 className="text-lg font-semibold mb-3">Menu for Today</h2>
           <Card>
-            <CardContent className="p-0">
-              {menuItems.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
-                  No menu items yet. Add your first menu item!
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-200">
-                  {menuItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4">
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-slate-500 text-sm">{formatPrice(item.price)}</div>
+            <CardContent className="p-4">
+              {currentDayTemplate?.menuItems?.length ? (
+                <div className="space-y-4">
+                  {Object.entries(
+                    currentDayTemplate.menuItems.reduce((acc, item) => {
+                      const categoryId = item.categoryId || 'uncategorized';
+                      if (!acc[categoryId]) {
+                        acc[categoryId] = {
+                          items: [],
+                          name: categoryId === 'uncategorized' ? 'Uncategorized' : 
+                            menuCategories.find(mc => mc.id === item.categoryId)?.name || 'Uncategorized'
+                        };
+                      }
+                      acc[categoryId].items.push(item);
+                      return acc;
+                    }, {} as Record<string, { items: MenuItem[], name: string }>)
+                  ).map(([categoryId, { items, name }]) => (
+                    <div key={categoryId} className="border rounded">
+                      <div 
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 cursor-pointer"
+                        onClick={() => toggleCategory(categoryId === 'uncategorized' ? -1 : parseInt(categoryId))}
+                      >
+                        <div className="flex items-center">
+                          <ChevronRight 
+                            className={`h-4 w-4 mr-2 transition-transform ${
+                              expandedCategories[categoryId === 'uncategorized' ? -1 : parseInt(categoryId)] 
+                                ? 'transform rotate-90' 
+                                : ''
+                            }`} 
+                          />
+                          <h4 className="font-medium">{name}</h4>
+                        </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditMenuItem(item)}>
-                          <Pencil className="h-5 w-5" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setConfirmDeleteMenu(item.id)}
-                        >
-                          <Trash className="h-5 w-5" />
-                        </Button>
-                      </div>
+                      {expandedCategories[categoryId === 'uncategorized' ? -1 : parseInt(categoryId)] && (
+                        <div className="divide-y divide-slate-200">
+                          {items.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between py-2 px-3">
+                              <div className="flex-1">
+                                <div className="font-medium">{item.name}</div>
+                                <div className="text-slate-500 text-sm">{formatPrice(item.price)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No menu selected for today. Click "Add Menu" to select a menu.
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Tables Section */}
+        {/* Restaurant Tables Section */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Tables</h2>
-            <Button 
-              size="sm" 
-              onClick={() => {
-                setEditingTable(null);
-                setTableModalOpen(true);
-              }}
-              className="flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Table
-            </Button>
-          </div>
-          
-          {tables.length === 0 ? (
-            <Card>
-              <CardContent className="p-4 text-center text-gray-500">
-                No tables yet. Add your first table!
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {tables.map((table) => (
-                <Card key={table.id} className="bg-white">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-lg">Table {table.number}</span>
-                      <div className="flex space-x-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEditTable(table)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive" 
-                          onClick={() => setConfirmDeleteTable(table.id)}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <span className="text-xs text-slate-500">Label: {table.label}</span>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <h2 className="text-lg font-semibold mb-3">Restaurant Tables</h2>
+          <Card>
+            <CardContent className="p-4">
+              {currentDayTemplate?.tables?.length ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {currentDayTemplate.tables.map((table) => (
+                    <Card key={table.id} className="bg-white">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-semibold text-lg">Table {table.number}</span>
+                        </div>
+                        <span className="text-sm text-slate-500">Label: {table.label}</span>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No tables selected for today. Click "Add Tables" to select a table layout.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        
-
       </div>
 
       {/* Modals */}
@@ -615,10 +842,18 @@ export default function WorkdayTab() {
           } else if (editingTemplate) {
             updateTemplateMutation.mutate({ 
               id: editingTemplate.id, 
-              template: data 
+              template: {
+                ...data,
+                menuItems: editingTemplate.menuItems || [],
+                tables: editingTemplate.tables || []
+              }
             });
           } else {
-            createTemplateMutation.mutate(data);
+            createTemplateMutation.mutate({
+              ...data,
+              menuItems: [],
+              tables: []
+            });
           }
         }}
         editingTemplate={editingTemplate}
@@ -727,6 +962,53 @@ export default function WorkdayTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Menu Selection Modal */}
+      <Dialog open={menuModalOpen} onOpenChange={setMenuModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Select Menu</DialogTitle>
+            <DialogDescription>
+              Choose a menu to use for {selectedDate.toLocaleDateString()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-[300px] overflow-y-auto">
+            {menus.length === 0 ? (
+              <div className="text-center p-4">
+                <p className="text-sm text-muted-foreground mb-2">No menus available.</p>
+                <Button
+                  onClick={() => {
+                    setMenuModalOpen(false);
+                    // TODO: Navigate to restaurant tab to create menu
+                  }}
+                >
+                  Create Menu
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {menus.map((menu) => (
+                  <div 
+                    key={menu.id} 
+                    className="p-3 border rounded-md cursor-pointer hover:bg-accent"
+                    onClick={() => handleMenuSelect(menu.id)}
+                  >
+                    <div className="font-medium">{menu.name}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Table Layout Selection Modal */}
+      <TableLayoutsModal
+        open={tableLayoutSelectionOpen}
+        onOpenChange={setTableLayoutSelectionOpen}
+        restaurant={restaurants.find(r => r.id === selectedRestaurantId) || null}
+        onSelectLayout={(layout) => handleTableLayoutSelect(Number(layout.id))}
+      />
+
       {/* Confirm Delete Menu Item Dialog */}
       <AlertDialog open={confirmDeleteMenu !== null} onOpenChange={() => setConfirmDeleteMenu(null)}>
         <AlertDialogContent>
@@ -801,6 +1083,13 @@ export default function WorkdayTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Table Layout Modal */}
+      <TableLayoutModal
+        open={tableLayoutModalOpen}
+        onOpenChange={setTableLayoutModalOpen}
+        restaurant={restaurants.find(r => r.id === selectedRestaurantId) || null}
+      />
     </div>
   );
 }

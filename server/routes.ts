@@ -383,8 +383,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Tables
   app.get('/api/tables', async (req: Request, res: Response) => {
-    const tables = await storage.getTables();
-    res.json(tables);
+    try {
+      const layoutId = req.query.layoutId ? parseInt(req.query.layoutId as string, 10) : undefined;
+      let tables;
+      if (layoutId) {
+        const allTables = await storage.getTables();
+        tables = allTables.filter(t => (t.layoutId ?? null) === layoutId);
+      } else {
+        tables = await storage.getTables();
+      }
+      res.json(tables);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tables" });
+    }
   });
   
   app.post('/api/tables', async (req: Request, res: Response) => {
@@ -864,6 +875,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error handling profile update:', error);
       res.status(500).json({ error: "Failed to update user profile" });
+    }
+  });
+
+  // Fetch menu items for a specific menu
+  app.get('/api/menus/:id/items', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const menuItems = await storage.getMenuItemsByMenuId(id);
+      
+      if (!menuItems) {
+        return res.status(404).json({ error: "Menu items not found" });
+      }
+      
+      res.json(menuItems);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get menu items" });
+    }
+  });
+
+  // Table Layouts
+  app.get('/api/table-layouts', async (req: Request, res: Response) => {
+    try {
+      const restaurantId = req.query.restaurantId ? parseInt(req.query.restaurantId as string, 10) : undefined;
+      console.log(`API Request: Getting table layouts ${restaurantId ? `for restaurant ${restaurantId}` : 'for all restaurants'}`);
+      
+      const layouts = await storage.getTableLayouts(restaurantId);
+      console.log(`API Response: Found ${layouts.length} table layouts:`, layouts);
+      
+      res.json(layouts);
+    } catch (error) {
+      console.error('API Error: Failed to fetch table layouts:', error);
+      res.status(500).json({ error: "Failed to fetch table layouts" });
+    }
+  });
+
+  app.get('/api/table-layouts/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const layout = await storage.getTableLayout(id);
+      if (!layout) {
+        return res.status(404).json({ error: "Table layout not found" });
+      }
+      res.json(layout);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch table layout" });
+    }
+  });
+
+  app.post('/api/table-layouts', async (req: Request, res: Response) => {
+    try {
+      console.log('API Request: Creating table layout with data:', req.body);
+      
+      // No specific validation schema yet – assume body matches InsertTableLayout
+      const layout = await storage.createTableLayout(req.body);
+      console.log('API Response: Created table layout:', layout);
+      
+      res.status(201).json(layout);
+    } catch (error) {
+      console.error('API Error: Failed to create table layout:', error);
+      res.status(500).json({ error: "Failed to create table layout" });
+    }
+  });
+
+  app.put('/api/table-layouts/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const layout = await storage.updateTableLayout(id, req.body);
+      if (!layout) {
+        return res.status(404).json({ error: "Table layout not found" });
+      }
+      res.json(layout);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update table layout" });
+    }
+  });
+
+  app.delete('/api/table-layouts/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const success = await storage.deleteTableLayout(id);
+      if (!success) {
+        return res.status(404).json({ error: "Table layout not found" });
+      }
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete table layout" });
     }
   });
 
