@@ -474,6 +474,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Table not found" });
       }
       
+      // Clear orders for this table
+      await storage.clearOrdersByTable(id);
+      
       broadcastToAll({
         type: "DEACTIVATE_TABLE",
         payload: table
@@ -567,6 +570,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       res.status(500).json({ error: "Failed to mark order as complete" });
+    }
+  });
+
+  app.post('/api/orders/:id/uncomplete', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const order = await storage.markOrderIncomplete(id);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      broadcastToAll({
+        type: "UNCOMPLETE_ORDER",
+        payload: order
+      });
+      
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark order as incomplete" });
     }
   });
 
@@ -777,6 +800,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting restaurant:', error);
       res.status(500).json({ error: "Failed to delete restaurant" });
+    }
+  });
+
+  // Restaurant image upload route
+  app.post('/api/restaurants/:id/upload-image', upload.single('image'), async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No image file provided" });
+      }
+
+      const imageUrl = `/uploads/${req.file.filename}`;
+      const restaurant = await storage.updateRestaurant(id, { imageUrl });
+      
+      if (!restaurant) {
+        // Delete the uploaded file if restaurant not found
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+      
+      res.json({ imageUrl, restaurant });
+    } catch (error) {
+      // Delete the uploaded file on error
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      console.error('Error uploading restaurant image:', error);
+      res.status(500).json({ error: "Failed to upload restaurant image" });
     }
   });
   

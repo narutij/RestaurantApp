@@ -3,12 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash, Trash2, ChevronRight, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Menu, Restaurant } from '@shared/schema';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { formatTime, formatPrice } from '@/lib/utils';
 import { CategoryModal } from '@/components/modals/CategoryModal';
@@ -272,20 +271,16 @@ export function MenuModal({
               </div>
               
               <div className="mt-4">
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="categories">
-                    <AccordionTrigger>Categories</AccordionTrigger>
-                    <AccordionContent>
-                      <CategoryList 
-                      menuId={selectedMenu.id} 
-                      onEditCategory={(categoryId) => {
-                        setEditingCategoryId(categoryId);
-                        setCategoryModalOpen(true);
-                      }} 
-                    />
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                <div className="mb-2">
+                  <h3 className="text-lg font-semibold">Categories</h3>
+                </div>
+                <CategoryList 
+                  menuId={selectedMenu.id} 
+                  onEditCategory={(categoryId) => {
+                    setEditingCategoryId(categoryId);
+                    setCategoryModalOpen(true);
+                  }} 
+                />
               </div>
             </div>
           ) : createMode || editMode ? (
@@ -336,26 +331,24 @@ export function MenuModal({
                       <div className="flex space-x-1">
                         <Button 
                           variant="ghost" 
-                          size="icon"
+                          size="sm"
+                          className="p-1 h-8 w-8 mr-1"
                           onClick={(e) => handleEditClick(e, menu)}
-                          title="Edit menu"
+                          title="Rename menu"
                         >
-                          <Edit className="h-4 w-4" />
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                          </svg>
                         </Button>
                         <Button 
                           variant="ghost" 
-                          size="icon"
+                          size="sm"
+                          className="p-1 h-8 w-8"
                           onClick={(e) => handleDeleteClick(e, menu)}
                           title="Delete menu"
                         >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          title="View menu details"
-                        >
-                          <ChevronRight className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     </div>
@@ -456,6 +449,17 @@ function CategoryList({
     queryKey: ['/api/menu-categories', menuId],
     queryFn: () => apiRequest(`/api/menu-categories?menuId=${menuId}`),
   });
+
+  // Auto-expand all categories when they load
+  useEffect(() => {
+    if (categories.length > 0) {
+      const expanded: Record<number, boolean> = {};
+      categories.forEach((category: any) => {
+        expanded[category.id] = true;
+      });
+      setExpandedCategories(expanded);
+    }
+  }, [categories]);
 
   // Delete category mutation
   const deleteCategoryMutation = useMutation({
@@ -635,26 +639,32 @@ function CategoryList({
                 <Button 
                   variant="ghost" 
                   size="sm"
+                  className="p-1 h-8 w-8 mr-1"
                   onClick={() => handleAddItem(category.id)}
+                  title="Add Item"
                 >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add Item
+                  <PlusCircle className="h-4 w-4 text-green-500" />
                 </Button>
                 <Button 
                   variant="ghost" 
                   size="sm"
+                  className="p-1 h-8 w-8 mr-1"
                   onClick={() => onEditCategory(category.id)}
+                  title="Edit Category"
                 >
-                  <Edit className="h-3 w-3 mr-1" />
-                  Edit
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
                 </Button>
                 <Button 
                   variant="ghost" 
                   size="sm"
+                  className="p-1 h-8 w-8"
                   onClick={() => handleDeleteCategoryClick(category.id, category.name)}
+                  title="Delete Category"
                 >
-                  <Trash className="h-3 w-3 mr-1" />
-                  Delete
+                  <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
               </div>
             </div>
@@ -751,18 +761,23 @@ function CategoryItems({
             <Button 
               variant="ghost" 
               size="sm"
+              className="p-1 h-8 w-8 mr-1"
               onClick={() => onEditItem(item.id)}
+              title="Edit Item"
             >
-              <Edit className="h-3 w-3 mr-1" />
-              Edit
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
             </Button>
             <Button 
               variant="ghost" 
               size="sm"
+              className="p-1 h-8 w-8"
               onClick={() => onDeleteItem(item.id, item.name)}
+              title="Delete Item"
             >
-              <Trash className="h-3 w-3 mr-1" />
-              Delete
+              <Trash2 className="h-4 w-4 text-red-500" />
             </Button>
           </div>
         </div>

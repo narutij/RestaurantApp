@@ -1,119 +1,89 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { ThemeSwitch } from "@/components/ThemeToggle";
+import { useAuth } from "@/contexts/AuthContext";
 import { RestaurantModal } from "@/components/modals/RestaurantModal";
-import { MenuModal } from "@/components/modals/MenuModal";
-import { TableLayoutsModal } from "@/components/modals/TableLayoutsModal";
+import { WorkersModal } from "@/components/modals/WorkersModal";
 import { Restaurant } from "@shared/schema";
-import { 
-  Palette, 
-  Store, 
-  MenuSquare, 
-  Grid2X2, 
-  LogOut,
+import {
+  Store,
   Edit,
   Loader2,
-  Camera
+  Users,
+  Building2
 } from 'lucide-react';
-
-// Type for user profile
-type UserProfile = {
-  id: number;
-  name: string;
-  role: string;
-  avatarUrl: string | null;
-};
 
 export default function RestaurantInfoTab() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  // Profile editing state
-  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [editedUser, setEditedUser] = useState({
-    name: "",
-    role: "",
-    avatar: ""
-  });
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { appUser, isAdmin } = useAuth();
 
   // State for restaurant modal
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
 
-  // State for menu modal
-  const [menuModalOpen, setMenuModalOpen] = useState(false);
-  
-  // State for table layout modal
-  const [tableLayoutModalOpen, setTableLayoutModalOpen] = useState(false);
+  // State for workers modal
+  const [workersModalOpen, setWorkersModalOpen] = useState(false);
   
   // Effect to load selected restaurant from localStorage
   useEffect(() => {
     try {
       const savedRestaurant = localStorage.getItem('selectedRestaurant');
       if (savedRestaurant) {
-        setSelectedRestaurant(JSON.parse(savedRestaurant));
+        const restaurant = JSON.parse(savedRestaurant);
+        console.log('Restaurant tab: Loading saved restaurant with imageUrl:', restaurant.imageUrl);
+        setSelectedRestaurant(restaurant);
       }
     } catch (e) {
       console.error('Failed to load saved restaurant', e);
     }
+
+    // Listen for restaurant selection events
+    const handleRestaurantSelected = () => {
+      try {
+        const savedRestaurant = localStorage.getItem('selectedRestaurant');
+        if (savedRestaurant) {
+          const restaurant = JSON.parse(savedRestaurant);
+          console.log('Restaurant tab: Restaurant selected event - updating with imageUrl:', restaurant.imageUrl);
+          setSelectedRestaurant(restaurant);
+        }
+      } catch (e) {
+        console.error('Failed to update restaurant from event', e);
+      }
+    };
+
+    window.addEventListener('restaurantSelected', handleRestaurantSelected);
+
+    return () => {
+      window.removeEventListener('restaurantSelected', handleRestaurantSelected);
+    };
   }, []);
 
-  // Navigation options
+  // Navigation options for Restaurant tab (admin only)
   const options = [
-    { icon: <Palette className="mr-2 h-5 w-5" />, label: "App Theme", href: "#theme" },
-    { 
-      icon: <Store className="mr-2 h-5 w-5" />, 
-      label: "Restaurants", 
+    {
+      icon: <Store className="mr-2 h-5 w-5" />,
+      label: "Restaurants",
       href: "#restaurants",
       action: () => setRestaurantModalOpen(true)
     },
-    { 
-      icon: <MenuSquare className="mr-2 h-5 w-5" />, 
-      label: "Menus", 
-      href: "#menus",
-      action: () => setMenuModalOpen(true)
-    },
-    { 
-      icon: <Grid2X2 className="mr-2 h-5 w-5" />, 
-      label: "Table Layouts", 
-      href: "#tables",
-      action: () => setTableLayoutModalOpen(true)
+    {
+      icon: <Users className="mr-2 h-5 w-5" />,
+      label: "Workers",
+      href: "#workers",
+      action: () => setWorkersModalOpen(true)
     },
   ];
 
-  // Fetch user profile
-  const { data: profile, isLoading: isLoadingProfile } = useQuery({
-    queryKey: ['/api/user-profile'],
-    queryFn: async () => {
-      try {
-        const data = await apiRequest('/api/user-profile');
-        return data as UserProfile;
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        // Return default profile if none exists yet
-        return {
-          id: 1,
-          name: "John Doe",
-          role: "Restaurant Manager",
-          avatarUrl: null
-        } as UserProfile;
-      }
-    },
-    refetchOnWindowFocus: true,
-    staleTime: 0
-  });
+  // Use selected restaurant data
+  const restaurantProfile = selectedRestaurant ? {
+    id: selectedRestaurant.id,
+    name: selectedRestaurant.name,
+    address: selectedRestaurant.address || 'No address set',
+    imageUrl: selectedRestaurant.imageUrl || null
+  } : null;
+  const isLoadingRestaurant = false;
 
   // Handle selecting a restaurant
   const handleSelectRestaurant = (restaurant: Restaurant) => {
@@ -135,277 +105,83 @@ export default function RestaurantInfoTab() {
     });
   };
 
-  const handleLogout = () => {
-    // In a real app, this would call a logout function
-    console.log("Logout clicked");
-  };
-  
-  const handleProfileClick = () => {
-    if (profile) {
-      setEditedUser({
-        name: profile.name,
-        role: profile.role,
-        avatar: profile.avatarUrl || ""
+  const handleRestaurantClick = () => {
+    if (restaurantProfile) {
+      setRestaurantModalOpen(true);
+    } else {
+      toast({
+        title: "No Restaurant Selected",
+        description: "Please select a restaurant first",
       });
-      setPreviewUrl(profile.avatarUrl || "");
-      setIsProfileDialogOpen(true);
     }
   };
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Save the file for later upload
-    setSelectedFile(file);
-    
-    // Create a preview URL for the selected image
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-  };
-  
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-  
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditedUser({ ...editedUser, name: e.target.value });
-  };
-  
-  const handleRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditedUser({ ...editedUser, role: e.target.value });
-  };
 
-  // Function to update the profile with the profile picture
-  const saveProfile = async () => {
-    try {
-      setIsUpdatingProfile(true);
-      
-      let updatedProfile;
-      
-      if (selectedFile) {
-        // For file uploads, use FormData to send the file
-        const formData = new FormData();
-        formData.append('name', editedUser.name);
-        formData.append('role', editedUser.role);
-        formData.append('avatar', selectedFile);
-        
-        // Direct fetch for FormData
-        const response = await fetch('/api/user-profile', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to upload image');
-        }
-        
-        updatedProfile = await response.json();
-      } else if (previewUrl && previewUrl.startsWith('data:image')) {
-        // If it's a base64 data URL (from canvas editing, etc.)
-        // Send the base64 data to the server
-        updatedProfile = await apiRequest('/api/user-profile', {
-          method: 'POST',
-          body: {
-            name: editedUser.name,
-            role: editedUser.role,
-            avatarUrl: previewUrl
-          }
-        });
-      } else {
-        // Normal update without changing the avatar
-        updatedProfile = await apiRequest('/api/user-profile', {
-          method: 'POST',
-          body: {
-            name: editedUser.name,
-            role: editedUser.role,
-            avatarUrl: profile?.avatarUrl || null
-          }
-        });
-      }
-      
-      // Force refetch to ensure the UI gets the latest data
-      await queryClient.refetchQueries({ 
-        queryKey: ['/api/user-profile'],
-        exact: true
-      });
-      
-      // Update the state without waiting for a server refresh
-      if (profile) {
-        queryClient.setQueryData(['/api/user-profile'], {
-          ...profile,
-          name: editedUser.name,
-          role: editedUser.role,
-          avatarUrl: updatedProfile.avatarUrl
-        });
-      }
-      
-      // Reset file selection state
-      setSelectedFile(null);
-      
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been successfully updated"
-      });
-      
-      setIsProfileDialogOpen(false);
-      
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      toast({
-        title: "Update failed",
-        description: "There was a problem updating your profile",
-        variant: "destructive"
-      });
-    } finally {
-      setIsUpdatingProfile(false);
-    }
-  };
+  // Only show to admins
+  if (!isAdmin) {
+    return (
+      <div className="p-4 flex flex-col min-h-[calc(100vh-70px)] items-center justify-center">
+        <Building2 className="h-16 w-16 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
+        <p className="text-muted-foreground text-center">Restaurant management is only available for administrators.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 flex flex-col min-h-[calc(100vh-70px)]">
-      {/* User avatar block as a button - horizontal layout */}
-      {isLoadingProfile ? (
+      {/* Restaurant block as a button - horizontal layout */}
+      {isLoadingRestaurant ? (
         <div className="flex items-center justify-center my-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : (
-        <Button 
-          variant="ghost" 
+      ) : restaurantProfile ? (
+        <Button
+          variant="ghost"
           className="flex items-center justify-start w-full h-auto p-4 mb-4 mt-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg"
-          onClick={handleProfileClick}
-          disabled={isLoadingProfile}
+          onClick={handleRestaurantClick}
+          disabled={isLoadingRestaurant}
         >
           <div className="relative">
-            <Avatar className="h-14 w-14">
-              <AvatarImage 
-                src={profile?.avatarUrl || ""} 
-                alt={profile?.name || "User"} 
-                className="object-cover"
+            {restaurantProfile?.imageUrl ? (
+              <img
+                src={restaurantProfile.imageUrl}
+                alt={restaurantProfile.name}
+                className="h-14 w-14 rounded-lg object-cover"
+                onLoad={() => console.log('Restaurant tab: Restaurant image loaded:', restaurantProfile?.imageUrl)}
+                onError={() => console.log('Restaurant tab: Restaurant image failed to load:', restaurantProfile?.imageUrl)}
               />
-              <AvatarFallback className="text-lg bg-primary text-primary-foreground">
-                {profile?.name.split(' ').map(n => n[0]).join('') || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1">
-              <Edit className="h-2.5 w-2.5" />
-            </div>
+            ) : (
+              <div className="h-14 w-14 rounded-lg bg-primary flex items-center justify-center">
+                <Building2 className="h-6 w-6 text-primary-foreground" />
+              </div>
+            )}
           </div>
           <div className="ml-4 text-left">
-            <h2 className="text-xl font-semibold">{profile?.name}</h2>
-            <p className="text-muted-foreground text-sm">{profile?.role}</p>
+            <h2 className="text-xl font-semibold">{restaurantProfile?.name}</h2>
+            <p className="text-muted-foreground text-sm">{restaurantProfile?.address}</p>
+          </div>
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          className="flex items-center justify-center w-full h-auto p-4 mb-4 mt-2 border-dashed"
+          onClick={() => setRestaurantModalOpen(true)}
+        >
+          <Building2 className="h-8 w-8 text-muted-foreground mr-3" />
+          <div className="text-center">
+            <h2 className="text-lg font-semibold">No Restaurant Selected</h2>
+            <p className="text-muted-foreground text-sm">Click to select a restaurant</p>
           </div>
         </Button>
       )}
-      
-      {/* Profile Edit Dialog with Avatar */}
-      <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
-            <DialogDescription>
-              Update your profile information below
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            {/* Avatar with change option */}
-            <div className="flex flex-col items-center justify-center gap-2">
-              <Avatar className="h-24 w-24 cursor-pointer" onClick={triggerFileInput}>
-                <AvatarImage 
-                  src={previewUrl} 
-                  alt={editedUser.name} 
-                  className="object-cover"
-                />
-                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                  {editedUser.name.split(' ').map(n => n[0]).join('') || "U"}
-                </AvatarFallback>
-              </Avatar>
-              
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={handleFileChange}
-              />
-              
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={triggerFileInput}
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                Change Picture
-              </Button>
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input 
-                id="name" 
-                value={editedUser.name} 
-                onChange={handleNameChange} 
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
-              <Input 
-                id="role" 
-                value={editedUser.role} 
-                onChange={handleRoleChange} 
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsProfileDialogOpen(false)}
-              disabled={isUpdatingProfile}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="button" 
-              onClick={saveProfile}
-              disabled={isUpdatingProfile}
-            >
-              {isUpdatingProfile ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Option buttons - reduced spacing */}
+
+      {/* Restaurant management options */}
       <div className="space-y-1">
-        {/* App Theme with toggle */}
-        <Button 
-          variant="ghost" 
-          className="w-full justify-between text-base py-6 flex items-center hover:bg-slate-200 dark:hover:bg-slate-700"
-          onClick={() => console.log(`Clicked: ${options[0].label}`)}
-        >
-          <div className="flex items-center">
-            {options[0].icon}
-            {options[0].label}
-          </div>
-          <ThemeSwitch />
-        </Button>
-        
-        {/* Other options */}
-        {options.slice(1).map((option, index) => (
-          <Button 
-            key={index} 
-            variant="ghost" 
+        {options.map((option, index) => (
+          <Button
+            key={index}
+            variant="ghost"
             className="w-full justify-start text-base py-6 hover:bg-slate-200 dark:hover:bg-slate-700"
             onClick={() => option.action ? option.action() : console.log(`Clicked: ${option.label}`)}
           >
@@ -413,20 +189,8 @@ export default function RestaurantInfoTab() {
             {option.label}
           </Button>
         ))}
-        
-        {/* Logout button below options with a small gap */}
-        <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
-          <Button 
-            variant="destructive" 
-            className="w-full py-6 text-base"
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-2 h-5 w-5" />
-            Log out
-          </Button>
-        </div>
       </div>
-      
+
       {/* Restaurant Modal */}
       <RestaurantModal
         open={restaurantModalOpen}
@@ -434,19 +198,11 @@ export default function RestaurantInfoTab() {
         selectedRestaurantId={selectedRestaurantId}
         onSelectRestaurant={handleSelectRestaurant}
       />
-      
-      {/* Menu Modal */}
-      <MenuModal
-        open={menuModalOpen}
-        onOpenChange={setMenuModalOpen}
-        restaurant={selectedRestaurant}
-      />
-      
-      {/* Table Layout Modal */}
-      <TableLayoutsModal
-        open={tableLayoutModalOpen}
-        onOpenChange={setTableLayoutModalOpen}
-        restaurant={selectedRestaurant}
+
+      {/* Workers Modal */}
+      <WorkersModal
+        open={workersModalOpen}
+        onOpenChange={setWorkersModalOpen}
       />
     </div>
   );

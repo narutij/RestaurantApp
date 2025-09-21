@@ -73,6 +73,8 @@ export interface IStorage {
   getOrdersWithDetailsByTable(tableId: number): Promise<OrderWithDetails[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   markOrderComplete(id: number): Promise<Order | undefined>;
+  markOrderIncomplete(id: number): Promise<Order | undefined>;
+  clearOrdersByTable(tableId: number): Promise<void>;
   getNewOrders(): Promise<OrderWithDetails[]>;
   
   // Day Templates
@@ -90,40 +92,47 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private menuItemsMap: Map<number, MenuItem>;
-  private tablesMap: Map<number, Table>;
+  private users: Map<number, User> = new Map();
+  private menuItemsMap: Map<number, MenuItem> = new Map();
+  private tablesMap: Map<number, Table> = new Map();
   private tableLayoutsMap: Map<number, TableLayout> = new Map();
-  private ordersMap: Map<number, Order>;
-  private dayTemplatesMap: Map<number, DayTemplate>;
-  private userProfilesMap: Map<number, UserProfile>;
-  private restaurantsMap: Map<number, Restaurant>;
-  private menusMap: Map<number, Menu>;
-  private menuCategoriesMap: Map<number, MenuCategory>;
-  private currentUserId: number;
-  private currentMenuItemId: number;
-  private currentTableId: number;
+  private ordersMap: Map<number, Order> = new Map();
+  private dayTemplatesMap: Map<number, DayTemplate> = new Map();
+  private userProfilesMap: Map<number, UserProfile> = new Map();
+  private restaurantsMap: Map<number, Restaurant> = new Map();
+  private menusMap: Map<number, Menu> = new Map();
+  private menuCategoriesMap: Map<number, MenuCategory> = new Map();
+  private currentUserId: number = 1;
+  private currentMenuItemId: number = 1;
+  private currentTableId: number = 1;
   private currentTableLayoutId: number = 1;
-  private currentOrderId: number;
-  private currentDayTemplateId: number;
-  private currentUserProfileId: number;
-  private currentRestaurantId: number;
-  private currentMenuId: number;
-  private currentMenuCategoryId: number;
+  private currentOrderId: number = 1;
+  private currentDayTemplateId: number = 1;
+  private currentUserProfileId: number = 1;
+  private currentRestaurantId: number = 1;
+  private currentMenuId: number = 1;
+  private currentMenuCategoryId: number = 1;
 
   constructor() {
-    this.users = new Map();
-    this.menuItemsMap = new Map();
-    this.tablesMap = new Map();
-    this.ordersMap = new Map();
-    this.dayTemplatesMap = new Map();
-    this.userProfilesMap = new Map();
-    this.restaurantsMap = new Map();
-    this.menusMap = new Map();
-    this.menuCategoriesMap = new Map();
+    this.clear();
+    this.loadDataFromDatabase();
+  }
+
+  private clear() {
+    this.users.clear();
+    this.menuItemsMap.clear();
+    this.tablesMap.clear();
+    this.tableLayoutsMap.clear();
+    this.ordersMap.clear();
+    this.dayTemplatesMap.clear();
+    this.userProfilesMap.clear();
+    this.restaurantsMap.clear();
+    this.menusMap.clear();
+    this.menuCategoriesMap.clear();
     this.currentUserId = 1;
     this.currentMenuItemId = 1;
     this.currentTableId = 1;
+    this.currentTableLayoutId = 1;
     this.currentOrderId = 1;
     this.currentDayTemplateId = 1;
     this.currentUserProfileId = 1;
@@ -140,10 +149,6 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     });
-    
-    // We'll initialize from database separately
-    // (Can't use async in constructor)
-    this.loadDataFromDatabase();
   }
   
   private loadDataFromDatabase() {
@@ -345,7 +350,7 @@ export class MemStorage implements IStorage {
       // Return from memory if DB fails
       return Array.from(this.menuCategoriesMap.values())
         .filter(category => category.menuId === menuId)
-        .sort((a, b) => a.order - b.order);
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     }
   }
   
@@ -373,8 +378,10 @@ export class MemStorage implements IStorage {
     const id = this.currentMenuCategoryId++;
     const now = new Date();
     const newCategory: MenuCategory = { 
-      ...category, 
       id,
+      name: category.name,
+      menuId: category.menuId,
+      order: category.order ?? null,
       createdAt: now,
       updatedAt: now
     };
@@ -728,11 +735,16 @@ export class MemStorage implements IStorage {
 
   async createTable(table: InsertTable): Promise<Table> {
     const id = this.currentTableId++;
+    const now = new Date();
     const newTable: Table = { 
-      ...table, 
       id,
+      number: table.number,
+      label: table.label,
+      layoutId: table.layoutId ?? null,
       isActive: table.isActive ?? false,
-      activatedAt: table.activatedAt ?? null
+      activatedAt: table.activatedAt ?? null,
+      createdAt: now,
+      updatedAt: now
     };
     this.tablesMap.set(id, newTable);
     return newTable;
@@ -835,6 +847,15 @@ export class MemStorage implements IStorage {
     if (!order) return undefined;
 
     const updatedOrder: Order = { ...order, completed: true };
+    this.ordersMap.set(id, updatedOrder);
+    return updatedOrder;
+  }
+
+  async markOrderIncomplete(id: number): Promise<Order | undefined> {
+    const order = this.ordersMap.get(id);
+    if (!order) return undefined;
+
+    const updatedOrder: Order = { ...order, completed: false };
     this.ordersMap.set(id, updatedOrder);
     return updatedOrder;
   }
@@ -1132,18 +1153,19 @@ export class MemStorage implements IStorage {
     try {
       // For database implementation
       const data: any = {
-        updated_at: new Date()
+        updatedAt: new Date()
       };
-      
+
       if (restaurant.name !== undefined) data.name = restaurant.name;
       if (restaurant.address !== undefined) data.address = restaurant.address;
-      
+      if (restaurant.imageUrl !== undefined) data.imageUrl = restaurant.imageUrl;
+
       const [updatedRestaurant] = await db
         .update(restaurants)
         .set(data)
         .where(eq(restaurants.id, id))
         .returning();
-      
+
       return updatedRestaurant;
     } catch (error) {
       console.error("Error updating restaurant:", error);
@@ -1344,6 +1366,16 @@ export class MemStorage implements IStorage {
       console.error("Error deleting table layout:", error);
       return this.tableLayoutsMap.delete(id);
     }
+  }
+
+  async clearOrdersByTable(tableId: number): Promise<void> {
+    const idsToDelete: number[] = [];
+    this.ordersMap.forEach((order, id) => {
+      if (order.tableId === tableId) {
+        idsToDelete.push(id);
+      }
+    });
+    idsToDelete.forEach(id => this.ordersMap.delete(id));
   }
 }
 

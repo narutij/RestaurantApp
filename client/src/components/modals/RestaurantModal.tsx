@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { Trash2 } from "lucide-react";
+import { Trash2, Upload, Image as ImageIcon } from "lucide-react";
 
 type RestaurantModalProps = {
   open: boolean;
@@ -45,6 +45,8 @@ export function RestaurantModal({
   const [editMode, setEditMode] = useState(false);
   const [newRestaurantName, setNewRestaurantName] = useState("");
   const [newRestaurantAddress, setNewRestaurantAddress] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
   const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
   const [restaurantToEdit, setRestaurantToEdit] = useState<Restaurant | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -59,21 +61,49 @@ export function RestaurantModal({
 
   // Create restaurant mutation
   const createRestaurantMutation = useMutation({
-    mutationFn: (data: { name: string; address: string }) => 
-      apiRequest("/api/restaurants", { method: "POST", body: data }),
-    onSuccess: (data) => {
+    mutationFn: async (data: { name: string; address: string }) => {
+      // First create the restaurant
+      const restaurant = await apiRequest("/api/restaurants", { method: "POST", body: data });
+      
+      // Then upload the image if one was selected
+      if (selectedImage && restaurant.id) {
+        const formData = new FormData();
+        formData.append('image', selectedImage);
+        
+        await fetch(`/api/restaurants/${restaurant.id}/upload-image`, {
+          method: 'POST',
+          body: formData,
+        });
+        
+        // Refresh the restaurant data to get the updated imageUrl
+        const updatedRestaurant = await apiRequest(`/api/restaurants/${restaurant.id}`);
+        return updatedRestaurant;
+      }
+      
+      return restaurant;
+    },
+    onSuccess: async (data) => {
       // Reset the form
       setNewRestaurantName("");
       setNewRestaurantAddress("");
+      setSelectedImage(null);
+      setImagePreview("");
       
       // Exit create mode
       setCreateMode(false);
       
       // Invalidate the restaurants query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
       
-      // Select the newly created restaurant
+      // Force refresh the restaurants list to ensure we have the latest data
+      await queryClient.refetchQueries({ queryKey: ["/api/restaurants"] });
+      
+      // Select the newly created restaurant with the updated data including imageUrl
+      console.log('RestaurantModal: Selecting created restaurant with imageUrl:', data.imageUrl);
       onSelectRestaurant(data);
+
+      // Trigger custom event to ensure header updates
+      window.dispatchEvent(new Event('restaurantSelected'));
       
       // Show success toast
       toast({
@@ -93,17 +123,49 @@ export function RestaurantModal({
   
   // Update restaurant mutation
   const updateRestaurantMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: { name: string; address: string } }) => 
-      apiRequest(`/api/restaurants/${id}`, { method: "PUT", body: data }),
-    onSuccess: (data) => {
+    mutationFn: async ({ id, data }: { id: number, data: { name: string; address: string } }) => {
+      // First update the restaurant
+      const restaurant = await apiRequest(`/api/restaurants/${id}`, { method: "PUT", body: data });
+      
+      // Then upload the new image if one was selected
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('image', selectedImage);
+        
+        await fetch(`/api/restaurants/${id}/upload-image`, {
+          method: 'POST',
+          body: formData,
+        });
+        
+        // Refresh the restaurant data to get the updated imageUrl
+        const updatedRestaurant = await apiRequest(`/api/restaurants/${id}`);
+        return updatedRestaurant;
+      }
+      
+      return restaurant;
+    },
+    onSuccess: async (data) => {
       // Reset edit mode and form
       setEditMode(false);
       setRestaurantToEdit(null);
       setNewRestaurantName("");
       setNewRestaurantAddress("");
+      setSelectedImage(null);
+      setImagePreview("");
       
       // Invalidate the restaurants query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+      
+      // Force refresh the restaurants list to ensure we have the latest data
+      await queryClient.refetchQueries({ queryKey: ["/api/restaurants"] });
+      
+      // If this is the currently selected restaurant, update it
+      if (selectedRestaurantId === data.id) {
+        console.log('RestaurantModal: Updating selected restaurant with imageUrl:', data.imageUrl);
+        onSelectRestaurant(data);
+        // Trigger custom event to ensure header updates
+        window.dispatchEvent(new Event('restaurantSelected'));
+      }
       
       // Show success toast
       toast({
@@ -171,6 +233,20 @@ export function RestaurantModal({
     setRestaurantToEdit(null);
     setNewRestaurantName("");
     setNewRestaurantAddress("");
+    setSelectedImage(null);
+    setImagePreview("");
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRestaurantClick = (restaurant: Restaurant) => {
@@ -190,6 +266,10 @@ export function RestaurantModal({
     setNewRestaurantName(restaurant.name);
     setNewRestaurantAddress(restaurant.address);
     setEditMode(true);
+    // Set existing image if available
+    if (restaurant.imageUrl) {
+      setImagePreview(restaurant.imageUrl);
+    }
   };
   
   const handleUpdateRestaurant = () => {
@@ -240,6 +320,39 @@ export function RestaurantModal({
 
           {createMode || editMode ? (
             <div className="space-y-4 py-4">
+              {(createMode || editMode) && (
+                <div className="flex justify-center mb-4">
+                  <Input
+                    id="restaurant-image"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('restaurant-image')?.click()}
+                    className="relative w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors group"
+                  >
+                    {imagePreview ? (
+                      <>
+                        <img
+                          src={imagePreview}
+                          alt="Restaurant"
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Upload className="h-4 w-4 text-white" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        <ImageIcon className="h-6 w-6" />
+                      </div>
+                    )}
+                  </button>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="restaurant-name">Restaurant Name</Label>
                 <Input
@@ -274,9 +387,22 @@ export function RestaurantModal({
                         className="w-full justify-start text-left h-auto py-3 pr-24 relative"
                         onClick={() => handleRestaurantClick(restaurant)}
                       >
-                        <div>
-                          <div className="font-medium">{restaurant.name}</div>
-                          <div className="text-sm text-muted-foreground">{restaurant.address}</div>
+                        <div className="flex items-center gap-3">
+                          {restaurant.imageUrl ? (
+                            <img 
+                              src={restaurant.imageUrl} 
+                              alt={restaurant.name}
+                              className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <ImageIcon className="h-5 w-5 text-gray-400" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium">{restaurant.name}</div>
+                            <div className="text-sm text-muted-foreground">{restaurant.address}</div>
+                          </div>
                         </div>
                         <div className="absolute right-1 flex">
                           <Button 
@@ -286,7 +412,7 @@ export function RestaurantModal({
                             onClick={(e) => handleEditClick(e, restaurant)}
                             title="Edit restaurant"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500">
                               <path d="M12 20h9"></path>
                               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
                             </svg>

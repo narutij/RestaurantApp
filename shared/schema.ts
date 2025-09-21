@@ -130,7 +130,7 @@ export type Order = typeof orders.$inferSelect;
 
 // Types for websocket events
 export type WebSocketMessage = {
-  type: "NEW_ORDER" | "COMPLETE_ORDER" | "ACTIVATE_TABLE" | "DEACTIVATE_TABLE" | "CONNECTED_USERS";
+  type: "NEW_ORDER" | "COMPLETE_ORDER" | "UNCOMPLETE_ORDER" | "ACTIVATE_TABLE" | "DEACTIVATE_TABLE" | "CONNECTED_USERS";
   payload: unknown;
 };
 
@@ -155,6 +155,7 @@ export const restaurants = pgTable("restaurants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   address: text("address").notNull(),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -162,6 +163,7 @@ export const restaurants = pgTable("restaurants", {
 export const insertRestaurantSchema = createInsertSchema(restaurants).pick({
   name: true,
   address: true,
+  imageUrl: true,
 });
 
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;

@@ -37,7 +37,6 @@ export function TableLayoutsModal({
   restaurant,
   onSelectLayout,
 }: TableLayoutsModalProps) {
-  const [layouts, setLayouts] = useState<Layout[]>([]);
   const [selectedLayout, setSelectedLayout] = useState<Layout | null>(null);
   const [showLayoutForm, setShowLayoutForm] = useState(false);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
@@ -51,57 +50,45 @@ export function TableLayoutsModal({
   const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
   const [deleteLayoutDialog, setDeleteLayoutDialog] = useState(false);
   const [deleteTableDialog, setDeleteTableDialog] = useState(false);
+  const [tempSelectedLayoutId, setTempSelectedLayoutId] = useState<string | null>(null);
+  const isSelectionMode = !!onSelectLayout;
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Get tables from server
-  const { data: serverTables = [], isLoading } = useQuery({
+  const { data: serverTables = [], isLoading: isLoadingTables } = useQuery<Table[]>({
     queryKey: ['/api/tables'],
     queryFn: () => apiRequest('/api/tables'),
     enabled: open,
   });
 
-  // Load layouts from localStorage on component mount
-  useEffect(() => {
-    if (open) {
-      const storedLayouts = localStorage.getItem('tableLayouts');
-      if (storedLayouts) {
-        try {
-          const parsedLayouts = JSON.parse(storedLayouts) as Layout[];
-          
-          // Match any tables from the server to our stored layouts
-          if (serverTables.length > 0) {
-            const updatedLayouts = parsedLayouts.map(layout => {
-              const matchedTables = layout.tables.map(layoutTable => {
-                const serverMatch = serverTables.find((st: any) => st.id === layoutTable.id);
-                return serverMatch || layoutTable;
-              });
-              
-              return {
-                ...layout,
-                tables: matchedTables
-              };
-            });
-            
-            setLayouts(updatedLayouts);
-          } else {
-            setLayouts(parsedLayouts);
-          }
-        } catch (e) {
-          console.error('Failed to parse layouts', e);
-          setLayouts([]);
-        }
-      }
-    }
-  }, [open, serverTables]);
+  // Get layouts from server
+  const { data: layouts = [], isLoading: isLoadingLayouts } = useQuery<Layout[]>({
+    queryKey: ['/api/table-layouts', restaurant?.id],
+    queryFn: () => apiRequest(`/api/table-layouts${restaurant?.id ? `?restaurantId=${restaurant.id}` : ''}`),
+    enabled: open && !!restaurant?.id,
+  });
 
-  // Save layouts to localStorage whenever they change
+  // Reset state when modal is closed
   useEffect(() => {
-    if (layouts.length > 0) {
-      localStorage.setItem('tableLayouts', JSON.stringify(layouts));
+    if (!open) {
+      setSelectedLayout(null);
+      setShowLayoutForm(false);
+      setIsEditingLayout(false);
+      setLayoutName("");
+      setShowTableForm(false);
+      setIsEditingTable(false);
+      setTableToEdit(null);
+      setTableNumber("");
+      setTableLabel("");
+      setLayoutToDelete(null);
+      setTableToDelete(null);
+      setDeleteLayoutDialog(false);
+      setDeleteTableDialog(false);
+      setTempSelectedLayoutId(null);
     }
-  }, [layouts]);
+  }, [open]);
 
   // Table mutations
   const createTableMutation = useMutation({
@@ -112,32 +99,12 @@ export function TableLayoutsModal({
           number: data.number,
           label: data.label,
           isActive: false,
+          layoutId: selectedLayout ? Number(selectedLayout.id) : undefined,
         }
       }),
-    onSuccess: (newTable) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
-      
-      if (selectedLayout) {
-        // Add the new table to the selected layout
-        const updatedLayouts = layouts.map(layout => {
-          if (layout.id === selectedLayout.id) {
-            return {
-              ...layout,
-              tables: [...layout.tables, newTable]
-            };
-          }
-          return layout;
-        });
-        
-        setLayouts(updatedLayouts);
-        
-        // Update the selected layout with the new table
-        setSelectedLayout({
-          ...selectedLayout,
-          tables: [...selectedLayout.tables, newTable]
-        });
-      }
-      
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
       setShowTableForm(false);
       setTableNumber("");
       setTableLabel("");
@@ -285,32 +252,58 @@ export function TableLayoutsModal({
     }
   });
 
+  // Layout mutations
+  const createLayoutMutation = useMutation({
+    mutationFn: (data: { name: string; restaurantId: number }) =>
+      apiRequest('/api/table-layouts', {
+        method: 'POST',
+        body: {
+          name: data.name,
+          restaurantId: data.restaurantId,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
+      setShowLayoutForm(false);
+      setLayoutName('');
+      toast({
+        title: 'Success',
+        description: 'Layout was created successfully.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to create layout. Please try again.',
+        variant: 'destructive',
+      });
+      console.error('Create layout error:', error);
+    },
+  });
+
   // Layout handlers
   const handleCreateLayout = () => {
     if (!layoutName.trim()) {
       toast({
-        title: "Invalid Input",
-        description: "Layout name is required.",
-        variant: "destructive",
+        title: 'Invalid Input',
+        description: 'Layout name is required.',
+        variant: 'destructive',
       });
       return;
     }
 
-    const newLayout: Layout = {
-      id: Date.now().toString(),
-      name: layoutName.trim(),
-      tables: []
-    };
+    if (!restaurant) {
+      toast({
+        title: 'No restaurant selected',
+        description: 'Please select a restaurant first.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    const newLayouts = [...layouts, newLayout];
-    setLayouts(newLayouts);
-    setSelectedLayout(newLayout);
-    setShowLayoutForm(false);
-    setLayoutName("");
-    
-    toast({
-      title: "Success",
-      description: "Layout was created successfully.",
+    createLayoutMutation.mutate({
+      name: layoutName.trim(),
+      restaurantId: restaurant.id,
     });
   };
 
@@ -411,10 +404,10 @@ export function TableLayoutsModal({
   };
 
   const handleSelectLayout = (layout: Layout) => {
-    setSelectedLayout(layout);
-    if (onSelectLayout) {
-      onSelectLayout(layout);
-      onOpenChange(false);
+    if (isSelectionMode) {
+      setTempSelectedLayoutId(layout.id);
+    } else {
+      setSelectedLayout(layout);
     }
   };
 
@@ -443,7 +436,9 @@ export function TableLayoutsModal({
               {layouts.map((layout) => (
                 <div key={layout.id} 
                   className={`border rounded-md p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                    selectedLayout?.id === layout.id ? 'border-primary bg-gray-50 dark:bg-gray-900' : ''
+                    isSelectionMode
+                      ? (tempSelectedLayoutId === layout.id ? 'border-primary bg-gray-50 dark:bg-gray-900' : '')
+                      : (selectedLayout?.id === layout.id ? 'border-primary bg-gray-50 dark:bg-gray-900' : '')
                   }`}
                   onClick={() => handleSelectLayout(layout)}
                 >
@@ -451,34 +446,36 @@ export function TableLayoutsModal({
                     <div>
                       <div className="font-medium">{layout.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {layout.tables.length} table{layout.tables.length !== 1 ? 's' : ''}
+                        {layout.tables?.length || 0} table{(layout.tables?.length || 0) !== 1 ? 's' : ''}
                       </div>
                     </div>
-                    <div className="flex space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditLayout(layout);
-                        }}
-                      >
-                        <Edit className="h-4 w-4 text-blue-500" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLayoutToDelete(layout);
-                          setDeleteLayoutDialog(true);
-                        }}
-                      >
-                        <Trash className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
+                    {!isSelectionMode && (
+                      <div className="flex space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditLayout(layout);
+                          }}
+                        >
+                          <Edit className="h-4 w-4 text-blue-500" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLayoutToDelete(layout);
+                            setDeleteLayoutDialog(true);
+                          }}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -486,7 +483,7 @@ export function TableLayoutsModal({
           )}
         </div>
         
-        {!showLayoutForm && (
+        {!showLayoutForm && !isSelectionMode && (
           <Button
             variant="outline"
             className="w-full mt-4"
@@ -631,11 +628,11 @@ export function TableLayoutsModal({
         )}
         
         <div className="max-h-[300px] overflow-y-auto">
-          {selectedLayout.tables.length === 0 ? (
+          {(selectedLayout?.tables?.length || 0) === 0 ? (
             <div className="text-center py-4">No tables in this layout. Add your first table!</div>
           ) : (
             <div className="grid gap-2">
-              {selectedLayout.tables.map((table) => (
+              {(selectedLayout?.tables || []).map((table) => (
                 <div key={table.id} className="border rounded-md p-3 flex justify-between items-center">
                   <div>
                     <div className="font-medium">{table.number}</div>
@@ -684,6 +681,25 @@ export function TableLayoutsModal({
           </DialogHeader>
           
           {selectedLayout ? renderLayoutDetail() : renderLayoutList()}
+          {isSelectionMode && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const chosen = layouts.find(l => l.id === tempSelectedLayoutId);
+                  if (chosen) {
+                    onSelectLayout?.(chosen);
+                    onOpenChange(false);
+                  }
+                }}
+                disabled={!tempSelectedLayoutId}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
       
