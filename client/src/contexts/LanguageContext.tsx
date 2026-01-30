@@ -1,0 +1,551 @@
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+
+export type Language = 'en' | 'lt';
+
+// Translation keys type
+type TranslationKeys = typeof translations.en;
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: keyof TranslationKeys) => string;
+}
+
+const translations = {
+  en: {
+    // Navigation tabs
+    'nav.restaurant': 'Restaurant',
+    'nav.settings': 'Settings',
+    'nav.workday': 'Workday',
+    'nav.orders': 'Orders',
+    'nav.kitchen': 'Kitchen',
+    'nav.history': 'History',
+
+    // TopBar
+    'topbar.selectRestaurant': 'Select Restaurant',
+    'topbar.logout': 'Log out',
+    'topbar.notifications': 'Notifications',
+    'topbar.noNotifications': 'No notifications',
+    'topbar.activeUsers': 'Active Users',
+    'topbar.usersOnline': 'users online',
+
+    // Time
+    'time.justNow': 'just now',
+    'time.minAgo': 'min ago',
+    'time.hourAgo': 'h ago',
+
+    // Settings page
+    'settings.title': 'Settings',
+    'settings.profile': 'Profile',
+    'settings.name': 'Name',
+    'settings.email': 'Email',
+    'settings.role': 'Role',
+    'settings.appTheme': 'App Theme',
+    'settings.themeDescription': 'Switch between light and dark mode',
+    'settings.light': 'Light',
+    'settings.dark': 'Dark',
+    'settings.language': 'Language',
+    'settings.languageDescription': 'Choose your preferred language',
+    'settings.menus': 'Menus',
+    'settings.menusDescription': 'Manage restaurant menus and items',
+    'settings.createMenu': 'Create Menu',
+    'settings.tableLayouts': 'Table Layouts',
+    'settings.tableLayoutsDescription': 'Manage table arrangements',
+    'settings.createLayout': 'Create Layout',
+    'settings.noMenus': 'No menus created yet',
+    'settings.noLayouts': 'No table layouts created yet',
+    'settings.editProfile': 'Edit Profile',
+    'settings.editProfileDesc': 'Update your profile information',
+    'settings.changePhoto': 'Change Photo',
+
+    // Restaurant page
+    'restaurant.title': 'Restaurant',
+    'restaurant.workers': 'Workers',
+    'restaurant.noWorkers': 'No workers assigned yet',
+    'restaurant.workersWillAppear': 'Workers will appear here when they join',
+    'restaurant.selectRestaurant': 'Select a Restaurant',
+    'restaurant.selectRestaurantDescription': 'Choose a restaurant to manage from the list above',
+    'restaurant.revenue': 'Revenue',
+    'restaurant.clients': 'Clients',
+    'restaurant.uniqueTables': 'Unique tables served',
+    'restaurant.topItems': 'Top Items',
+    'restaurant.topDishes': 'Top Dishes',
+    'restaurant.noItems': 'No data available',
+    'restaurant.workersManagement': 'Workers Management',
+    'restaurant.manageTeam': 'Manage your team and permissions',
+    'restaurant.menuManagement': 'Menu Management',
+    'restaurant.createEditMenus': 'Create and edit menus',
+    'restaurant.tableLayouts': 'Table Layouts',
+    'restaurant.manageLayouts': 'Manage table arrangements',
+    'restaurant.reminders': 'Reminders',
+    'restaurant.noReminders': 'No reminders yet',
+    'restaurant.reminderPlaceholder': 'Add a reminder...',
+    'restaurant.reminderAdded': 'Reminder added',
+    'restaurant.reminderAddedDesc': 'Your reminder has been saved.',
+    'restaurant.reminderDeleted': 'Reminder deleted',
+    'restaurant.reminderError': 'Failed to add reminder.',
+    'restaurant.noRestaurant': 'No Restaurant Selected',
+    'restaurant.selectFromTopBar': 'Select a restaurant from the top bar to get started.',
+    'restaurant.adminOnly': 'Restaurant management is only available for administrators.',
+
+    // Timeframes
+    'timeframe.week': 'Week',
+    'timeframe.month': 'Month',
+    'timeframe.quarter': 'Quarter',
+    'timeframe.year': 'Year',
+
+    // Workday page
+    'workday.title': 'Workday',
+    'workday.selectMenu': 'Select Menu',
+    'workday.selectMenuDescription': 'Choose which menu to use for today',
+    'workday.chooseMenu': 'Choose a menu...',
+    'workday.selectTableLayout': 'Select Table Layout',
+    'workday.selectTableLayoutDescription': 'Choose which table arrangement to use',
+    'workday.chooseLayout': 'Choose a layout...',
+    'workday.letsGetToWork': "Let's Get to Work!",
+    'workday.starting': 'Starting...',
+    'workday.selectBothRequired': 'Select both a menu and table layout to start the workday',
+    'workday.noMenusAvailable': 'No menus available. Create one in Settings.',
+    'workday.noLayoutsAvailable': 'No table layouts available. Create one in Settings.',
+    'workday.active': 'Workday Active',
+    'workday.startedAt': 'Started at',
+    'workday.endWorkday': 'End Workday',
+    'workday.ending': 'Ending...',
+    'workday.currentConfig': 'Current Configuration',
+    'workday.menu': 'Menu',
+    'workday.layout': 'Layout',
+    'workday.date': 'Date',
+    'workday.today': 'Today',
+    'workday.noRestaurantSelected': 'No Restaurant Selected',
+    'workday.selectRestaurantFirst': 'Please select a restaurant from the Restaurant tab to manage workdays.',
+    'workday.started': 'Workday started!',
+    'workday.startedDescription': "Let's get to work! Good luck today!",
+    'workday.ended': 'Workday ended',
+    'workday.endedDescription': 'Great work today! See you next time.',
+    'workday.failedToStart': 'Failed to start workday',
+    'workday.failedToEnd': 'Failed to end workday',
+    'workday.configRequired': 'Configuration required',
+    'workday.selectMenuAndLayout': 'Please select both a menu and a table layout',
+    'workday.selectWorkers': 'Select Workers',
+    'workday.selectWorkersDescription': 'Who is working today?',
+    'workday.noWorkersAvailable': 'No workers available',
+    'workday.selected': 'selected',
+    'workday.workersOnShift': 'Workers on Shift',
+    'workday.activeNow': 'active now',
+    'workday.add': 'Add',
+    'workday.noWorkersAssigned': 'No workers assigned',
+    'workday.working': 'Working',
+    'workday.onBreak': 'On break',
+    'workday.shiftEnded': 'Shift ended',
+    'workday.start': 'Start',
+    'workday.rest': 'Rest',
+    'workday.done': 'Done',
+    'workday.workdaySetup': 'Workday Setup',
+    'workday.endWorkdayConfirmTitle': 'End Workday?',
+    'workday.endWorkdayConfirmDescription': 'Are you sure you want to end the workday? This will close all active sessions.',
+    'workday.addWorkerTitle': 'Add Worker to Shift',
+    'workday.addWorkerDescription': 'Select a worker to add to today\'s shift',
+    'workday.allWorkersAssigned': 'All workers are already assigned',
+    'workday.shiftEndedToday': 'Shift Already Ended Today',
+    'workday.shiftsEndedToday': 'Shifts Ended Today',
+    'workday.shift': 'Shift',
+    'workday.duration': 'Duration',
+    'workday.workers': 'workers',
+    'workday.endedAt': 'Ended at',
+    'workday.online': 'Online',
+    'workday.offline': 'Offline',
+    'workday.worked': 'Worked',
+    'workday.rested': 'Rested',
+    'workday.dismissShiftsTitle': 'Dismiss Shift History?',
+    'workday.dismissShiftsDescription': 'Are you sure you want to dismiss all ended shift banners? The shift data will still be saved, but the banners will be hidden until tomorrow.',
+
+    // Orders page
+    'orders.title': 'Orders',
+    'orders.tables': 'Tables',
+    'orders.noTables': 'No tables in this layout',
+    'orders.people': 'people',
+    'orders.noOrders': 'No orders yet. Add items below.',
+    'orders.total': 'Total',
+    'orders.addItems': 'Add Items',
+    'orders.specialItem': 'Special Item',
+    'orders.addNote': 'Add a note for this order...',
+    'orders.close': 'Close',
+    'orders.activateTable': 'Activate Table',
+    'orders.numberOfPeople': 'Number of People',
+    'orders.howManyPeople': 'How many people are sitting at this table?',
+    'orders.cancel': 'Cancel',
+    'orders.activate': 'Activate',
+    'orders.addSpecialItem': 'Add Special Item',
+    'orders.addCustomItem': "Add a custom item that's not on the menu",
+    'orders.itemName': 'Item Name',
+    'orders.itemNamePlaceholder': 'e.g., Birthday Cake',
+    'orders.price': 'Price',
+    'orders.addItem': 'Add Item',
+    'orders.tableActivated': 'Table activated',
+    'orders.tableReady': 'Table is now ready for orders',
+    'orders.tableClosed': 'Table closed',
+    'orders.tableHasBeenClosed': 'Table has been closed',
+    'orders.noActiveWorkday': 'No Active Workday',
+    'orders.startWorkdayFirst': 'Start a workday from the Workday tab to manage orders.',
+    'orders.special': 'Special',
+    'orders.note': 'Note',
+    'orders.table': 'Table',
+    'orders.tapToActivate': 'Tap to activate',
+    'orders.pendingOrder': 'Pending Order',
+    'orders.subtotal': 'Subtotal',
+    'orders.confirmOrder': 'Send to Kitchen',
+    'orders.orderConfirmed': 'Order sent to kitchen!',
+    'orders.orderFailed': 'Failed to send order',
+    'orders.confirmedOrders': 'Confirmed Orders',
+    'orders.ready': 'Ready',
+    'orders.badges': 'Badges',
+    'orders.addBadge': 'Add',
+    'orders.addToOrder': 'Add to Order',
+
+    // Kitchen page
+    'kitchen.title': 'Kitchen',
+    'kitchen.noActiveTables': 'No active tables',
+    'kitchen.waitingForOrders': 'Waiting for orders to come in',
+    'kitchen.noActiveWorkday': 'No Active Workday',
+    'kitchen.startWorkdayFirst': 'Start a workday from the Workday tab to view kitchen orders.',
+    'kitchen.pendingOrders': 'pending orders',
+    'kitchen.allCompleted': 'All completed',
+
+    // History page
+    'history.title': 'History',
+    'history.daySummary': 'Day Summary',
+    'history.totalRevenue': 'Total Revenue',
+    'history.ordersCount': 'Orders',
+    'history.tablesServed': 'Tables Served',
+    'history.noData': 'No data for this day',
+    'history.selectDate': 'Select a different date to view history',
+
+    // Common
+    'common.loading': 'Loading...',
+    'common.error': 'Error',
+    'common.success': 'Success',
+    'common.save': 'Save',
+    'common.delete': 'Delete',
+    'common.edit': 'Edit',
+    'common.create': 'Create',
+    'common.notSet': 'Not set',
+    'common.somethingWentWrong': 'Something went wrong',
+    'common.showMore': 'Show all',
+    'common.showLess': 'Show less',
+    'common.accessRestricted': 'Access Restricted',
+    'common.cancel': 'Cancel',
+    'common.saving': 'Saving...',
+    'common.close': 'Close',
+    'common.dismissAll': 'Dismiss All',
+    'common.dismiss': 'Dismiss',
+
+    // Toasts
+    'toast.restaurantSelected': 'Restaurant Selected',
+    'toast.restaurantSelectedDescription': 'is now active.',
+    'toast.notificationSent': 'Notification sent',
+    'toast.kitchenNotified': 'Kitchen has been notified',
+
+    // Roles
+    'role.admin': 'admin',
+    'role.manager': 'manager',
+    'role.worker': 'worker',
+    'role.kitchen': 'kitchen',
+    'roles.admin': 'Admin',
+    'roles.manager': 'Manager',
+    'roles.worker': 'Worker',
+    'roles.kitchen': 'Kitchen',
+
+    // Restaurant modal
+    'modal.selectRestaurant': 'Select Restaurant',
+    'modal.chooseRestaurant': 'Choose a restaurant to manage',
+    'modal.noRestaurants': 'No restaurants available',
+    'modal.createRestaurant': 'Create a new restaurant to get started',
+  },
+  lt: {
+    // Navigation tabs
+    'nav.restaurant': 'Restoranas',
+    'nav.settings': 'Nustatymai',
+    'nav.workday': 'Darbo diena',
+    'nav.orders': 'Užsakymai',
+    'nav.kitchen': 'Virtuvė',
+    'nav.history': 'Istorija',
+
+    // TopBar
+    'topbar.selectRestaurant': 'Pasirinkti restoraną',
+    'topbar.logout': 'Atsijungti',
+    'topbar.notifications': 'Pranešimai',
+    'topbar.noNotifications': 'Pranešimų nėra',
+    'topbar.activeUsers': 'Aktyvūs vartotojai',
+    'topbar.usersOnline': 'prisijungę',
+
+    // Time
+    'time.justNow': 'ką tik',
+    'time.minAgo': 'min. prieš',
+    'time.hourAgo': 'val. prieš',
+
+    // Settings page
+    'settings.title': 'Nustatymai',
+    'settings.profile': 'Profilis',
+    'settings.name': 'Vardas',
+    'settings.email': 'El. paštas',
+    'settings.role': 'Rolė',
+    'settings.appTheme': 'Programos tema',
+    'settings.themeDescription': 'Perjungti tarp šviesios ir tamsios temos',
+    'settings.light': 'Šviesi',
+    'settings.dark': 'Tamsi',
+    'settings.language': 'Kalba',
+    'settings.languageDescription': 'Pasirinkite norimą kalbą',
+    'settings.menus': 'Meniu',
+    'settings.menusDescription': 'Valdyti restorano meniu ir patiekalus',
+    'settings.createMenu': 'Sukurti meniu',
+    'settings.tableLayouts': 'Stalų išdėstymai',
+    'settings.tableLayoutsDescription': 'Valdyti stalų išdėstymus',
+    'settings.createLayout': 'Sukurti išdėstymą',
+    'settings.noMenus': 'Meniu dar nesukurta',
+    'settings.noLayouts': 'Stalų išdėstymų dar nesukurta',
+    'settings.editProfile': 'Redaguoti profilį',
+    'settings.editProfileDesc': 'Atnaujinti profilio informaciją',
+    'settings.changePhoto': 'Keisti nuotrauką',
+
+    // Restaurant page
+    'restaurant.title': 'Restoranas',
+    'restaurant.workers': 'Darbuotojai',
+    'restaurant.noWorkers': 'Darbuotojų dar nepriskirta',
+    'restaurant.workersWillAppear': 'Darbuotojai pasirodys čia, kai prisijungs',
+    'restaurant.selectRestaurant': 'Pasirinkite restoraną',
+    'restaurant.selectRestaurantDescription': 'Pasirinkite restoraną valdymui iš sąrašo aukščiau',
+    'restaurant.revenue': 'Pajamos',
+    'restaurant.clients': 'Klientai',
+    'restaurant.uniqueTables': 'Aptarnauti stalai',
+    'restaurant.topItems': 'Populiariausi',
+    'restaurant.topDishes': 'Populiariausi patiekalai',
+    'restaurant.noItems': 'Duomenų nėra',
+    'restaurant.workersManagement': 'Darbuotojų valdymas',
+    'restaurant.manageTeam': 'Valdyti komandą ir leidimus',
+    'restaurant.menuManagement': 'Meniu valdymas',
+    'restaurant.createEditMenus': 'Kurti ir redaguoti meniu',
+    'restaurant.tableLayouts': 'Stalų išdėstymai',
+    'restaurant.manageLayouts': 'Valdyti stalų išdėstymus',
+    'restaurant.reminders': 'Priminimai',
+    'restaurant.noReminders': 'Priminimų dar nėra',
+    'restaurant.reminderPlaceholder': 'Pridėti priminimą...',
+    'restaurant.reminderAdded': 'Priminimas pridėtas',
+    'restaurant.reminderAddedDesc': 'Jūsų priminimas išsaugotas.',
+    'restaurant.reminderDeleted': 'Priminimas ištrintas',
+    'restaurant.reminderError': 'Nepavyko pridėti priminimo.',
+    'restaurant.noRestaurant': 'Restoranas nepasirinktas',
+    'restaurant.selectFromTopBar': 'Pasirinkite restoraną iš viršutinės juostos.',
+    'restaurant.adminOnly': 'Restorano valdymas prieinamas tik administratoriams.',
+
+    // Timeframes
+    'timeframe.week': 'Savaitė',
+    'timeframe.month': 'Mėnuo',
+    'timeframe.quarter': 'Ketvirtis',
+    'timeframe.year': 'Metai',
+
+    // Workday page
+    'workday.title': 'Darbo diena',
+    'workday.selectMenu': 'Pasirinkti meniu',
+    'workday.selectMenuDescription': 'Pasirinkite, kurį meniu naudoti šiandien',
+    'workday.chooseMenu': 'Pasirinkite meniu...',
+    'workday.selectTableLayout': 'Pasirinkti stalų išdėstymą',
+    'workday.selectTableLayoutDescription': 'Pasirinkite, kurį stalų išdėstymą naudoti',
+    'workday.chooseLayout': 'Pasirinkite išdėstymą...',
+    'workday.letsGetToWork': 'Pradėkime darbą!',
+    'workday.starting': 'Pradedama...',
+    'workday.selectBothRequired': 'Pasirinkite meniu ir stalų išdėstymą, kad pradėtumėte darbo dieną',
+    'workday.noMenusAvailable': 'Meniu nėra. Sukurkite jį Nustatymuose.',
+    'workday.noLayoutsAvailable': 'Stalų išdėstymų nėra. Sukurkite jį Nustatymuose.',
+    'workday.active': 'Darbo diena aktyvi',
+    'workday.startedAt': 'Pradėta',
+    'workday.endWorkday': 'Baigti darbo dieną',
+    'workday.ending': 'Baigiama...',
+    'workday.currentConfig': 'Dabartinė konfigūracija',
+    'workday.menu': 'Meniu',
+    'workday.layout': 'Išdėstymas',
+    'workday.date': 'Data',
+    'workday.today': 'Šiandien',
+    'workday.noRestaurantSelected': 'Restoranas nepasirinktas',
+    'workday.selectRestaurantFirst': 'Pasirinkite restoraną Restorano skiltyje, kad valdytumėte darbo dienas.',
+    'workday.started': 'Darbo diena pradėta!',
+    'workday.startedDescription': 'Pradėkime darbą! Sėkmės šiandien!',
+    'workday.ended': 'Darbo diena baigta',
+    'workday.endedDescription': 'Puikus darbas šiandien! Iki pasimatymo.',
+    'workday.failedToStart': 'Nepavyko pradėti darbo dienos',
+    'workday.failedToEnd': 'Nepavyko baigti darbo dienos',
+    'workday.configRequired': 'Reikalinga konfigūracija',
+    'workday.selectMenuAndLayout': 'Pasirinkite meniu ir stalų išdėstymą',
+    'workday.selectWorkers': 'Pasirinkti darbuotojus',
+    'workday.selectWorkersDescription': 'Kas šiandien dirba?',
+    'workday.noWorkersAvailable': 'Darbuotojų nėra',
+    'workday.selected': 'pasirinkta',
+    'workday.workersOnShift': 'Darbuotojai pamainoje',
+    'workday.activeNow': 'dirba dabar',
+    'workday.add': 'Pridėti',
+    'workday.noWorkersAssigned': 'Darbuotojų nepaskirta',
+    'workday.working': 'Dirba',
+    'workday.onBreak': 'Pertraukoje',
+    'workday.shiftEnded': 'Pamaina baigta',
+    'workday.start': 'Pradėti',
+    'workday.rest': 'Pertrauka',
+    'workday.done': 'Baigta',
+    'workday.workdaySetup': 'Darbo dienos nustatymai',
+    'workday.endWorkdayConfirmTitle': 'Baigti darbo dieną?',
+    'workday.endWorkdayConfirmDescription': 'Ar tikrai norite baigti darbo dieną? Tai uždarys visas aktyvias sesijas.',
+    'workday.addWorkerTitle': 'Pridėti darbuotoją į pamainą',
+    'workday.addWorkerDescription': 'Pasirinkite darbuotoją, kurį pridėti į šiandienos pamainą',
+    'workday.allWorkersAssigned': 'Visi darbuotojai jau paskirti',
+    'workday.shiftEndedToday': 'Pamaina jau baigta šiandien',
+    'workday.shiftsEndedToday': 'Pamainos baigtos šiandien',
+    'workday.shift': 'Pamaina',
+    'workday.duration': 'Trukmė',
+    'workday.workers': 'darbuotojai',
+    'workday.endedAt': 'Baigta',
+    'workday.online': 'Prisijungęs',
+    'workday.offline': 'Neprisijungęs',
+    'workday.worked': 'Dirbo',
+    'workday.rested': 'Ilsėjosi',
+    'workday.dismissShiftsTitle': 'Paslėpti pamainų istoriją?',
+    'workday.dismissShiftsDescription': 'Ar tikrai norite paslėpti visas baigtas pamainas? Pamainų duomenys bus išsaugoti, bet pranešimai bus paslėpti iki rytojaus.',
+
+    // Orders page
+    'orders.title': 'Užsakymai',
+    'orders.tables': 'Stalai',
+    'orders.noTables': 'Šiame išdėstyme stalų nėra',
+    'orders.people': 'žmonės',
+    'orders.noOrders': 'Užsakymų dar nėra. Pridėkite žemiau.',
+    'orders.total': 'Viso',
+    'orders.addItems': 'Pridėti patiekalus',
+    'orders.specialItem': 'Specialus patiekalas',
+    'orders.addNote': 'Pridėti pastabą šiam užsakymui...',
+    'orders.close': 'Uždaryti',
+    'orders.activateTable': 'Aktyvuoti stalą',
+    'orders.numberOfPeople': 'Žmonių skaičius',
+    'orders.howManyPeople': 'Kiek žmonių sėdi prie šio stalo?',
+    'orders.cancel': 'Atšaukti',
+    'orders.activate': 'Aktyvuoti',
+    'orders.addSpecialItem': 'Pridėti specialų patiekalą',
+    'orders.addCustomItem': 'Pridėti patiekalą, kurio nėra meniu',
+    'orders.itemName': 'Patiekalo pavadinimas',
+    'orders.itemNamePlaceholder': 'pvz., Gimtadienio tortas',
+    'orders.price': 'Kaina',
+    'orders.addItem': 'Pridėti',
+    'orders.tableActivated': 'Stalas aktyvuotas',
+    'orders.tableReady': 'Stalas paruoštas užsakymams',
+    'orders.tableClosed': 'Stalas uždarytas',
+    'orders.tableHasBeenClosed': 'Stalas buvo uždarytas',
+    'orders.noActiveWorkday': 'Nėra aktyvios darbo dienos',
+    'orders.startWorkdayFirst': 'Pradėkite darbo dieną Darbo dienos skiltyje, kad valdytumėte užsakymus.',
+    'orders.special': 'Specialus',
+    'orders.note': 'Pastaba',
+    'orders.table': 'Stalas',
+    'orders.tapToActivate': 'Paspauskite aktyvuoti',
+    'orders.pendingOrder': 'Laukiantis užsakymas',
+    'orders.subtotal': 'Tarpinė suma',
+    'orders.confirmOrder': 'Siųsti į virtuvę',
+    'orders.orderConfirmed': 'Užsakymas išsiųstas į virtuvę!',
+    'orders.orderFailed': 'Nepavyko išsiųsti užsakymo',
+    'orders.confirmedOrders': 'Patvirtinti užsakymai',
+    'orders.ready': 'Paruošta',
+    'orders.badges': 'Žymės',
+    'orders.addBadge': 'Pridėti',
+    'orders.addToOrder': 'Pridėti į užsakymą',
+
+    // Kitchen page
+    'kitchen.title': 'Virtuvė',
+    'kitchen.noActiveTables': 'Aktyvių stalų nėra',
+    'kitchen.waitingForOrders': 'Laukiama užsakymų',
+    'kitchen.noActiveWorkday': 'Nėra aktyvios darbo dienos',
+    'kitchen.startWorkdayFirst': 'Pradėkite darbo dieną Darbo dienos skiltyje, kad matytumėte virtuvės užsakymus.',
+    'kitchen.pendingOrders': 'laukiantys užsakymai',
+    'kitchen.allCompleted': 'Visi atlikti',
+
+    // History page
+    'history.title': 'Istorija',
+    'history.daySummary': 'Dienos suvestinė',
+    'history.totalRevenue': 'Bendra suma',
+    'history.ordersCount': 'Užsakymai',
+    'history.tablesServed': 'Aptarnauti stalai',
+    'history.noData': 'Šiai dienai duomenų nėra',
+    'history.selectDate': 'Pasirinkite kitą datą istorijai peržiūrėti',
+
+    // Common
+    'common.loading': 'Kraunama...',
+    'common.error': 'Klaida',
+    'common.success': 'Sėkmė',
+    'common.save': 'Išsaugoti',
+    'common.delete': 'Ištrinti',
+    'common.edit': 'Redaguoti',
+    'common.create': 'Sukurti',
+    'common.notSet': 'Nenustatyta',
+    'common.somethingWentWrong': 'Kažkas nutiko',
+    'common.showMore': 'Rodyti visus',
+    'common.showLess': 'Rodyti mažiau',
+    'common.accessRestricted': 'Prieiga apribota',
+    'common.cancel': 'Atšaukti',
+    'common.saving': 'Saugoma...',
+    'common.close': 'Uždaryti',
+    'common.dismissAll': 'Atmesti visus',
+    'common.dismiss': 'Atmesti',
+
+    // Toasts
+    'toast.restaurantSelected': 'Restoranas pasirinktas',
+    'toast.restaurantSelectedDescription': 'dabar aktyvus.',
+    'toast.notificationSent': 'Pranešimas išsiųstas',
+    'toast.kitchenNotified': 'Virtuvė informuota',
+
+    // Roles
+    'role.admin': 'administratorius',
+    'role.manager': 'vadybininkas',
+    'role.worker': 'darbuotojas',
+    'role.kitchen': 'virtuvė',
+    'roles.admin': 'Administratorius',
+    'roles.manager': 'Vadybininkas',
+    'roles.worker': 'Darbuotojas',
+    'roles.kitchen': 'Virtuvė',
+
+    // Restaurant modal
+    'modal.selectRestaurant': 'Pasirinkti restoraną',
+    'modal.chooseRestaurant': 'Pasirinkite restoraną valdymui',
+    'modal.noRestaurants': 'Restoranų nėra',
+    'modal.createRestaurant': 'Sukurkite naują restoraną, kad pradėtumėte',
+  },
+} as const;
+
+const LanguageContext = createContext<LanguageContextType | null>(null);
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(() => {
+    // Load from localStorage or default to 'en'
+    const saved = localStorage.getItem('app-language');
+    return (saved === 'lt' ? 'lt' : 'en') as Language;
+  });
+
+  const setLanguage = useCallback((lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem('app-language', lang);
+  }, []);
+
+  const t = useCallback((key: keyof TranslationKeys): string => {
+    return translations[language][key] || key;
+  }, [language]);
+
+  useEffect(() => {
+    // Update document language attribute
+    document.documentElement.lang = language;
+  }, [language]);
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+}

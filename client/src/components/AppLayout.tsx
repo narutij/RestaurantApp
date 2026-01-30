@@ -1,0 +1,85 @@
+import { useState } from 'react';
+import TabNavigation from '@/components/TabNavigation';
+import TopBar from '@/components/TopBar';
+import { SettingsSidebar } from '@/components/SettingsSidebar';
+import { useWorkday } from '@/contexts/WorkdayContext';
+import { useTab } from '@/contexts/TabContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useNotifications } from '@/contexts/NotificationContext';
+import type { Restaurant } from '@shared/schema';
+
+// Import all tab components
+import RestaurantInfoTab from '@/pages/restaurant-tab';
+import WorkdayTab from '@/pages/workday-tab';
+import OrderTab from '@/pages/orders-tab';
+import KitchenTab from '@/pages/kitchen-tab';
+import HistoryTab from '@/pages/history-tab';
+
+export default function AppLayout() {
+  const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(false);
+  const { selectedRestaurant, setSelectedRestaurant, activeWorkday, elapsedTime } = useWorkday();
+  const { activeTab } = useTab();
+  const { isAdmin } = useAuth();
+  const { t } = useLanguage();
+  const { notifications, addNotification, markNotificationRead, markAllAsRead } = useNotifications();
+
+  const handleSelectRestaurant = (restaurant: Restaurant) => {
+    setSelectedRestaurant(restaurant);
+    addNotification(`${restaurant.name} ${t('toast.restaurantSelectedDescription')}`);
+  };
+
+  const handleMenuClick = () => {
+    setSettingsSidebarOpen(true);
+  };
+
+  // Render the active tab content
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'restaurant':
+        return isAdmin ? <RestaurantInfoTab /> : <WorkdayTab />;
+      case 'workday':
+        return <WorkdayTab />;
+      case 'orders':
+        return <OrderTab />;
+      case 'kitchen':
+        return <KitchenTab />;
+      case 'history':
+        return <HistoryTab />;
+      default:
+        return <WorkdayTab />;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 flex flex-col bg-background">
+      {/* Settings Sidebar */}
+      <SettingsSidebar
+        open={settingsSidebarOpen}
+        onOpenChange={setSettingsSidebarOpen}
+      />
+
+      {/* Top Bar */}
+      <TopBar
+        selectedRestaurant={selectedRestaurant}
+        activeWorkday={activeWorkday}
+        workdayElapsedTime={elapsedTime}
+        onSelectRestaurant={handleSelectRestaurant}
+        onMenuClick={handleMenuClick}
+        notifications={notifications}
+        onMarkNotificationRead={markNotificationRead}
+        onMarkAllAsRead={markAllAsRead}
+      />
+
+      {/* Main Content - scrollable container */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden ios-scroll">
+        <div className="w-full max-w-lg mx-auto">
+          {renderTabContent()}
+        </div>
+      </main>
+
+      {/* Bottom Navigation */}
+      <TabNavigation />
+    </div>
+  );
+}
