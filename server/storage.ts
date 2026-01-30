@@ -862,31 +862,71 @@ export class MemStorage implements IStorage {
   }
 
   async getOrdersWithDetails(): Promise<OrderWithDetails[]> {
-    const allOrders = Array.from(this.ordersMap.values());
-    return Promise.all(allOrders.map(async (order) => {
-      const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
-      const table = await this.getTable(order.tableId);
-      const isSpecial = order.isSpecialItem ?? false;
-      return {
-        id: order.id,
-        tableId: order.tableId,
-        menuItemId: order.menuItemId,
-        timestamp: order.timestamp,
-        completed: order.completed,
-        price: order.price,
-        notes: order.notes,
-        specialItemName: order.specialItemName,
-        isSpecialItem: isSpecial,
-        menuItemName: (isSpecial && order.specialItemName) ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
-        tableNumber: table?.number || 'Unknown Table',
-        tableLabel: table?.label || '',
-        peopleCount: table?.peopleCount ?? 0
-      };
-    }));
+    try {
+      // Fetch from database
+      const dbOrders = await db.select().from(orders);
+      
+      // Update memory cache
+      dbOrders.forEach(order => this.ordersMap.set(order.id, order));
+      
+      return Promise.all(dbOrders.map(async (order) => {
+        const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
+        const table = await this.getTable(order.tableId);
+        const isSpecial = order.isSpecialItem ?? false;
+        return {
+          id: order.id,
+          tableId: order.tableId,
+          menuItemId: order.menuItemId,
+          timestamp: order.timestamp,
+          completed: order.completed,
+          price: order.price,
+          notes: order.notes,
+          specialItemName: order.specialItemName,
+          isSpecialItem: isSpecial,
+          menuItemName: (isSpecial && order.specialItemName) ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+          tableNumber: table?.number || 'Unknown Table',
+          tableLabel: table?.label || '',
+          peopleCount: table?.peopleCount ?? 0
+        };
+      }));
+    } catch (error) {
+      console.error("Error fetching orders from database:", error);
+      
+      // Fallback to memory
+      const allOrders = Array.from(this.ordersMap.values());
+      return Promise.all(allOrders.map(async (order) => {
+        const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
+        const table = await this.getTable(order.tableId);
+        const isSpecial = order.isSpecialItem ?? false;
+        return {
+          id: order.id,
+          tableId: order.tableId,
+          menuItemId: order.menuItemId,
+          timestamp: order.timestamp,
+          completed: order.completed,
+          price: order.price,
+          notes: order.notes,
+          specialItemName: order.specialItemName,
+          isSpecialItem: isSpecial,
+          menuItemName: (isSpecial && order.specialItemName) ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+          tableNumber: table?.number || 'Unknown Table',
+          tableLabel: table?.label || '',
+          peopleCount: table?.peopleCount ?? 0
+        };
+      }));
+    }
   }
 
   async getOrdersByTable(tableId: number): Promise<Order[]> {
-    return Array.from(this.ordersMap.values()).filter(order => order.tableId === tableId);
+    try {
+      const dbOrders = await db.select().from(orders).where(eq(orders.tableId, tableId));
+      // Update memory cache
+      dbOrders.forEach(order => this.ordersMap.set(order.id, order));
+      return dbOrders;
+    } catch (error) {
+      console.error("Error fetching orders by table from database:", error);
+      return Array.from(this.ordersMap.values()).filter(order => order.tableId === tableId);
+    }
   }
 
   async getOrdersWithDetailsByTable(tableId: number): Promise<OrderWithDetails[]> {
@@ -914,55 +954,125 @@ export class MemStorage implements IStorage {
   }
 
   async createOrder(order: InsertOrder): Promise<Order> {
-    const id = this.currentOrderId++;
-    const newOrder: Order = {
-      id,
-      tableId: order.tableId,
-      menuItemId: order.menuItemId ?? null,
-      price: order.price,
-      timestamp: order.timestamp || new Date(),
-      completed: order.completed ?? false,
-      notes: order.notes ?? null,
-      specialItemName: order.specialItemName ?? null,
-      isSpecialItem: order.isSpecialItem ?? null,
-      workdayId: order.workdayId ?? null
-    };
-    this.ordersMap.set(id, newOrder);
-    return newOrder;
+    try {
+      // Save to database
+      const [result] = await db.insert(orders).values({
+        tableId: order.tableId,
+        menuItemId: order.menuItemId ?? null,
+        price: order.price,
+        timestamp: order.timestamp || new Date(),
+        completed: order.completed ?? false,
+        notes: order.notes ?? null,
+        specialItemName: order.specialItemName ?? null,
+        isSpecialItem: order.isSpecialItem ?? null,
+        workdayId: order.workdayId ?? null
+      }).returning();
+      
+      // Also store in memory for quick access
+      this.ordersMap.set(result.id, result);
+      return result;
+    } catch (error) {
+      console.error("Error creating order in database:", error);
+      
+      // Fallback to memory only
+      const id = this.currentOrderId++;
+      const newOrder: Order = {
+        id,
+        tableId: order.tableId,
+        menuItemId: order.menuItemId ?? null,
+        price: order.price,
+        timestamp: order.timestamp || new Date(),
+        completed: order.completed ?? false,
+        notes: order.notes ?? null,
+        specialItemName: order.specialItemName ?? null,
+        isSpecialItem: order.isSpecialItem ?? null,
+        workdayId: order.workdayId ?? null
+      };
+      this.ordersMap.set(id, newOrder);
+      return newOrder;
+    }
   }
 
   async markOrderComplete(id: number): Promise<Order | undefined> {
-    const order = this.ordersMap.get(id);
-    if (!order) return undefined;
+    try {
+      const [result] = await db.update(orders)
+        .set({ completed: true })
+        .where(eq(orders.id, id))
+        .returning();
+      
+      if (result) {
+        this.ordersMap.set(id, result);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error marking order complete in database:", error);
+      const order = this.ordersMap.get(id);
+      if (!order) return undefined;
 
-    const updatedOrder: Order = { ...order, completed: true };
-    this.ordersMap.set(id, updatedOrder);
-    return updatedOrder;
+      const updatedOrder: Order = { ...order, completed: true };
+      this.ordersMap.set(id, updatedOrder);
+      return updatedOrder;
+    }
   }
 
   async markOrderIncomplete(id: number): Promise<Order | undefined> {
-    const order = this.ordersMap.get(id);
-    if (!order) return undefined;
+    try {
+      const [result] = await db.update(orders)
+        .set({ completed: false })
+        .where(eq(orders.id, id))
+        .returning();
+      
+      if (result) {
+        this.ordersMap.set(id, result);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error marking order incomplete in database:", error);
+      const order = this.ordersMap.get(id);
+      if (!order) return undefined;
 
-    const updatedOrder: Order = { ...order, completed: false };
-    this.ordersMap.set(id, updatedOrder);
-    return updatedOrder;
+      const updatedOrder: Order = { ...order, completed: false };
+      this.ordersMap.set(id, updatedOrder);
+      return updatedOrder;
+    }
   }
 
   async getNewOrders(): Promise<OrderWithDetails[]> {
-    const allOrders = Array.from(this.ordersMap.values());
-    const newOrders = allOrders.filter(order => !order.completed);
-    
-    return Promise.all(newOrders.map(async (order) => {
-      const menuItem = await this.getMenuItem(order.menuItemId);
-      const table = await this.getTable(order.tableId);
-      return {
-        ...order,
-        menuItemName: menuItem?.name || 'Unknown Item',
-        tableNumber: table?.number || 'Unknown Table',
-        tableLabel: table?.label || ''
-      };
-    }));
+    try {
+      // Fetch incomplete orders from database
+      const dbOrders = await db.select().from(orders).where(eq(orders.completed, false));
+      
+      // Update memory cache
+      dbOrders.forEach(order => this.ordersMap.set(order.id, order));
+      
+      return Promise.all(dbOrders.map(async (order) => {
+        const menuItem = await this.getMenuItem(order.menuItemId);
+        const table = await this.getTable(order.tableId);
+        return {
+          ...order,
+          menuItemName: menuItem?.name || 'Unknown Item',
+          tableNumber: table?.number || 'Unknown Table',
+          tableLabel: table?.label || ''
+        };
+      }));
+    } catch (error) {
+      console.error("Error fetching new orders from database:", error);
+      
+      // Fallback to memory
+      const allOrders = Array.from(this.ordersMap.values());
+      const newOrders = allOrders.filter(order => !order.completed);
+      
+      return Promise.all(newOrders.map(async (order) => {
+        const menuItem = await this.getMenuItem(order.menuItemId);
+        const table = await this.getTable(order.tableId);
+        return {
+          ...order,
+          menuItemName: menuItem?.name || 'Unknown Item',
+          tableNumber: table?.number || 'Unknown Table',
+          tableLabel: table?.label || ''
+        };
+      }));
+    }
   }
 
   // Day Templates
@@ -1685,29 +1795,57 @@ export class MemStorage implements IStorage {
       return [];
     }
 
-    // Get all orders for that workday
-    const allOrders = Array.from(this.ordersMap.values())
-      .filter(order => order.workdayId === workday.id);
+    try {
+      // Get all orders for that workday from the database
+      const dbOrders = await db.select().from(orders)
+        .where(eq(orders.workdayId, workday.id));
+      
+      return Promise.all(dbOrders.map(async (order) => {
+        const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
+        const table = await this.getTable(order.tableId);
+        return {
+          id: order.id,
+          tableId: order.tableId,
+          menuItemId: order.menuItemId ?? null,
+          menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+          timestamp: order.timestamp,
+          completed: order.completed,
+          price: order.price,
+          tableNumber: table?.number || 'Unknown',
+          tableLabel: table?.label || '',
+          notes: order.notes ?? null,
+          specialItemName: order.specialItemName ?? null,
+          isSpecialItem: order.isSpecialItem ?? false,
+          peopleCount: table?.peopleCount ?? 0
+        };
+      }));
+    } catch (error) {
+      console.error("Error getting orders by date from database:", error);
+      
+      // Fallback to memory
+      const allOrders = Array.from(this.ordersMap.values())
+        .filter(order => order.workdayId === workday.id);
 
-    return Promise.all(allOrders.map(async (order) => {
-      const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
-      const table = await this.getTable(order.tableId);
-      return {
-        id: order.id,
-        tableId: order.tableId,
-        menuItemId: order.menuItemId ?? null,
-        menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
-        timestamp: order.timestamp,
-        completed: order.completed,
-        price: order.price,
-        tableNumber: table?.number || 'Unknown',
-        tableLabel: table?.label || '',
-        notes: order.notes ?? null,
-        specialItemName: order.specialItemName ?? null,
-        isSpecialItem: order.isSpecialItem ?? false,
-        peopleCount: table?.peopleCount ?? 0
-      };
-    }));
+      return Promise.all(allOrders.map(async (order) => {
+        const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
+        const table = await this.getTable(order.tableId);
+        return {
+          id: order.id,
+          tableId: order.tableId,
+          menuItemId: order.menuItemId ?? null,
+          menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+          timestamp: order.timestamp,
+          completed: order.completed,
+          price: order.price,
+          tableNumber: table?.number || 'Unknown',
+          tableLabel: table?.label || '',
+          notes: order.notes ?? null,
+          specialItemName: order.specialItemName ?? null,
+          isSpecialItem: order.isSpecialItem ?? false,
+          peopleCount: table?.peopleCount ?? 0
+        };
+      }));
+    }
   }
 
   private async getWorkdayByDate(restaurantId: number, date: string): Promise<Workday | undefined> {

@@ -201,6 +201,11 @@ const translations = {
     'orders.badges': 'Badges',
     'orders.addBadge': 'Add',
     'orders.addToOrder': 'Add to Order',
+    'orders.closeTableConfirm': 'Close Table?',
+    'orders.closeTableWarning': 'Are you sure you want to close this table? All orders will be saved to history.',
+    'orders.totalOrders': 'Total Orders',
+    'orders.confirmClose': 'Yes, Close Table',
+    'orders.people': 'people',
 
     // Kitchen page
     'kitchen.title': 'Kitchen',
@@ -450,6 +455,11 @@ const translations = {
     'orders.badges': 'Žymės',
     'orders.addBadge': 'Pridėti',
     'orders.addToOrder': 'Pridėti į užsakymą',
+    'orders.closeTableConfirm': 'Uždaryti stalą?',
+    'orders.closeTableWarning': 'Ar tikrai norite uždaryti šį stalą? Visi užsakymai bus išsaugoti istorijoje.',
+    'orders.totalOrders': 'Iš viso užsakymų',
+    'orders.confirmClose': 'Taip, uždaryti',
+    'orders.people': 'žmonių',
 
     // Kitchen page
     'kitchen.title': 'Virtuvė',

@@ -55,6 +55,56 @@ interface PreOrderItem {
 // Default badge options
 const DEFAULT_BADGES = ['Gluten free', 'Make it special', 'Birthday', 'Child'];
 
+// Badge color mapping for consistent styling across the app
+export const BADGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  'Gluten free': { bg: 'bg-emerald-500/15', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-300 dark:border-emerald-600' },
+  'Make it special': { bg: 'bg-purple-500/15', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-300 dark:border-purple-600' },
+  'Birthday': { bg: 'bg-pink-500/15', text: 'text-pink-700 dark:text-pink-400', border: 'border-pink-300 dark:border-pink-600' },
+  'Child': { bg: 'bg-sky-500/15', text: 'text-sky-700 dark:text-sky-400', border: 'border-sky-300 dark:border-sky-600' },
+};
+
+// Get badge style classes
+export const getBadgeStyle = (badge: string): string => {
+  const colors = BADGE_COLORS[badge] || { 
+    bg: 'bg-orange-500/15', 
+    text: 'text-orange-700 dark:text-orange-400', 
+    border: 'border-orange-300 dark:border-orange-600' 
+  };
+  return `${colors.bg} ${colors.text} ${colors.border} border`;
+};
+
+// Group orders by item for display (merging identical items)
+interface GroupedOrder {
+  key: string;
+  name: string;
+  price: number;
+  quantity: number;
+  badges: string[];
+  noteText: string;
+  isSpecialItem: boolean;
+  hasReady: boolean;
+  readyCount: number;
+  orderIds: number[];
+}
+
+// Helper to parse badges from notes (format: "[badge1] [badge2] note text")
+const parseNotesWithBadges = (notes: string | null | undefined): { badges: string[]; text: string } => {
+  if (!notes) return { badges: [], text: '' };
+
+  const badgeRegex = /\[([^\]]+)\]/g;
+  const badges: string[] = [];
+  let match;
+
+  while ((match = badgeRegex.exec(notes)) !== null) {
+    badges.push(match[1]);
+  }
+
+  // Get the text after all badges
+  const text = notes.replace(badgeRegex, '').trim();
+
+  return { badges, text };
+};
+
 export default function OrderTab() {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
@@ -68,6 +118,21 @@ export default function OrderTab() {
   const [tableToActivate, setTableToActivate] = useState<Table | null>(null);
   const [peopleCount, setPeopleCount] = useState('2');
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  
+  // Track which ready orders have been "seen" (user clicked on table after order became ready)
+  const [seenReadyOrders, setSeenReadyOrders] = useState<Set<number>>(() => {
+    const stored = localStorage.getItem('seenReadyOrders');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+  
+  // Close table confirmation dialog state
+  const [closeTableDialogOpen, setCloseTableDialogOpen] = useState(false);
+  const [tableToClose, setTableToClose] = useState<{ id: number; number: string; total: number } | null>(null);
+  
+  // Persist seen ready orders
+  useEffect(() => {
+    localStorage.setItem('seenReadyOrders', JSON.stringify([...seenReadyOrders]));
+  }, [seenReadyOrders]);
 
   // Pre-order cart state
   const [preOrderItems, setPreOrderItems] = useState<PreOrderItem[]>([]);
@@ -178,6 +243,88 @@ export default function OrderTab() {
     refetchInterval: 3000
   });
 
+  // Fetch all orders to track ready notifications across tables
+  const { data: allOrders = [] } = useQuery<OrderWithDetails[]>({
+    queryKey: ['all-orders'],
+    queryFn: async () => {
+      const res = await fetch('/api/orders');
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      return res.json();
+    },
+    enabled: isWorkdayActive,
+    refetchInterval: 3000
+  });
+
+  // Calculate ready orders per table (that haven't been seen)
+  const readyOrdersByTable = useMemo(() => {
+    const result: Record<number, number> = {};
+    allOrders.forEach(order => {
+      if (order.completed && !seenReadyOrders.has(order.id)) {
+        result[order.tableId] = (result[order.tableId] || 0) + 1;
+      }
+    });
+    return result;
+  }, [allOrders, seenReadyOrders]);
+
+  // Group confirmed orders for display (merge identical items)
+  const groupedTableOrders = useMemo((): GroupedOrder[] => {
+    const groups: Record<string, GroupedOrder> = {};
+    
+    tableOrders.forEach(order => {
+      const { badges, text: noteText } = parseNotesWithBadges(order.notes);
+      const name = order.isSpecialItem && order.specialItemName 
+        ? order.specialItemName 
+        : order.menuItemName;
+      
+      // Create a key that uniquely identifies "same" orders
+      const key = `${name}-${order.price}-${badges.sort().join(',')}-${noteText}-${order.isSpecialItem}`;
+      
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          name: name || 'Unknown',
+          price: order.price,
+          quantity: 0,
+          badges,
+          noteText,
+          isSpecialItem: order.isSpecialItem || false,
+          hasReady: false,
+          readyCount: 0,
+          orderIds: []
+        };
+      }
+      
+      groups[key].quantity++;
+      groups[key].orderIds.push(order.id);
+      if (order.completed) {
+        groups[key].hasReady = true;
+        groups[key].readyCount++;
+      }
+    });
+    
+    return Object.values(groups);
+  }, [tableOrders]);
+
+  // Mark ready orders as seen when user clicks on a table
+  const handleTableClick = (table: Table) => {
+    if (table.isActive) {
+      setActiveTableId(table.id);
+      // Mark all ready orders for this table as "seen"
+      const readyOrderIds = allOrders
+        .filter(o => o.tableId === table.id && o.completed)
+        .map(o => o.id);
+      if (readyOrderIds.length > 0) {
+        setSeenReadyOrders(prev => {
+          const newSet = new Set(prev);
+          readyOrderIds.forEach(id => newSet.add(id));
+          return newSet;
+        });
+      }
+    } else {
+      handleActivateTable(table);
+    }
+  };
+
   // Listen for WebSocket updates
   useEffect(() => {
     const removeListener = addMessageListener((message: WebSocketMessage) => {
@@ -228,13 +375,42 @@ export default function OrderTab() {
     mutationFn: (tableId: number) => apiRequest(`/api/tables/${tableId}/deactivate`, { method: 'POST' }),
     onSuccess: (_, tableId) => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['table-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['all-orders'] });
+      // Invalidate history data so it updates immediately
+      queryClient.invalidateQueries({ queryKey: ['history-summary'] });
       if (activeTableId === tableId) {
         setActiveTableId(null);
         setPreOrderItems([]);
       }
+      // Clear the seen ready orders for this table
+      setSeenReadyOrders(prev => {
+        const newSet = new Set(prev);
+        allOrders.filter(o => o.tableId === tableId).forEach(o => newSet.delete(o.id));
+        return newSet;
+      });
+      setCloseTableDialogOpen(false);
+      setTableToClose(null);
       addNotification(t('orders.tableClosed'));
     }
   });
+  
+  // Handle close table button click - open confirmation dialog
+  const handleCloseTableClick = () => {
+    if (!activeTable) return;
+    setTableToClose({
+      id: activeTable.id,
+      number: activeTable.number,
+      total: confirmedTotal
+    });
+    setCloseTableDialogOpen(true);
+  };
+  
+  // Confirm close table
+  const confirmCloseTable = () => {
+    if (!tableToClose) return;
+    deactivateTableMutation.mutate(tableToClose.id);
+  };
 
   // Create a single order - no automatic query invalidation (we'll do it manually after batch)
   const createOrderRequest = async (data: {
@@ -420,9 +596,9 @@ export default function OrderTab() {
       addNotification(t('orders.orderConfirmed') || 'Order sent to kitchen!');
     } catch (error) {
       console.error('Error confirming order:', error);
-      // Restore items if there was an error
-      setPreOrderItems(itemsToSend);
-      addNotification(t('orders.orderFailed') || 'Failed to send order');
+      // Don't restore items - some orders may have been sent successfully
+      // User can check the confirmed orders section to see what was saved
+      addNotification(t('orders.orderFailed') || 'Failed to send some orders. Please check confirmed orders.');
     } finally {
       setIsConfirming(false);
     }
@@ -436,24 +612,6 @@ export default function OrderTab() {
 
   const toggleCategory = (id: string) => {
     setExpandedCategories(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  // Helper to parse badges from notes (format: "[badge1] [badge2] note text")
-  const parseNotesWithBadges = (notes: string | null | undefined): { badges: string[]; text: string } => {
-    if (!notes) return { badges: [], text: '' };
-
-    const badgeRegex = /\[([^\]]+)\]/g;
-    const badges: string[] = [];
-    let match;
-
-    while ((match = badgeRegex.exec(notes)) !== null) {
-      badges.push(match[1]);
-    }
-
-    // Get the text after all badges
-    const text = notes.replace(badgeRegex, '').trim();
-
-    return { badges, text };
   };
 
   // No active workday
@@ -494,43 +652,46 @@ export default function OrderTab() {
             </p>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {tables.map(table => (
-                <button
-                  key={table.id}
-                  className={`p-3 rounded-xl border-2 transition-all ${
-                    activeTableId === table.id
-                      ? 'border-primary bg-primary/10 shadow-md'
-                      : table.isActive
-                      ? 'border-green-500 bg-green-500/10'
-                      : 'border-border bg-muted/30 hover:border-muted-foreground hover:bg-muted/50'
-                  }`}
-                  onClick={() => {
-                    if (table.isActive) {
-                      setActiveTableId(table.id);
-                    } else {
-                      handleActivateTable(table);
-                    }
-                  }}
-                >
-                  <div className="font-bold text-sm">{table.number}</div>
-                  {table.isActive ? (
-                    <div className="flex items-center justify-center gap-2 mt-1.5">
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3 text-green-600" />
-                        <span className="text-xs font-medium text-green-600">{table.peopleCount || 0}</span>
+              {tables.map(table => {
+                const readyCount = readyOrdersByTable[table.id] || 0;
+                return (
+                  <button
+                    key={table.id}
+                    className={`relative p-3 rounded-xl border-2 transition-all ${
+                      activeTableId === table.id
+                        ? 'border-primary bg-primary/10 shadow-md'
+                        : table.isActive
+                        ? 'border-green-500 bg-green-500/10'
+                        : 'border-border bg-muted/30 hover:border-muted-foreground hover:bg-muted/50'
+                    }`}
+                    onClick={() => handleTableClick(table)}
+                  >
+                    {/* Ready notification bubble */}
+                    {readyCount > 0 && (
+                      <div className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse shadow-md">
+                        {readyCount}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-amber-600" />
-                        <span className="text-xs font-medium text-amber-600">
-                          {getActiveTimeDisplay(table.activatedAt)}
-                        </span>
+                    )}
+                    <div className="font-bold text-sm">{table.number}</div>
+                    {table.isActive ? (
+                      <div className="flex items-center justify-center gap-2 mt-1.5">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3 text-green-600" />
+                          <span className="text-xs font-medium text-green-600">{table.peopleCount || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-amber-600" />
+                          <span className="text-xs font-medium text-amber-600">
+                            {getActiveTimeDisplay(table.activatedAt)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground mt-1">{t('orders.tapToActivate') || 'Tap to activate'}</div>
-                  )}
-                </button>
-              ))}
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-1">{t('orders.tapToActivate') || 'Tap to activate'}</div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -562,7 +723,7 @@ export default function OrderTab() {
                   variant="outline"
                   size="sm"
                   className="border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
-                  onClick={() => deactivateTableMutation.mutate(activeTable.id)}
+                  onClick={handleCloseTableClick}
                   disabled={deactivateTableMutation.isPending}
                 >
                   <X className="h-4 w-4 mr-1" />
@@ -579,43 +740,50 @@ export default function OrderTab() {
                     <Badge variant="secondary" className="ml-auto text-xs">{tableOrders.length}</Badge>
                   </div>
                   <div className="divide-y divide-border/50 max-h-[200px] overflow-y-auto">
-                    {tableOrders.map(order => {
-                      const { badges: orderBadges, text: noteText } = parseNotesWithBadges(order.notes);
-                      return (
-                        <div key={order.id} className="py-2 flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm">
-                                {order.isSpecialItem && order.specialItemName
-                                  ? order.specialItemName
-                                  : order.menuItemName}
+                    {groupedTableOrders.map(group => (
+                      <div key={group.key} className="py-2 flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {group.quantity > 1 && (
+                              <span className="text-xs font-bold bg-muted px-1.5 py-0.5 rounded">
+                                {group.quantity}x
                               </span>
-                              {order.isSpecialItem && (
-                                <Badge variant="outline" className="text-xs">{t('orders.special')}</Badge>
-                              )}
-                              {order.completed && (
-                                <Badge className="text-xs bg-green-500">{t('orders.ready') || 'Ready'}</Badge>
-                              )}
-                            </div>
-                            {/* Show badges as badge components */}
-                            {orderBadges.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {orderBadges.map((badge, idx) => (
-                                  <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0">
-                                    {badge}
-                                  </Badge>
-                                ))}
-                              </div>
                             )}
-                            {/* Show remaining note text */}
-                            {noteText && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{noteText}</p>
+                            <span className="font-medium text-sm">{group.name}</span>
+                            {group.isSpecialItem && (
+                              <Badge variant="outline" className="text-xs">{t('orders.special')}</Badge>
+                            )}
+                            {group.hasReady && (
+                              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-500">
+                                {group.readyCount === group.quantity 
+                                  ? (t('orders.ready') || 'Ready')
+                                  : `${group.readyCount}/${group.quantity} ${t('orders.ready') || 'Ready'}`
+                                }
+                              </Badge>
                             )}
                           </div>
-                          <div className="text-sm font-medium">{formatPrice(order.price)}</div>
+                          {/* Show badges as badge components with colors */}
+                          {group.badges.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {group.badges.map((badge, idx) => (
+                                <Badge 
+                                  key={idx} 
+                                  variant="outline" 
+                                  className={`text-[10px] px-1.5 py-0 ${getBadgeStyle(badge)}`}
+                                >
+                                  {badge}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {/* Show remaining note text */}
+                          {group.noteText && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{group.noteText}</p>
+                          )}
                         </div>
-                      );
-                    })}
+                        <div className="text-sm font-medium">{formatPrice(group.price * group.quantity)}</div>
+                      </div>
+                    ))}
                   </div>
                   <div className="pt-3 mt-2 border-t border-primary/20 flex items-center justify-between font-semibold">
                     <span>{t('orders.total')}</span>
@@ -656,10 +824,9 @@ export default function OrderTab() {
                           {item.badges.map(badge => (
                             <Badge
                               key={badge}
-                              variant="secondary"
-                              className="text-xs bg-blue-500/10 text-blue-600 border-blue-200"
+                              variant="outline"
+                              className={`text-xs ${getBadgeStyle(badge)}`}
                             >
-                              <Tag className="h-3 w-3 mr-1" />
                               {badge}
                             </Badge>
                           ))}
@@ -1091,6 +1258,64 @@ export default function OrderTab() {
             >
               <Plus className="h-4 w-4 mr-2" />
               {t('orders.addToOrder') || 'Add to Order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Close Table Confirmation Dialog */}
+      <Dialog open={closeTableDialogOpen} onOpenChange={setCloseTableDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              {t('orders.closeTableConfirm') || 'Close Table?'}
+            </DialogTitle>
+            <DialogDescription>
+              {t('orders.closeTableWarning') || 'Are you sure you want to close this table? All orders will be saved to history.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {tableToClose && (
+            <div className="py-4 space-y-3">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{t('orders.table') || 'Table'}</span>
+                  <span className="font-semibold">{tableToClose.number}</span>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{t('orders.totalOrders') || 'Total Orders'}</span>
+                  <span className="font-semibold">{tableOrders.length}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="text-sm font-medium">{t('orders.total') || 'Total'}</span>
+                  <span className="text-lg font-bold text-green-600">{formatPrice(tableToClose.total)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCloseTableDialogOpen(false);
+                setTableToClose(null);
+              }}
+            >
+              {t('common.cancel') || 'Cancel'}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmCloseTable}
+              disabled={deactivateTableMutation.isPending}
+            >
+              {deactivateTableMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              {t('orders.confirmClose') || 'Yes, Close Table'}
             </Button>
           </DialogFooter>
         </DialogContent>

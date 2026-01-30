@@ -10,6 +10,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { apiRequest } from '@/lib/queryClient';
 import { formatTime, getActiveTime } from '@/lib/utils';
 import { type OrderWithDetails, type Table, WebSocketMessage } from '@shared/schema';
+import { getBadgeStyle } from './orders-tab';
 import {
   Check,
   RotateCcw,
@@ -19,6 +20,22 @@ import {
   ChefHat,
   X
 } from 'lucide-react';
+
+// Helper to parse badges from notes (format: "[badge1] [badge2] note text")
+const parseNotesWithBadges = (notes: string | null | undefined): { badges: string[]; text: string } => {
+  if (!notes) return { badges: [], text: '' };
+
+  const badgeRegex = /\[([^\]]+)\]/g;
+  const badges: string[] = [];
+  let match;
+
+  while ((match = badgeRegex.exec(notes)) !== null) {
+    badges.push(match[1]);
+  }
+
+  const text = notes.replace(badgeRegex, '').trim();
+  return { badges, text };
+};
 
 interface TableGroup {
   tableId: number;
@@ -237,62 +254,80 @@ export default function KitchenTab() {
 
               {/* Orders List */}
               <CardContent className="p-0 divide-y">
-                {table.orders.map(order => (
-                  <div
-                    key={order.id}
-                    className={`p-4 flex items-start gap-3 transition-colors ${
-                      order.completed ? 'bg-muted/50' : 'hover:bg-muted/30'
-                    }`}
-                    onClick={() => handleToggleComplete(order.id, order.completed)}
-                  >
-                    {/* Status indicator */}
-                    <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
-                      order.completed ? 'bg-success' : 'bg-warning animate-pulse'
-                    }`} />
-
-                    {/* Order details */}
-                    <div className="flex-1 min-w-0">
-                      <div className={`font-medium ${order.completed ? 'crossed-out text-muted-foreground' : ''}`}>
-                        {order.isSpecialItem && order.specialItemName
-                          ? order.specialItemName
-                          : order.menuItemName}
-                        {order.isSpecialItem && (
-                          <Badge variant="outline" className="ml-2 text-xs">{t('orders.special')}</Badge>
-                        )}
-                      </div>
-
-                      {/* Notes */}
-                      {order.notes && (
-                        <p className={`text-sm mt-1 ${order.completed ? 'text-muted-foreground' : 'text-warning font-medium'}`}>
-                          {t('orders.note')}: {order.notes}
-                        </p>
-                      )}
-
-                      {/* Time info */}
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatTime(order.timestamp)} ({getActiveTime(order.timestamp)} ago)
-                      </div>
-                    </div>
-
-                    {/* Complete button */}
-                    <Button
-                      variant={order.completed ? "default" : "outline"}
-                      size="icon"
-                      className={`flex-shrink-0 ${
-                        order.completed
-                          ? 'bg-success hover:bg-success/90 text-success-foreground'
-                          : ''
+                {table.orders.map(order => {
+                  const { badges: orderBadges, text: noteText } = parseNotesWithBadges(order.notes);
+                  return (
+                    <div
+                      key={order.id}
+                      className={`p-4 flex items-start gap-3 transition-colors ${
+                        order.completed ? 'bg-muted/50' : 'hover:bg-muted/30'
                       }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleComplete(order.id, order.completed);
-                      }}
-                      disabled={completeOrderMutation.isPending || uncompleteOrderMutation.isPending}
+                      onClick={() => handleToggleComplete(order.id, order.completed)}
                     >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                      {/* Status indicator */}
+                      <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+                        order.completed ? 'bg-success' : 'bg-warning animate-pulse'
+                      }`} />
+
+                      {/* Order details */}
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium ${order.completed ? 'line-through text-muted-foreground' : ''}`}>
+                          {order.isSpecialItem && order.specialItemName
+                            ? order.specialItemName
+                            : order.menuItemName}
+                          {order.isSpecialItem && (
+                            <Badge variant="outline" className="ml-2 text-xs">{t('orders.special')}</Badge>
+                          )}
+                        </div>
+
+                        {/* Color-coded badges */}
+                        {orderBadges.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {orderBadges.map((badge, idx) => (
+                              <Badge 
+                                key={idx} 
+                                variant="outline" 
+                                className={`text-xs ${getBadgeStyle(badge)}`}
+                              >
+                                {badge}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Note text (without badges) */}
+                        {noteText && (
+                          <p className={`text-sm mt-1 ${order.completed ? 'text-muted-foreground' : 'text-warning font-medium'}`}>
+                            {t('orders.note')}: {noteText}
+                          </p>
+                        )}
+
+                        {/* Time info */}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {formatTime(order.timestamp)} ({getActiveTime(order.timestamp)} ago)
+                        </div>
+                      </div>
+
+                      {/* Complete button */}
+                      <Button
+                        variant={order.completed ? "default" : "outline"}
+                        size="icon"
+                        className={`flex-shrink-0 ${
+                          order.completed
+                            ? 'bg-success hover:bg-success/90 text-success-foreground'
+                            : ''
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleComplete(order.id, order.completed);
+                        }}
+                        disabled={completeOrderMutation.isPending || uncompleteOrderMutation.isPending}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           ))}

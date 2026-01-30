@@ -187,6 +187,34 @@ export default function WorkdayTab() {
     }
   });
 
+  // Clean up old shifts periodically (every time component renders or date changes)
+  useEffect(() => {
+    const today = getTodayDateString();
+    const storedDate = localStorage.getItem('endedShiftsDate');
+    
+    // If the date has changed since last visit, clear everything
+    if (storedDate && storedDate !== today) {
+      localStorage.removeItem('endedShiftsDismissed');
+      localStorage.removeItem('endedShiftsToday');
+      localStorage.setItem('endedShiftsDate', today);
+      setEndedShiftsToday([]);
+      setEndedShiftsDismissed(false);
+      return;
+    }
+    
+    // Filter out any shifts that aren't from today (safety check)
+    const validShifts = endedShiftsToday.filter(shift => {
+      if (!shift || !shift.endedAt) return false;
+      const shiftDate = new Date(shift.endedAt).toISOString().split('T')[0];
+      return shiftDate === today;
+    });
+    
+    // Only update if we filtered something out
+    if (validShifts.length !== endedShiftsToday.length) {
+      setEndedShiftsToday(validShifts);
+    }
+  }, []);
+
   // Persist ended shifts state to localStorage
   useEffect(() => {
     const today = getTodayDateString();
@@ -194,7 +222,13 @@ export default function WorkdayTab() {
 
     // Only persist if we're still on the same day
     if (storedDate === today) {
-      localStorage.setItem('endedShiftsToday', JSON.stringify(endedShiftsToday));
+      // Filter to only include today's shifts before persisting
+      const todayShifts = endedShiftsToday.filter(shift => {
+        if (!shift || !shift.endedAt) return false;
+        const shiftDate = new Date(shift.endedAt).toISOString().split('T')[0];
+        return shiftDate === today;
+      });
+      localStorage.setItem('endedShiftsToday', JSON.stringify(todayShifts));
     }
   }, [endedShiftsToday]);
 
