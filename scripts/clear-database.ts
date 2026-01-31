@@ -5,6 +5,7 @@ async function clearDatabase() {
   console.log('Clearing all tables...');
 
   const tables = [
+    'reminders',
     'workday_workers',
     'workdays',
     'restaurant_workers',

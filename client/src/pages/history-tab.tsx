@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -31,7 +30,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { formatPrice, formatTime } from '@/lib/utils';
-import { apiRequest } from '@/lib/queryClient';
 import { type OrderWithDetails, type WebSocketMessage } from '@shared/schema';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type DateRange } from 'react-day-picker';
@@ -57,7 +55,6 @@ import {
   Activity,
   Briefcase,
   Download,
-  Mail,
   Loader2,
   FileSpreadsheet,
   X,
@@ -560,7 +557,6 @@ export default function HistoryTab() {
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
-  const [exportEmail, setExportEmail] = useState('');
   const [exportRangeCalendarOpen, setExportRangeCalendarOpen] = useState(false);
 
   // Format date for display and API
@@ -615,43 +611,48 @@ export default function HistoryTab() {
     return () => removeListener();
   }, [addMessageListener, queryClient, refetch]);
 
-  // Export mutation
-  const exportMutation = useMutation({
-    mutationFn: async (data: { startDate: string; endDate: string; email: string; restaurantId: number }) => {
-      const res = await apiRequest('/api/reports/export', {
-        method: 'POST',
-        body: data
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      addNotification('Report sent successfully to ' + exportEmail);
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Handle export - direct download
+  const handleExport = async () => {
+    if (!exportDateRange?.from || !selectedRestaurant) return;
+    
+    setIsExporting(true);
+    
+    try {
+      const startDate = exportDateRange.from.toISOString().split('T')[0];
+      const endDate = (exportDateRange.to || exportDateRange.from).toISOString().split('T')[0];
+      
+      const response = await fetch(`/api/reports/download?restaurantId=${selectedRestaurant.id}&startDate=${startDate}&endDate=${endDate}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+      
+      // Get the blob and create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedRestaurant.name.replace(/[^a-z0-9]/gi, '_')}_Report_${startDate}_to_${endDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      addNotification('Report downloaded successfully!');
       setExportModalOpen(false);
       setExportDateRange(undefined);
-      setExportEmail('');
-    },
-    onError: (error: any) => {
-      addNotification('Failed to send report: ' + (error.message || 'Unknown error'));
+    } catch (error: any) {
+      addNotification('Failed to download report: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsExporting(false);
     }
-  });
-
-  // Handle export
-  const handleExport = () => {
-    if (!exportDateRange?.from || !exportEmail || !selectedRestaurant) return;
-    
-    const startDate = exportDateRange.from.toISOString().split('T')[0];
-    const endDate = (exportDateRange.to || exportDateRange.from).toISOString().split('T')[0];
-    
-    exportMutation.mutate({
-      startDate,
-      endDate,
-      email: exportEmail,
-      restaurantId: selectedRestaurant.id
-    });
   };
 
-  // Check if export is valid
-  const isExportValid = exportDateRange?.from && exportEmail.includes('@') && exportEmail.includes('.');
+  // Check if export is valid (just need date range now, no email)
+  const isExportValid = !!exportDateRange?.from;
 
   // Change day
   const changeDay = (direction: 'next' | 'prev') => {
@@ -995,7 +996,7 @@ export default function HistoryTab() {
               <div>
                 <DialogTitle className="text-lg font-bold">Export Report</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Generate and send Excel report via email
+                  Download Excel report to your device
                 </p>
               </div>
             </div>
@@ -1064,24 +1065,6 @@ export default function HistoryTab() {
               </Popover>
             </div>
 
-            {/* Email Input */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="Enter email address..."
-                  value={exportEmail}
-                  onChange={(e) => setExportEmail(e.target.value)}
-                  className="pl-10 h-11"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                The Excel report will be sent to this email address
-              </p>
-            </div>
-
           </div>
 
           <DialogFooter className="gap-2 pt-4">
@@ -1090,18 +1073,18 @@ export default function HistoryTab() {
             </Button>
             <Button
               onClick={handleExport}
-              disabled={!isExportValid || exportMutation.isPending}
+              disabled={!isExportValid || isExporting}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
-              {exportMutation.isPending ? (
+              {isExporting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
+                  Generating...
                 </>
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Export & Send
+                  Download Report
                 </>
               )}
             </Button>

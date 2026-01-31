@@ -1465,7 +1465,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Export Report API
+  // Download Report API - Direct download (no email)
+  app.get('/api/reports/download', async (req: Request, res: Response) => {
+    try {
+      const restaurantId = parseInt(req.query.restaurantId as string, 10);
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+
+      if (!startDate || !endDate || isNaN(restaurantId)) {
+        return res.status(400).json({ error: "startDate, endDate, and restaurantId are required" });
+      }
+
+      // Get restaurant info
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Generate date range
+      const dates: string[] = [];
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+
+      // Collect data for each day
+      const dailyData: Array<{
+        date: string;
+        revenue: number;
+        orderCount: number;
+        tablesServed: number;
+        peopleServed: number;
+        shifts: number;
+      }> = [];
+
+      let totalRevenue = 0;
+      let totalOrders = 0;
+      let totalTables = 0;
+      let totalPeople = 0;
+      let totalShifts = 0;
+
+      for (const date of dates) {
+        try {
+          const history = await storage.getDetailedHistory(restaurantId, date);
+          const dayData = {
+            date,
+            revenue: history.totals.revenue,
+            orderCount: history.totals.orderCount,
+            tablesServed: history.totals.tablesServed,
+            peopleServed: history.totals.peopleServed,
+            shifts: history.shifts.length,
+          };
+          dailyData.push(dayData);
+
+          totalRevenue += dayData.revenue;
+          totalOrders += dayData.orderCount;
+          totalTables += dayData.tablesServed;
+          totalPeople += dayData.peopleServed;
+          totalShifts += dayData.shifts;
+        } catch (e) {
+          // Day has no data, add zeros
+          dailyData.push({
+            date,
+            revenue: 0,
+            orderCount: 0,
+            tablesServed: 0,
+            peopleServed: 0,
+            shifts: 0,
+          });
+        }
+      }
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Summary Sheet
+      const summaryData = [
+        ['Restaurant Report'],
+        [''],
+        ['Restaurant:', restaurant.name],
+        ['Report Period:', `${startDate} to ${endDate}`],
+        ['Generated:', new Date().toLocaleString()],
+        [''],
+        ['PERIOD TOTALS'],
+        [''],
+        ['Total Revenue', `$${(totalRevenue / 100).toFixed(2)}`],
+        ['Total Orders', totalOrders],
+        ['Tables Served', totalTables],
+        ['Guests Served', totalPeople],
+        ['Total Shifts', totalShifts],
+        [''],
+        ['Average Revenue/Day', `$${dates.length > 0 ? ((totalRevenue / 100) / dates.length).toFixed(2) : '0.00'}`],
+        ['Average Orders/Day', dates.length > 0 ? (totalOrders / dates.length).toFixed(1) : '0'],
+      ];
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      summarySheet['!cols'] = [{ wch: 20 }, { wch: 25 }];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+      // Daily Details Sheet
+      const dailyHeaders = ['Date', 'Revenue', 'Orders', 'Tables', 'Guests', 'Shifts'];
+      const dailyRows = dailyData.map(d => [
+        d.date,
+        `$${(d.revenue / 100).toFixed(2)}`,
+        d.orderCount,
+        d.tablesServed,
+        d.peopleServed,
+        d.shifts,
+      ]);
+      const dailySheetData = [dailyHeaders, ...dailyRows];
+      const dailySheet = XLSX.utils.aoa_to_sheet(dailySheetData);
+      dailySheet['!cols'] = [
+        { wch: 12 }, { wch: 12 }, { wch: 10 }, 
+        { wch: 10 }, { wch: 10 }, { wch: 10 }
+      ];
+      XLSX.utils.book_append_sheet(workbook, dailySheet, 'Daily Details');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      // Set headers for file download
+      const filename = `${restaurant.name.replace(/[^a-z0-9]/gi, '_')}_Report_${startDate}_to_${endDate}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  // Export Report API (with email - kept for future use)
   app.post('/api/reports/export', async (req: Request, res: Response) => {
     try {
       const { startDate, endDate, email, restaurantId } = req.body;
