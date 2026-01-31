@@ -1152,6 +1152,7 @@ export class MemStorage implements IStorage {
         price: order.price,
         timestamp: order.timestamp || new Date(),
         completed: order.completed ?? false,
+        canceled: order.canceled ?? false,
         notes: order.notes ?? null,
         specialItemName: order.specialItemName ?? null,
         isSpecialItem: order.isSpecialItem ?? null,
@@ -1237,13 +1238,22 @@ export class MemStorage implements IStorage {
       dbOrders.forEach(order => this.ordersMap.set(order.id, order));
       
       return Promise.all(dbOrders.map(async (order) => {
-        const menuItem = await this.getMenuItem(order.menuItemId);
+        const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
         const table = await this.getTable(order.tableId);
         return {
-          ...order,
-          menuItemName: menuItem?.name || 'Unknown Item',
+          id: order.id,
+          tableId: order.tableId,
+          menuItemId: order.menuItemId,
+          menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+          timestamp: order.timestamp,
+          completed: order.completed,
+          price: order.price,
           tableNumber: table?.number || 'Unknown Table',
-          tableLabel: table?.label || ''
+          tableLabel: table?.label || '',
+          notes: order.notes,
+          specialItemName: order.specialItemName,
+          isSpecialItem: order.isSpecialItem ?? false,
+          peopleCount: table?.peopleCount ?? 0
         };
       }));
     } catch (error) {
@@ -1254,13 +1264,22 @@ export class MemStorage implements IStorage {
       const newOrders = allOrders.filter(order => !order.completed);
       
       return Promise.all(newOrders.map(async (order) => {
-        const menuItem = await this.getMenuItem(order.menuItemId);
+        const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
         const table = await this.getTable(order.tableId);
         return {
-          ...order,
-          menuItemName: menuItem?.name || 'Unknown Item',
+          id: order.id,
+          tableId: order.tableId,
+          menuItemId: order.menuItemId,
+          menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+          timestamp: order.timestamp,
+          completed: order.completed,
+          price: order.price,
           tableNumber: table?.number || 'Unknown Table',
-          tableLabel: table?.label || ''
+          tableLabel: table?.label || '',
+          notes: order.notes,
+          specialItemName: order.specialItemName,
+          isSpecialItem: order.isSpecialItem ?? false,
+          peopleCount: table?.peopleCount ?? 0
         };
       }));
     }
@@ -1383,14 +1402,15 @@ export class MemStorage implements IStorage {
       
       // Fallback to memory storage implementation
       const id = this.currentUserProfileId++;
-      const newProfile = {
+      const newProfile: UserProfile = {
         id,
+        workerId: profile.workerId ?? null,
         name: profile.name,
         role: profile.role,
         avatarUrl: profile.avatarUrl ?? null,
         createdAt: new Date(),
         updatedAt: new Date()
-      } as UserProfile;
+      };
       this.userProfilesMap.set(id, newProfile);
       return newProfile;
     }
@@ -1454,9 +1474,10 @@ export class MemStorage implements IStorage {
         }
       }
       
-      // Create the return object with up-to-date data 
+      // Create the return object with up-to-date data
       const updatedProfile: UserProfile = {
         id,
+        workerId: existingProfile.workerId ?? null,
         name,
         role,
         avatarUrl,
@@ -1529,8 +1550,10 @@ export class MemStorage implements IStorage {
       const id = this.currentRestaurantId++;
       const now = new Date();
       const newRestaurant: Restaurant = {
-        ...restaurant,
         id,
+        name: restaurant.name,
+        address: restaurant.address,
+        imageUrl: restaurant.imageUrl ?? null,
         createdAt: now,
         updatedAt: now
       };
@@ -2226,12 +2249,19 @@ export class MemStorage implements IStorage {
           const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
           const tableData = tableStatusMap.get(order.tableId);
           return {
-            ...order,
-            menuItemName: menuItem?.name || null,
-            menuItemCategory: menuItem?.category || null,
+            id: order.id,
+            tableId: order.tableId,
+            menuItemId: order.menuItemId,
+            menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+            timestamp: order.timestamp,
+            completed: order.completed,
+            price: order.price,
             tableNumber: tableData?.tableNumber || String(order.tableId),
-            tableLabel: tableData?.tableLabel || null,
-            peopleCount: tableData?.peopleCount || null,
+            tableLabel: tableData?.tableLabel || '',
+            notes: order.notes,
+            specialItemName: order.specialItemName,
+            isSpecialItem: order.isSpecialItem ?? false,
+            peopleCount: tableData?.peopleCount || 0,
           };
         }));
         
@@ -2250,8 +2280,8 @@ export class MemStorage implements IStorage {
           id: workday.id,
           startedAt: workday.startedAt,
           endedAt: workday.endedAt,
-          isActive: workday.isActive,
-          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt })),
+          isActive: workday.isActive ?? false,
+          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt ?? new Date() })),
           revenue,
           orderCount: enrichedOrders.length,
           tablesServed: uniqueTables.size,
@@ -2341,15 +2371,22 @@ export class MemStorage implements IStorage {
           const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
           const tableData = tableStatusMap.get(order.tableId);
           return {
-            ...order,
-            menuItemName: menuItem?.name || null,
-            menuItemCategory: menuItem?.category || null,
+            id: order.id,
+            tableId: order.tableId,
+            menuItemId: order.menuItemId,
+            menuItemName: order.isSpecialItem && order.specialItemName ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
+            timestamp: order.timestamp,
+            completed: order.completed,
+            price: order.price,
             tableNumber: tableData?.tableNumber || String(order.tableId),
-            tableLabel: tableData?.tableLabel || null,
-            peopleCount: tableData?.peopleCount || null,
+            tableLabel: tableData?.tableLabel || '',
+            notes: order.notes,
+            specialItemName: order.specialItemName,
+            isSpecialItem: order.isSpecialItem ?? false,
+            peopleCount: tableData?.peopleCount || 0,
           };
         }));
-        
+
         const revenue = enrichedOrders.reduce((sum, order) => sum + order.price, 0);
         const uniqueTables = new Set(enrichedOrders.map(order => order.tableId));
         const uniquePeople = enrichedOrders.reduce((map, order) => {
@@ -2364,8 +2401,8 @@ export class MemStorage implements IStorage {
           id: workday.id,
           startedAt: workday.startedAt,
           endedAt: workday.endedAt,
-          isActive: workday.isActive,
-          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt })),
+          isActive: workday.isActive ?? false,
+          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt ?? new Date() })),
           revenue,
           orderCount: enrichedOrders.length,
           tablesServed: uniqueTables.size,
