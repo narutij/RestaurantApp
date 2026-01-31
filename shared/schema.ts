@@ -114,6 +114,7 @@ export const orders = pgTable("orders", {
   menuItemId: integer("menu_item_id"),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
   completed: boolean("completed").notNull().default(false),
+  canceled: boolean("canceled").default(false),
   price: doublePrecision("price").notNull(),
   notes: text("notes"),
   specialItemName: text("special_item_name"),
@@ -126,6 +127,7 @@ export const insertOrderSchema = createInsertSchema(orders).pick({
   menuItemId: true,
   timestamp: true,
   completed: true,
+  canceled: true,
   price: true,
   notes: true,
   specialItemName: true,
@@ -352,6 +354,7 @@ export const reminders = pgTable("reminders", {
   text: text("text").notNull(),
   createdBy: text("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
+  isImportant: boolean("is_important").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -360,6 +363,7 @@ export const insertReminderSchema = createInsertSchema(reminders).pick({
   text: true,
   createdBy: true,
   createdByName: true,
+  isImportant: true,
 });
 
 export type InsertReminder = z.infer<typeof insertReminderSchema>;

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useTab } from '@/contexts/TabContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -111,9 +113,17 @@ export default function OrderTab() {
   const { addMessageListener } = useWebSocketContext();
   const { activeWorkday, isWorkdayActive } = useWorkday();
   const { t } = useLanguage();
+  
+  // Use context for persistent state across tab switches
+  const { 
+    selectedTableId: activeTableId, 
+    setSelectedTableId: setActiveTableId,
+    getPreOrderItems,
+    setPreOrderItems: setContextPreOrderItems,
+    clearPreOrderItems
+  } = useTab();
 
   // Local state
-  const [activeTableId, setActiveTableId] = useState<number | null>(null);
   const [activateDialogOpen, setActivateDialogOpen] = useState(false);
   const [tableToActivate, setTableToActivate] = useState<Table | null>(null);
   const [peopleCount, setPeopleCount] = useState('2');
@@ -127,15 +137,26 @@ export default function OrderTab() {
   
   // Close table confirmation dialog state
   const [closeTableDialogOpen, setCloseTableDialogOpen] = useState(false);
-  const [tableToClose, setTableToClose] = useState<{ id: number; number: string; total: number } | null>(null);
+  const [tableToClose, setTableToClose] = useState<{ id: number; number: string; total: number; hasUnfinishedOrders: boolean } | null>(null);
   
   // Persist seen ready orders
   useEffect(() => {
     localStorage.setItem('seenReadyOrders', JSON.stringify([...seenReadyOrders]));
   }, [seenReadyOrders]);
 
-  // Pre-order cart state
-  const [preOrderItems, setPreOrderItems] = useState<PreOrderItem[]>([]);
+  // Pre-order cart state - now synced with context
+  const preOrderItems = activeTableId ? getPreOrderItems(activeTableId) : [];
+  const setPreOrderItems = (itemsOrUpdater: PreOrderItem[] | ((prev: PreOrderItem[]) => PreOrderItem[])) => {
+    if (activeTableId) {
+      if (typeof itemsOrUpdater === 'function') {
+        const currentItems = getPreOrderItems(activeTableId);
+        const newItems = itemsOrUpdater(currentItems);
+        setContextPreOrderItems(activeTableId, newItems);
+      } else {
+        setContextPreOrderItems(activeTableId, itemsOrUpdater);
+      }
+    }
+  };
   const [isConfirming, setIsConfirming] = useState(false);
 
   // Note and badges for regular items
@@ -255,16 +276,29 @@ export default function OrderTab() {
     refetchInterval: 3000
   });
 
-  // Calculate ready orders per table (that haven't been seen)
+  // Calculate ready orders per table (only for ACTIVE tables, current session, that haven't been seen)
   const readyOrdersByTable = useMemo(() => {
     const result: Record<number, number> = {};
+    // Build a map of table id -> activatedAt for active tables
+    const activeTableMap = new Map(
+      tables.filter(t => t.isActive).map(t => [t.id, t.activatedAt ? new Date(t.activatedAt).getTime() : 0])
+    );
+    
     allOrders.forEach(order => {
-      if (order.completed && !seenReadyOrders.has(order.id)) {
-        result[order.tableId] = (result[order.tableId] || 0) + 1;
+      const tableActivatedAt = activeTableMap.get(order.tableId);
+      // Only count ready orders for tables that are:
+      // 1. Still active
+      // 2. Created AFTER the table was activated (current session)
+      // 3. Not already seen by the user
+      if (tableActivatedAt !== undefined) {
+        const orderTime = new Date(order.timestamp).getTime();
+        if (order.completed && !seenReadyOrders.has(order.id) && orderTime >= tableActivatedAt) {
+          result[order.tableId] = (result[order.tableId] || 0) + 1;
+        }
       }
     });
     return result;
-  }, [allOrders, seenReadyOrders]);
+  }, [allOrders, seenReadyOrders, tables]);
 
   // Group confirmed orders for display (merge identical items)
   const groupedTableOrders = useMemo((): GroupedOrder[] => {
@@ -308,6 +342,11 @@ export default function OrderTab() {
   // Mark ready orders as seen when user clicks on a table
   const handleTableClick = (table: Table) => {
     if (table.isActive) {
+      // Toggle selection - if clicking same table, deselect it
+      if (activeTableId === table.id) {
+        setActiveTableId(null);
+        return;
+      }
       setActiveTableId(table.id);
       // Mark all ready orders for this table as "seen"
       const readyOrderIds = allOrders
@@ -336,19 +375,17 @@ export default function OrderTab() {
     return () => removeListener();
   }, [addMessageListener, queryClient]);
 
-  // Initialize expanded categories
+  // Initialize expanded categories - collapsed by default
   useEffect(() => {
     const initial: Record<string, boolean> = {};
     menuItems.forEach(item => {
-      initial[item.categoryId?.toString() ?? 'uncategorized'] = true;
+      initial[item.categoryId?.toString() ?? 'uncategorized'] = false;
     });
     setExpandedCategories(initial);
   }, [menuItems]);
 
-  // Clear pre-order when table changes
-  useEffect(() => {
-    setPreOrderItems([]);
-  }, [activeTableId]);
+  // Note: Pre-orders are now persisted per-table via context
+  // They only clear when user manually removes items or confirms order
 
   // Mutations
   const activateTableMutation = useMutation({
@@ -372,17 +409,31 @@ export default function OrderTab() {
   });
 
   const deactivateTableMutation = useMutation({
-    mutationFn: (tableId: number) => apiRequest(`/api/tables/${tableId}/deactivate`, { method: 'POST' }),
-    onSuccess: (_, tableId) => {
+    mutationFn: async ({ tableId, cancelOrders }: { tableId: number; cancelOrders: boolean }) => {
+      // If there are unfinished orders and user is closing anyway, mark them as canceled
+      if (cancelOrders) {
+        const unfinishedOrders = allOrders.filter(o => o.tableId === tableId && !o.completed);
+        for (const order of unfinishedOrders) {
+          await apiRequest(`/api/orders/${order.id}/cancel`, { method: 'POST' });
+        }
+      }
+      return apiRequest(`/api/tables/${tableId}/deactivate`, { method: 'POST' });
+    },
+    onSuccess: (_, { tableId }) => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['table-orders'] });
       queryClient.invalidateQueries({ queryKey: ['all-orders'] });
-      // Invalidate history data so it updates immediately
-      queryClient.invalidateQueries({ queryKey: ['history-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      // Invalidate history and statistics data so it updates immediately
+      // Use refetchType 'all' to ensure queries refetch even when not actively mounted
+      queryClient.invalidateQueries({ queryKey: ['history-summary'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['statistics'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['kitchen-history'], refetchType: 'all' });
       if (activeTableId === tableId) {
         setActiveTableId(null);
-        setPreOrderItems([]);
       }
+      // Clear the pre-order items for this table
+      clearPreOrderItems(tableId);
       // Clear the seen ready orders for this table
       setSeenReadyOrders(prev => {
         const newSet = new Set(prev);
@@ -398,10 +449,13 @@ export default function OrderTab() {
   // Handle close table button click - open confirmation dialog
   const handleCloseTableClick = () => {
     if (!activeTable) return;
+    // Check for unfinished orders
+    const unfinishedOrders = tableOrders.filter(o => !o.completed);
     setTableToClose({
       id: activeTable.id,
       number: activeTable.number,
-      total: confirmedTotal
+      total: confirmedTotal,
+      hasUnfinishedOrders: unfinishedOrders.length > 0
     });
     setCloseTableDialogOpen(true);
   };
@@ -409,7 +463,10 @@ export default function OrderTab() {
   // Confirm close table
   const confirmCloseTable = () => {
     if (!tableToClose) return;
-    deactivateTableMutation.mutate(tableToClose.id);
+    deactivateTableMutation.mutate({ 
+      tableId: tableToClose.id, 
+      cancelOrders: tableToClose.hasUnfinishedOrders 
+    });
   };
 
   // Create a single order - no automatic query invalidation (we'll do it manually after batch)
@@ -632,6 +689,11 @@ export default function OrderTab() {
   return (
     <div className="p-4 pb-24 space-y-4">
       {/* Tables Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0 * 0.1 }}
+      >
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -696,10 +758,16 @@ export default function OrderTab() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* Active Table Section */}
       {activeTable && activeTable.isActive && (
-        <>
+        <motion.div
+          className="space-y-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 * 0.1 }}
+        >
           {/* Table Header Card with Confirmed Orders */}
           <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent overflow-hidden">
             <CardContent className="p-4">
@@ -744,11 +812,9 @@ export default function OrderTab() {
                       <div key={group.key} className="py-2 flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            {group.quantity > 1 && (
-                              <span className="text-xs font-bold bg-muted px-1.5 py-0.5 rounded">
-                                {group.quantity}x
-                              </span>
-                            )}
+                            <span className="text-xs font-bold bg-muted px-1.5 py-0.5 rounded">
+                              {group.quantity}x
+                            </span>
                             <span className="font-medium text-sm">{group.name}</span>
                             {group.isSpecialItem && (
                               <Badge variant="outline" className="text-xs">{t('orders.special')}</Badge>
@@ -1065,7 +1131,7 @@ export default function OrderTab() {
               </ScrollArea>
             </CardContent>
           </Card>
-        </>
+        </motion.div>
       )}
 
       {/* Activate Table Dialog */}
@@ -1278,6 +1344,21 @@ export default function OrderTab() {
           
           {tableToClose && (
             <div className="py-4 space-y-3">
+              {/* Warning about unfinished orders */}
+              {tableToClose.hasUnfinishedOrders && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                      {t('orders.unfinishedOrdersWarning') || 'Orders still in progress!'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('orders.unfinishedOrdersMessage') || 'There are orders that have not been completed by the kitchen. These will be marked as canceled if you close the table.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               <div className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">{t('orders.table') || 'Table'}</span>
@@ -1287,6 +1368,12 @@ export default function OrderTab() {
                   <span className="text-sm text-muted-foreground">{t('orders.totalOrders') || 'Total Orders'}</span>
                   <span className="font-semibold">{tableOrders.length}</span>
                 </div>
+                {tableToClose.hasUnfinishedOrders && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-amber-600">{t('orders.unfinishedOrders') || 'Unfinished Orders'}</span>
+                    <span className="font-semibold text-amber-600">{tableOrders.filter(o => !o.completed).length}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between pt-2 border-t">
                   <span className="text-sm font-medium">{t('orders.total') || 'Total'}</span>
                   <span className="text-lg font-bold text-green-600">{formatPrice(tableToClose.total)}</span>
@@ -1315,7 +1402,10 @@ export default function OrderTab() {
               ) : (
                 <Check className="h-4 w-4 mr-2" />
               )}
-              {t('orders.confirmClose') || 'Yes, Close Table'}
+              {tableToClose?.hasUnfinishedOrders 
+                ? (t('orders.closeAnyway') || 'Close Anyway')
+                : (t('orders.confirmClose') || 'Yes, Close Table')
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { formatPrice } from '@/lib/utils';
+import { UtensilsCrossed, X, Loader2 } from 'lucide-react';
 
 type MenuItemModalProps = {
   open: boolean;
@@ -28,7 +29,6 @@ export function MenuItemModal({
   const queryClient = useQueryClient();
   const isEditMode = !!itemId;
 
-  // Reset state when the modal is opened/closed
   useEffect(() => {
     if (!open) {
       setItemName("");
@@ -37,7 +37,6 @@ export function MenuItemModal({
     }
   }, [open]);
 
-  // Fetch item data if in edit mode
   useEffect(() => {
     if (open && isEditMode && itemId) {
       const fetchItem = async () => {
@@ -55,76 +54,45 @@ export function MenuItemModal({
           });
         }
       };
-
       fetchItem();
     }
   }, [open, itemId, isEditMode, toast]);
 
-  // Mutations
   const createItemMutation = useMutation({
     mutationFn: (data: { name: string; price: number; categoryId: number; description?: string }) => 
-      apiRequest('/api/menu-items', {
-        method: 'POST',
-        body: data
-      }),
+      apiRequest('/api/menu-items', { method: 'POST', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items', categoryId] });
       onOpenChange(false);
-      toast({
-        title: "Menu Item Created",
-        description: "Your menu item has been created successfully.",
-      });
+      toast({ title: "Item Created", description: "Menu item has been created successfully." });
     },
-    onError: (error) => {
-      toast({
-        title: "Error Creating Menu Item",
-        description: "There was an error creating your menu item. Please try again.",
-        variant: "destructive",
-      });
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create menu item.", variant: "destructive" });
     }
   });
 
   const updateItemMutation = useMutation({
     mutationFn: ({ id, data }: { id: number, data: { name: string; price: number; description?: string } }) => 
-      apiRequest(`/api/menu-items/${id}`, {
-        method: 'PUT',
-        body: data
-      }),
+      apiRequest(`/api/menu-items/${id}`, { method: 'PUT', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items', categoryId] });
       onOpenChange(false);
-      toast({
-        title: "Menu Item Updated",
-        description: "Your menu item has been updated successfully.",
-      });
+      toast({ title: "Item Updated", description: "Menu item has been updated successfully." });
     },
-    onError: (error) => {
-      toast({
-        title: "Error Updating Menu Item",
-        description: "There was an error updating your menu item. Please try again.",
-        variant: "destructive",
-      });
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update menu item.", variant: "destructive" });
     }
   });
 
-  // Handlers
   const handleSubmit = () => {
     if (!itemName.trim()) {
-      toast({
-        title: "Invalid Input",
-        description: "Item name is required.",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid Input", description: "Item name is required.", variant: "destructive" });
       return;
     }
 
     const price = parseFloat(itemPrice);
     if (isNaN(price) || price <= 0) {
-      toast({
-        title: "Invalid Input",
-        description: "Please enter a valid price.",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid Input", description: "Please enter a valid price.", variant: "destructive" });
       return;
     }
 
@@ -136,73 +104,97 @@ export function MenuItemModal({
     };
 
     if (isEditMode && itemId) {
-      updateItemMutation.mutate({
-        id: itemId,
-        data
-      });
+      updateItemMutation.mutate({ id: itemId, data });
     } else {
       createItemMutation.mutate(data);
     }
   };
 
+  const isPending = createItemMutation.isPending || updateItemMutation.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? "Edit Menu Item" : "Add Menu Item"}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="item-name">Item Name</Label>
+      <DialogContent className="sm:max-w-[420px] p-0 bg-[#1E2429] border-white/10 overflow-hidden" hideCloseButton>
+        {/* Header */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-green-500/10 to-transparent" />
+          <div className="relative px-6 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/20 rounded-xl">
+                  <UtensilsCrossed className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {isEditMode ? 'Edit Item' : 'Add Item'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Menu item details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="p-6 pt-2 space-y-4">
+          <div>
+            <Label className="text-xs text-muted-foreground">Item Name</Label>
             <Input
-              id="item-name"
-              placeholder="Enter item name"
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
+              placeholder="e.g., Margherita Pizza"
+              className="mt-1.5 bg-white/5 border-white/10 focus:border-emerald-500/50"
             />
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="item-price">Price</Label>
+          <div>
+            <Label className="text-xs text-muted-foreground">Price (€)</Label>
             <Input
-              id="item-price"
-              placeholder="Enter price"
               type="number"
               min="0"
               step="0.01"
               value={itemPrice}
               onChange={(e) => setItemPrice(e.target.value)}
+              placeholder="0.00"
+              className="mt-1.5 bg-white/5 border-white/10 focus:border-emerald-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="item-description">Description (Optional)</Label>
-            <Input
-              id="item-description"
-              placeholder="Enter description"
+          <div>
+            <Label className="text-xs text-muted-foreground">Description (Optional)</Label>
+            <Textarea
               value={itemDescription}
               onChange={(e) => setItemDescription(e.target.value)}
+              placeholder="Brief description of the item..."
+              className="mt-1.5 bg-white/5 border-white/10 focus:border-emerald-500/50 resize-none h-20"
             />
           </div>
         </div>
-        
-        <DialogFooter>
-          <Button 
-            variant="outline" 
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/5 flex justify-end gap-2">
+          <Button
+            variant="ghost"
             onClick={() => onOpenChange(false)}
+            className="hover:bg-white/10"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
-            disabled={createItemMutation.isPending || updateItemMutation.isPending}
+            disabled={isPending}
+            className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-0"
           >
-            {isEditMode ? "Update Item" : "Add Item"}
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditMode ? 'Update Item' : 'Add Item'}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

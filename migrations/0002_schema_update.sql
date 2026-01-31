@@ -63,3 +63,6 @@ CREATE TABLE IF NOT EXISTS "restaurant_workers" (
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now()
 );
+
+-- Add is_important column to reminders table
+ALTER TABLE "reminders" ADD COLUMN IF NOT EXISTS "is_important" boolean DEFAULT false;

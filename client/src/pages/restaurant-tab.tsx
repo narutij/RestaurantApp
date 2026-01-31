@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkday } from "@/contexts/WorkdayContext";
@@ -134,94 +135,125 @@ export default function RestaurantInfoTab() {
   return (
     <div className="p-4 pb-24 space-y-4">
       {/* Revenue & Clients - Horizontal Row */}
-      <div className="grid grid-cols-2 gap-3">
+      <motion.div 
+        className="grid grid-cols-2 gap-3"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0 * 0.1 }}
+      >
         {/* Revenue Widget */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-green-500/10 rounded-xl">
-                <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+        <Card className="overflow-hidden border-green-500/20">
+          <CardContent className="p-4 relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-green-500/20 rounded-xl">
+                  <DollarSign className="h-4 w-4 text-green-500" />
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
+                      {timeframeLabels[revenueTimeframe]}
+                      <ChevronDown className="h-2.5 w-2.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setRevenueTimeframe('week')}>
+                      {timeframeLabels.week}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setRevenueTimeframe('month')}>
+                      {timeframeLabels.month}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setRevenueTimeframe('quarter')}>
+                      {timeframeLabels.quarter}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setRevenueTimeframe('year')}>
+                      {timeframeLabels.year}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
-                    {timeframeLabels[revenueTimeframe]}
-                    <ChevronDown className="h-2.5 w-2.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setRevenueTimeframe('week')}>
-                    {timeframeLabels.week}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRevenueTimeframe('month')}>
-                    {timeframeLabels.month}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRevenueTimeframe('quarter')}>
-                    {timeframeLabels.quarter}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRevenueTimeframe('year')}>
-                    {timeframeLabels.year}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <p className="text-xs text-muted-foreground">{t('restaurant.revenue') || 'Revenue'}</p>
+              <p className="text-xl font-bold tracking-tight mt-1 text-green-600 dark:text-green-400">
+                {formatPrice(revenueStats?.revenue || 0)}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">{t('restaurant.revenue') || 'Revenue'}</p>
-            <p className="text-xl font-bold tracking-tight mt-1">
-              {formatPrice(revenueStats?.revenue || 0)}
-            </p>
           </CardContent>
         </Card>
 
         {/* Clients Widget */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-2 bg-blue-500/10 rounded-xl">
-                <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <Card className="overflow-hidden border-blue-500/20">
+          <CardContent className="p-4 relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-blue-500/20 rounded-xl">
+                  <Users className="h-4 w-4 text-blue-500" />
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
+                      {timeframeLabels[clientsTimeframe]}
+                      <ChevronDown className="h-2.5 w-2.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setClientsTimeframe('week')}>
+                      {timeframeLabels.week}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setClientsTimeframe('month')}>
+                      {timeframeLabels.month}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setClientsTimeframe('quarter')}>
+                      {timeframeLabels.quarter}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setClientsTimeframe('year')}>
+                      {timeframeLabels.year}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
-                    {timeframeLabels[clientsTimeframe]}
-                    <ChevronDown className="h-2.5 w-2.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setClientsTimeframe('week')}>
-                    {timeframeLabels.week}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setClientsTimeframe('month')}>
-                    {timeframeLabels.month}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setClientsTimeframe('quarter')}>
-                    {timeframeLabels.quarter}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setClientsTimeframe('year')}>
-                    {timeframeLabels.year}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <p className="text-xs text-muted-foreground">{t('restaurant.clients') || 'Clients'}</p>
+              <p className="text-xl font-bold tracking-tight mt-1 text-blue-600 dark:text-blue-400">
+                {clientsStats?.peopleCount || 0}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">{t('restaurant.clients') || 'Clients'}</p>
-            <p className="text-xl font-bold tracking-tight mt-1">
-              {clientsStats?.peopleCount || 0}
-            </p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Top Dishes Widget */}
-      <TopItemsWidget
-        items={topDishesStats?.topItems || []}
-        timeframe={topDishesTimeframe}
-        onTimeframeChange={setTopDishesTimeframe}
-        isLoading={loadingTopDishes}
-      />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1 * 0.1 }}
+      >
+        <TopItemsWidget
+          items={topDishesStats?.topItems || []}
+          timeframe={topDishesTimeframe}
+          onTimeframeChange={setTopDishesTimeframe}
+          isLoading={loadingTopDishes}
+        />
+      </motion.div>
+
+      {/* Restaurant Board (formerly Reminders) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2 * 0.1 }}
+      >
+        <RemindersSection restaurantId={selectedRestaurant?.id} />
+      </motion.div>
 
       {/* Action Buttons */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 3 * 0.1 }}
+      >
       <Card>
         <CardContent className="p-0 divide-y divide-border">
-          {/* Workers Management */}
+          {/* Staff Management */}
           <button
             className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors"
             onClick={() => setWorkersModalOpen(true)}
@@ -231,7 +263,7 @@ export default function RestaurantInfoTab() {
                 <UserCog className="h-5 w-5 text-purple-500" />
               </div>
               <div className="text-left">
-                <span className="font-medium block">{t('restaurant.workersManagement') || 'Workers Management'}</span>
+                <span className="font-medium block">{t('restaurant.staffManagement') || 'Staff Management'}</span>
                 <span className="text-xs text-muted-foreground">
                   {t('restaurant.manageTeam') || 'Manage your team and permissions'}
                 </span>
@@ -240,7 +272,7 @@ export default function RestaurantInfoTab() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
 
-          {/* Menu Management */}
+          {/* Menu Designer */}
           <button
             className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors"
             onClick={() => setMenuModalOpen(true)}
@@ -250,7 +282,7 @@ export default function RestaurantInfoTab() {
                 <MenuSquare className="h-5 w-5 text-green-500" />
               </div>
               <div className="text-left">
-                <span className="font-medium block">{t('restaurant.menuManagement') || 'Menu Management'}</span>
+                <span className="font-medium block">{t('restaurant.menuDesigner') || 'Menu Designer'}</span>
                 <span className="text-xs text-muted-foreground">
                   {t('restaurant.createEditMenus') || 'Create and edit menus'}
                 </span>
@@ -259,7 +291,7 @@ export default function RestaurantInfoTab() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
 
-          {/* Table Layouts */}
+          {/* Floor Layouts */}
           <button
             className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors"
             onClick={() => setTableLayoutModalOpen(true)}
@@ -269,7 +301,7 @@ export default function RestaurantInfoTab() {
                 <Grid2X2 className="h-5 w-5 text-amber-500" />
               </div>
               <div className="text-left">
-                <span className="font-medium block">{t('restaurant.tableLayouts') || 'Table Layouts'}</span>
+                <span className="font-medium block">{t('restaurant.floorLayouts') || 'Floor Layouts'}</span>
                 <span className="text-xs text-muted-foreground">
                   {t('restaurant.manageLayouts') || 'Manage table arrangements'}
                 </span>
@@ -279,9 +311,7 @@ export default function RestaurantInfoTab() {
           </button>
         </CardContent>
       </Card>
-
-      {/* Reminders Section */}
-      <RemindersSection restaurantId={selectedRestaurant?.id} />
+      </motion.div>
 
       {/* Modals */}
       <WorkersModal

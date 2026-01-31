@@ -32,6 +32,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (updates: { name?: string }) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -83,6 +84,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     await signOut(auth);
+  };
+
+  const updateProfile = async (updates: { name?: string }) => {
+    if (!appUser) return;
+    
+    if (DEV_MODE) {
+      // In dev mode, just update local state
+      setAppUser(prev => prev ? { ...prev, ...updates } : null);
+      return;
+    }
+    
+    // Update in Firestore
+    await userService.update(appUser.id, {
+      ...updates,
+      updatedAt: new Date()
+    });
+    
+    // Update local state
+    setAppUser(prev => prev ? { ...prev, ...updates } : null);
   };
 
   useEffect(() => {
@@ -139,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     signup,
     logout,
+    updateProfile,
     isAdmin: appUser?.role === 'admin'
   };
 

@@ -259,50 +259,57 @@ export default function TopBar({
 
   return (
     <>
-    <header className="flex-shrink-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="relative flex h-14 items-center px-4">
-        {/* Menu Button - Opens Settings Sidebar */}
-        <button
-          onClick={onMenuClick}
-          className="p-2 -ml-2 hover:bg-accent rounded-lg transition-colors z-10"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+    <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
+      <div className="relative flex h-[60px] items-center px-4 pt-3">
+        {/* Left Section - Menu Button & Workday Timer */}
+        <div className="flex items-center gap-2 z-10 pointer-events-auto">
+          {/* Menu Button - Round Frame */}
+          <button
+            onClick={onMenuClick}
+            className="p-2.5 bg-[#181E23] hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/20 border border-white/5"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
 
-        {/* Restaurant Section - Absolutely Centered */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <Popover open={restaurantPopoverOpen} onOpenChange={(open) => {
-            setRestaurantPopoverOpen(open);
-            if (!open) handleCancel();
-          }}>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-accent transition-colors">
-                {selectedRestaurant ? (
-                  <>
-                    {selectedRestaurant.imageUrl ? (
-                      <img
-                        src={selectedRestaurant.imageUrl}
-                        alt={selectedRestaurant.name}
-                        className="h-6 w-6 rounded object-cover"
-                      />
-                    ) : (
-                      <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center">
-                        <Building2 className="h-3.5 w-3.5 text-primary" />
+        {/* Center Section - Restaurant & Connected Users in Pill */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-1.5 pointer-events-auto">
+          <div className="flex items-center bg-[#181E23] rounded-full shadow-lg shadow-black/20 border border-white/5 p-1">
+            {/* Restaurant Selector */}
+            <Popover open={restaurantPopoverOpen} onOpenChange={(open) => {
+              setRestaurantPopoverOpen(open);
+              if (!open) handleCancel();
+            }}>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#1A242E] transition-colors">
+                  {selectedRestaurant ? (
+                    <>
+                      {selectedRestaurant.imageUrl ? (
+                        <img
+                          src={selectedRestaurant.imageUrl}
+                          alt={selectedRestaurant.name}
+                          className="h-6 w-6 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Building2 className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                      )}
+                      <span className="font-semibold text-sm">{selectedRestaurant.name}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                    )}
-                    <span className="font-semibold text-sm">{selectedRestaurant.name}</span>
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  </>
-                ) : (
-                  <>
-                    <Building2 className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">{t('topbar.selectRestaurant')}</span>
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  </>
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="center" className="w-80 p-0">
+                      <span className="text-sm text-muted-foreground">{t('topbar.selectRestaurant')}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </>
+                  )}
+                </button>
+              </PopoverTrigger>
+            <PopoverContent sideOffset={3} className="w-80 p-0 popover-center">
               {createMode || editMode ? (
                 // Create/Edit Form
                 <div className="p-4">
@@ -322,12 +329,12 @@ export default function TopBar({
                     <button
                       type="button"
                       onClick={() => document.getElementById('restaurant-image-topbar')?.click()}
-                      className="relative w-16 h-16 border-2 border-dashed border-muted-foreground/30 rounded-xl hover:border-muted-foreground/50 transition-colors group"
+                      className="relative w-20 h-20 border-2 border-dashed border-muted-foreground/30 rounded-full hover:border-muted-foreground/50 transition-colors group overflow-hidden"
                     >
                       {imagePreview ? (
                         <>
-                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-xl" />
-                          <div className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Upload className="h-4 w-4 text-white" />
                           </div>
                         </>
@@ -409,11 +416,11 @@ export default function TopBar({
                               <img
                                 src={restaurant.imageUrl}
                                 alt={restaurant.name}
-                                className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
+                                className="h-12 w-12 rounded-full object-cover flex-shrink-0"
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
@@ -459,31 +466,81 @@ export default function TopBar({
               )}
             </PopoverContent>
           </Popover>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-white/10 mx-1" />
+
+            {/* Connected Workers - Inside Center Pill */}
+            <Popover open={usersPopoverOpen} onOpenChange={setUsersPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-[#1A242E] transition-colors">
+                  <Users className="h-4 w-4" />
+                  <span className="text-xs font-medium">{totalConnectedUsers}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent sideOffset={3} className="w-64 p-0 popover-center">
+                <div className="p-3 border-b">
+                  <h4 className="font-semibold text-sm">{t('topbar.activeUsers') || 'Active Users'}</h4>
+                  <p className="text-xs text-muted-foreground">{totalConnectedUsers} {t('topbar.usersOnline') || 'users online'}</p>
+                </div>
+                <ScrollArea className="max-h-[250px]">
+                  {allConnectedUsers.length > 0 ? (
+                    <div className="p-2 space-y-1">
+                      {allConnectedUsers.map((user, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-muted/50"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="relative">
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                <span className="text-xs font-medium">
+                                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </span>
+                              </div>
+                              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
+                            </div>
+                            <span className="text-sm font-medium truncate">{user.name}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {formatRelativeTime(user.connectedAt)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      {t('topbar.noUsersOnline') || 'No users online'}
+                    </div>
+                  )}
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
-        {/* Right Section - Timer, Notifications & Connected Users */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* Workday Timer */}
+        {/* Right Section - Timer & Notifications */}
+        <div className="ml-auto flex items-center gap-2 pointer-events-auto">
+          {/* Workday Timer - Green pulsing frame */}
           {activeWorkday?.isActive && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 timer-pulse">
-              <Clock className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-              <span className="text-xs font-mono font-semibold text-green-700 dark:text-green-400">
-                {workdayElapsedTime}
+            <div className="px-3 py-2.5 rounded-full bg-[#181E23] shadow-lg shadow-black/20 border border-green-500/50 animate-pulse">
+              <span className="text-xs font-mono font-bold text-green-500">
+                {workdayElapsedTime.split(':').slice(0, 2).join(':')}
               </span>
             </div>
           )}
 
-          {/* Notifications */}
+          {/* Notifications - Round Frame */}
           <Popover open={notificationsOpen} onOpenChange={handleNotificationsOpenChange}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative h-9 w-9">
-                <Bell className="h-4 w-4" />
+              <button className="relative p-2.5 bg-[#181E23] hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/20 border border-white/5">
+                <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
-              </Button>
+              </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-72 p-0">
               <div className="p-3 border-b">
@@ -513,53 +570,6 @@ export default function TopBar({
                         </div>
                       </button>
                     ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-
-          {/* Connected Workers */}
-          <Popover open={usersPopoverOpen} onOpenChange={setUsersPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-9 gap-1.5 px-2">
-                <Users className="h-4 w-4" />
-                <span className="text-xs font-medium">{totalConnectedUsers}</span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-64 p-0">
-              <div className="p-3 border-b">
-                <h4 className="font-semibold text-sm">{t('topbar.activeUsers') || 'Active Users'}</h4>
-                <p className="text-xs text-muted-foreground">{totalConnectedUsers} {t('topbar.usersOnline') || 'users online'}</p>
-              </div>
-              <ScrollArea className="max-h-[250px]">
-                {allConnectedUsers.length > 0 ? (
-                  <div className="p-2 space-y-1">
-                    {allConnectedUsers.map((user, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="relative">
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                              <span className="text-xs font-medium">
-                                {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </span>
-                            </div>
-                            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
-                          </div>
-                          <span className="text-sm font-medium truncate">{user.name}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {formatRelativeTime(user.connectedAt)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    {t('topbar.noUsersOnline') || 'No users online'}
                   </div>
                 )}
               </ScrollArea>

@@ -25,6 +25,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import express from "express";
+import * as XLSX from "xlsx";
+import nodemailer from "nodemailer";
 
 // Configure multer for file uploads
 const storage_uploads = multer.diskStorage({
@@ -498,8 +500,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Table not found" });
       }
       
-      // Clear orders for this table
-      await storage.clearOrdersByTable(id);
+      // NOTE: Do NOT clear orders - they need to remain for history tracking
+      // Orders from closed tables are filtered to show in history
       
       broadcastToAll({
         type: "DEACTIVATE_TABLE",
@@ -615,6 +617,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       res.status(500).json({ error: "Failed to mark order as incomplete" });
+    }
+  });
+
+  // Cancel an order (when table is closed with unfinished orders)
+  app.post('/api/orders/:id/cancel', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const order = await storage.cancelOrder(id);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      broadcastToAll({
+        type: "CANCEL_ORDER",
+        payload: order
+      });
+      
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to cancel order" });
     }
   });
 
@@ -1315,6 +1338,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get detailed history with shifts for a specific date
+  app.get('/api/history/detailed', async (req: Request, res: Response) => {
+    try {
+      const restaurantId = parseInt(req.query.restaurantId as string, 10);
+      const date = req.query.date as string;
+
+      if (!restaurantId || !date) {
+        return res.status(400).json({ error: "Restaurant ID and date are required" });
+      }
+
+      const detailedHistory = await storage.getDetailedHistory(restaurantId, date);
+      res.json(detailedHistory);
+    } catch (error) {
+      console.error('Error getting detailed history:', error);
+      res.status(500).json({ error: "Failed to get detailed history" });
+    }
+  });
+
   // ============================================
   // Update table activation to include people count
   // ============================================
@@ -1421,6 +1462,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error getting statistics:', error);
       res.status(500).json({ error: "Failed to get statistics" });
+    }
+  });
+
+  // Export Report API
+  app.post('/api/reports/export', async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate, email, restaurantId } = req.body;
+
+      if (!startDate || !endDate || !email || !restaurantId) {
+        return res.status(400).json({ error: "startDate, endDate, email, and restaurantId are required" });
+      }
+
+      // Get restaurant info
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Generate date range
+      const dates: string[] = [];
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+
+      // Collect data for each day
+      const dailyData: Array<{
+        date: string;
+        revenue: number;
+        orderCount: number;
+        tablesServed: number;
+        peopleServed: number;
+        shifts: number;
+      }> = [];
+
+      let totalRevenue = 0;
+      let totalOrders = 0;
+      let totalTables = 0;
+      let totalPeople = 0;
+      let totalShifts = 0;
+
+      for (const date of dates) {
+        try {
+          const history = await storage.getDetailedHistory(restaurantId, date);
+          const dayData = {
+            date,
+            revenue: history.totals.revenue,
+            orderCount: history.totals.orderCount,
+            tablesServed: history.totals.tablesServed,
+            peopleServed: history.totals.peopleServed,
+            shifts: history.shifts.length,
+          };
+          dailyData.push(dayData);
+
+          totalRevenue += dayData.revenue;
+          totalOrders += dayData.orderCount;
+          totalTables += dayData.tablesServed;
+          totalPeople += dayData.peopleServed;
+          totalShifts += dayData.shifts;
+        } catch (e) {
+          // Day has no data, add zeros
+          dailyData.push({
+            date,
+            revenue: 0,
+            orderCount: 0,
+            tablesServed: 0,
+            peopleServed: 0,
+            shifts: 0,
+          });
+        }
+      }
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Summary Sheet
+      const summaryData = [
+        ['Restaurant Report'],
+        [''],
+        ['Restaurant:', restaurant.name],
+        ['Report Period:', `${startDate} to ${endDate}`],
+        ['Generated:', new Date().toLocaleString()],
+        [''],
+        ['PERIOD TOTALS'],
+        [''],
+        ['Total Revenue', `$${(totalRevenue / 100).toFixed(2)}`],
+        ['Total Orders', totalOrders],
+        ['Tables Served', totalTables],
+        ['Guests Served', totalPeople],
+        ['Total Shifts', totalShifts],
+        [''],
+        ['Average Revenue/Day', `$${dates.length > 0 ? ((totalRevenue / 100) / dates.length).toFixed(2) : '0.00'}`],
+        ['Average Orders/Day', dates.length > 0 ? (totalOrders / dates.length).toFixed(1) : '0'],
+      ];
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Set column widths
+      summarySheet['!cols'] = [{ wch: 20 }, { wch: 25 }];
+      
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+      // Daily Details Sheet
+      const dailyHeaders = ['Date', 'Revenue', 'Orders', 'Tables', 'Guests', 'Shifts'];
+      const dailyRows = dailyData.map(d => [
+        d.date,
+        `$${(d.revenue / 100).toFixed(2)}`,
+        d.orderCount,
+        d.tablesServed,
+        d.peopleServed,
+        d.shifts,
+      ]);
+      const dailySheetData = [dailyHeaders, ...dailyRows];
+      const dailySheet = XLSX.utils.aoa_to_sheet(dailySheetData);
+      
+      // Set column widths
+      dailySheet['!cols'] = [
+        { wch: 12 }, { wch: 12 }, { wch: 10 }, 
+        { wch: 10 }, { wch: 10 }, { wch: 10 }
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, dailySheet, 'Daily Details');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      // Create email transporter
+      // Note: In production, use real SMTP credentials from environment variables
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER || '',
+          pass: process.env.SMTP_PASS || '',
+        },
+      });
+
+      // Send email with attachment
+      const filename = `${restaurant.name.replace(/[^a-z0-9]/gi, '_')}_Report_${startDate}_to_${endDate}.xlsx`;
+      
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || 'noreply@restaurant.app',
+          to: email,
+          subject: `Restaurant Report: ${restaurant.name} (${startDate} to ${endDate})`,
+          html: `
+            <h2>Restaurant Report</h2>
+            <p><strong>Restaurant:</strong> ${restaurant.name}</p>
+            <p><strong>Period:</strong> ${startDate} to ${endDate}</p>
+            <p><strong>Total Revenue:</strong> $${(totalRevenue / 100).toFixed(2)}</p>
+            <p><strong>Total Orders:</strong> ${totalOrders}</p>
+            <p><strong>Guests Served:</strong> ${totalPeople}</p>
+            <p>Please find the detailed report attached.</p>
+          `,
+          attachments: [
+            {
+              filename,
+              content: buffer,
+              contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            },
+          ],
+        });
+
+        res.json({ success: true, message: `Report sent to ${email}` });
+      } catch (emailError: any) {
+        console.error('Email sending failed:', emailError);
+        // If email fails, still return success but indicate the issue
+        // In development without SMTP, we'll just log the data
+        console.log('Report data generated successfully for:', email);
+        console.log('Total Revenue:', totalRevenue, 'Total Orders:', totalOrders);
+        
+        // For development, return success even if email fails
+        res.json({ 
+          success: true, 
+          message: `Report generated. Email sending requires SMTP configuration.`,
+          dev_note: 'Configure SMTP_HOST, SMTP_USER, SMTP_PASS environment variables for email delivery'
+        });
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      res.status(500).json({ error: "Failed to generate report" });
     }
   });
 

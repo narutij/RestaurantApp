@@ -61,12 +61,14 @@ export function TopItemsWidget({
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-4">
+    <Card className="overflow-hidden border-purple-500/20">
+      <CardContent className="p-4 relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-transparent" />
+        <div className="relative">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-purple-500/10">
-              <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <div className="p-2 rounded-xl bg-purple-500/20">
+              <TrendingUp className="h-4 w-4 text-purple-500" />
             </div>
             <p className="text-xs text-muted-foreground font-medium">
               {t('restaurant.topDishes') || 'Top Dishes'}
@@ -139,6 +141,7 @@ export function TopItemsWidget({
             })}
           </div>
         )}
+        </div>
       </CardContent>
     </Card>
   );

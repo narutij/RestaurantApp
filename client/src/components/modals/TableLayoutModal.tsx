@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Plus, Pencil, Trash2, ArrowLeft, Grid2X2, X, Loader2, Table2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -35,7 +36,6 @@ export function TableLayoutModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Reset state when the modal is opened/closed
   useEffect(() => {
     if (!open) {
       setCreateMode(false);
@@ -46,19 +46,12 @@ export function TableLayoutModal({
     }
   }, [open]);
 
-  // Fetch table layouts for the current restaurant
   const { data: layouts = [], isLoading } = useQuery({
     queryKey: ["/api/table-layouts", restaurant?.id],
     queryFn: async () => {
-      if (!restaurant?.id) {
-        console.log('No restaurant ID available, returning empty array');
-        return [];
-      }
-      console.log(`Fetching table layouts for restaurant ${restaurant.id}`);
+      if (!restaurant?.id) return [];
       try {
-        const response = await apiRequest(`/api/table-layouts?restaurantId=${restaurant.id}`);
-        console.log('Table layouts response:', response);
-        return response;
+        return await apiRequest(`/api/table-layouts?restaurantId=${restaurant.id}`);
       } catch (error) {
         console.error('Error fetching table layouts:', error);
         return [];
@@ -67,171 +60,6 @@ export function TableLayoutModal({
     enabled: !!restaurant?.id,
   });
 
-  // Add debug logging for layouts and loading state
-  useEffect(() => {
-    console.log('Current layouts:', layouts);
-    console.log('Loading state:', isLoading);
-    console.log('Current restaurant:', restaurant);
-  }, [layouts, isLoading, restaurant]);
-
-  // Create table layout mutation
-  const createLayoutMutation = useMutation({
-    mutationFn: (data: { name: string; restaurantId: number }) => {
-      console.log('Creating layout with data:', data);
-      return apiRequest('/api/table-layouts', {
-        method: 'POST',
-        body: {
-          name: data.name,
-          restaurantId: data.restaurantId,
-          isActive: false,
-          activatedAt: null
-        }
-      });
-    },
-    onSuccess: (data) => {
-      console.log('Layout created successfully:', data);
-      queryClient.invalidateQueries({ queryKey: ["/api/table-layouts", restaurant?.id] });
-      setCreateMode(false);
-      setLayoutName("");
-      toast({
-        title: "Success",
-        description: "Table layout was created successfully.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error creating layout:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create table layout. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Update table layout mutation
-  const updateLayoutMutation = useMutation({
-    mutationFn: (data: { id: number; data: { name: string } }) => 
-      apiRequest(`/api/table-layouts/${data.id}`, { 
-        method: 'PUT',
-        body: data.data
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
-      setEditMode(false);
-      setLayoutToEdit(null);
-      setLayoutName("");
-      toast({
-        title: "Success",
-        description: "Table layout was updated successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update table layout. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Update layout error:", error);
-    }
-  });
-
-  // Delete table layout mutation
-  const deleteLayoutMutation = useMutation({
-    mutationFn: (id: number) => 
-      apiRequest(`/api/table-layouts/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
-      setDeleteDialogOpen(false);
-      setLayoutToDelete(null);
-      toast({
-        title: "Success",
-        description: "Table layout was deleted successfully.",
-      });
-    },
-    onError: (error: any) => {
-      // Success even on 204 No Content response, which might not be parsed as JSON
-      if (error && typeof error === 'object' && error.message === 'Failed to execute \'json\' on \'Response\': Unexpected end of JSON input') {
-        // This is actually a success case (204 No Content)
-        queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
-        setDeleteDialogOpen(false);
-        setLayoutToDelete(null);
-        toast({
-          title: "Success",
-          description: "Table layout was deleted successfully.",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete table layout. Please try again.",
-          variant: "destructive",
-        });
-        console.error("Delete layout error:", error);
-      }
-    }
-  });
-
-  const handleCreateLayout = () => {
-    if (!layoutName.trim() || !restaurant?.id) {
-      toast({
-        title: "Invalid Input",
-        description: "Layout name and restaurant are required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createLayoutMutation.mutate({
-      name: layoutName.trim(),
-      restaurantId: restaurant.id
-    });
-  };
-
-  const handleUpdateLayout = () => {
-    if (!layoutName.trim() || !layoutToEdit) {
-      toast({
-        title: "Invalid Input",
-        description: "Layout name is required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    updateLayoutMutation.mutate({
-      id: layoutToEdit.id,
-      data: {
-        name: layoutName.trim()
-      }
-    });
-  };
-  
-  const handleDeleteClick = (e: React.MouseEvent, layout: TableLayout) => {
-    e.stopPropagation(); // Prevent other actions
-    setLayoutToDelete(layout);
-    setDeleteDialogOpen(true);
-  };
-  
-  const handleEditClick = (e: React.MouseEvent, layout: TableLayout) => {
-    e.stopPropagation(); // Prevent other actions
-    setLayoutToEdit(layout);
-    setLayoutName(layout.name);
-    setEditMode(true);
-  };
-  
-  const confirmDelete = () => {
-    if (layoutToDelete) {
-      deleteLayoutMutation.mutate(layoutToDelete.id);
-    }
-  };
-
-  const handleSelectLayout = (layout: TableLayout) => {
-    setSelectedLayout(layout);
-  };
-
-  const handleBackToList = () => {
-    setSelectedLayout(null);
-  };
-
-  // Fetch tables for selected layout
   const { data: tables = [] } = useQuery({
     queryKey: ["/api/tables", selectedLayout?.id],
     queryFn: () => selectedLayout?.id 
@@ -240,216 +68,308 @@ export function TableLayoutModal({
     enabled: !!selectedLayout?.id,
   });
 
-  // Render functions
-  const renderLayoutList = () => {
-    return (
-      <div className="py-4">
-        <div className="max-h-[300px] overflow-y-auto space-y-2">
-          {isLoading ? (
-            <div className="text-center py-4">Loading layouts...</div>
-          ) : layouts.length === 0 ? (
-            <div className="text-center py-4">No table layouts found</div>
-          ) : (
-            layouts.map((layout: TableLayout) => (
-              <div key={layout.id} className="flex items-center mb-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left h-auto py-3 pr-24 relative"
-                  onClick={() => handleSelectLayout(layout)}
-                >
-                  <div>
-                    <div className="font-medium">{layout.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(layout.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="absolute right-1 flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="p-1 h-8 w-8 mr-1"
-                      onClick={(e) => handleEditClick(e, layout)}
-                      title="Edit layout"
-                    >
-                      <Edit className="h-4 w-4 text-blue-500" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="p-1 h-8 w-8 mr-1"
-                      onClick={(e) => handleDeleteClick(e, layout)}
-                      title="Delete layout"
-                    >
-                      <Trash className="h-4 w-4 text-red-500" />
-                    </Button>
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
-                  </div>
-                </Button>
-              </div>
-            ))
-          )}
-        </div>
-        
-        <Button 
-          variant="outline" 
-          className="w-full justify-start text-left h-auto py-3 mt-4"
-          onClick={() => setCreateMode(true)}
-        >
-          <div className="font-medium flex items-center">
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Table Layout
-          </div>
-        </Button>
-      </div>
-    );
+  const createLayoutMutation = useMutation({
+    mutationFn: (data: { name: string; restaurantId: number }) =>
+      apiRequest('/api/table-layouts', {
+        method: 'POST',
+        body: { name: data.name, restaurantId: data.restaurantId, isActive: false, activatedAt: null }
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/table-layouts", restaurant?.id] });
+      setCreateMode(false);
+      setLayoutName("");
+      toast({ title: "Success", description: "Table layout was created successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create table layout.", variant: "destructive" });
+    }
+  });
+
+  const updateLayoutMutation = useMutation({
+    mutationFn: (data: { id: number; data: { name: string } }) => 
+      apiRequest(`/api/table-layouts/${data.id}`, { method: 'PUT', body: data.data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
+      setEditMode(false);
+      setLayoutToEdit(null);
+      setLayoutName("");
+      toast({ title: "Success", description: "Table layout was updated successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update table layout.", variant: "destructive" });
+    }
+  });
+
+  const deleteLayoutMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/table-layouts/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
+      setDeleteDialogOpen(false);
+      setLayoutToDelete(null);
+      toast({ title: "Success", description: "Table layout was deleted successfully." });
+    },
+    onError: (error: any) => {
+      if (error?.message?.includes('JSON')) {
+        queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
+        setDeleteDialogOpen(false);
+        setLayoutToDelete(null);
+        toast({ title: "Success", description: "Table layout was deleted successfully." });
+      } else {
+        toast({ title: "Error", description: "Failed to delete table layout.", variant: "destructive" });
+      }
+    }
+  });
+
+  const handleCreateLayout = () => {
+    if (!layoutName.trim() || !restaurant?.id) return;
+    createLayoutMutation.mutate({ name: layoutName.trim(), restaurantId: restaurant.id });
   };
 
-  const renderFormContent = () => {
-    return (
-      <div className="space-y-4 py-4">
-        <div className="space-y-2">
-          <Label htmlFor="layout-name">Layout Name</Label>
-          <Input
-            id="layout-name"
-            placeholder="Enter layout name"
-            value={layoutName}
-            onChange={(e) => setLayoutName(e.target.value)}
-          />
-        </div>
-      </div>
-    );
+  const handleUpdateLayout = () => {
+    if (!layoutName.trim() || !layoutToEdit) return;
+    updateLayoutMutation.mutate({ id: layoutToEdit.id, data: { name: layoutName.trim() } });
   };
 
-  const renderLayoutDetail = () => {
-    if (!selectedLayout) return null;
-
-    return (
-      <div className="py-4">
-        <Button variant="ghost" onClick={handleBackToList} className="mb-4 pl-0">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to layouts
-        </Button>
-        
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">{selectedLayout.name}</h3>
-          <Button 
-            size="sm" 
-            onClick={() => {
-              setEditingTableId(null);
-              setTableEntryModalOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Table
-          </Button>
-        </div>
-
-        <div className="max-h-[300px] overflow-y-auto space-y-2">
-          {tables.length === 0 ? (
-            <div className="text-center py-4">No tables in this layout. Add your first table!</div>
-          ) : (
-            <div className="grid gap-2">
-              {tables.map(table => (
-                <div key={table.id} className="border rounded-md p-3 flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{table.number}</div>
-                    <div className="text-sm text-muted-foreground">{table.label}</div>
-                  </div>
-                  <div className="flex space-x-1">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="p-1 h-8 w-8"
-                      onClick={() => {
-                        setEditingTableId(table.id);
-                        setTableEntryModalOpen(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 text-blue-500" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="p-1 h-8 w-8"
-                      onClick={(e) => {
-                        // We would handle table deletion here
-                        // Similar to layout deletion
-                      }}
-                    >
-                      <Trash className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const isPending = createLayoutMutation.isPending || updateLayoutMutation.isPending;
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedLayout
-                ? `Layout: ${selectedLayout.name}`
-                : createMode
-                  ? "Create New Table Layout"
-                  : editMode
-                    ? "Edit Table Layout"
-                    : "Manage Table Layouts"}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedLayout ? (
-            renderLayoutDetail()
-          ) : createMode || editMode ? (
-            <>
-              {renderFormContent()}
-              <DialogFooter>
+        <DialogContent className="sm:max-w-[500px] p-0 bg-[#1E2429] border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+          {/* Header */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent" />
+            <div className="relative px-6 py-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {selectedLayout ? (
+                    <button
+                      onClick={() => setSelectedLayout(null)}
+                      className="p-2 hover:bg-white/10 rounded-full transition-colors -ml-2"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+                  ) : (createMode || editMode) ? (
+                    <button
+                      onClick={() => { setCreateMode(false); setEditMode(false); }}
+                      className="p-2 hover:bg-white/10 rounded-full transition-colors -ml-2"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+                  ) : (
+                    <div className="p-2.5 bg-amber-500/20 rounded-xl">
+                      <Grid2X2 className="h-5 w-5 text-amber-400" />
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {selectedLayout ? selectedLayout.name : createMode ? 'Create Layout' : editMode ? 'Edit Layout' : 'Floor Layouts'}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedLayout ? `${tables.length} tables` : `${layouts.length} layouts`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onOpenChange(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : selectedLayout ? (
+            /* Layout Detail - Tables */
+            <ScrollArea className="max-h-[calc(85vh-120px)]">
+              <div className="p-6 pt-2 space-y-4">
                 <Button
                   variant="outline"
+                  className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
                   onClick={() => {
-                    if (createMode) setCreateMode(false);
-                    if (editMode) setEditMode(false);
+                    setEditingTableId(null);
+                    setTableEntryModalOpen(true);
                   }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Table
+                </Button>
+
+                {tables.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 mx-auto mb-3 bg-white/5 rounded-full flex items-center justify-center">
+                      <Table2 className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No tables yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {tables.map((table: any) => (
+                      <div
+                        key={table.id}
+                        className="p-4 bg-[#181818] rounded-xl border border-white/5 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                            <span className="text-sm font-bold text-amber-400">{String(table.number).slice(0, 2)}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Table {table.number}</p>
+                            <p className="text-xs text-muted-foreground">{table.label}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-white/10"
+                            onClick={() => {
+                              setEditingTableId(table.id);
+                              setTableEntryModalOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 text-amber-400" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          ) : (createMode || editMode) ? (
+            /* Create/Edit Form */
+            <div className="p-6 pt-2 space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Layout Name</Label>
+                <Input
+                  value={layoutName}
+                  onChange={(e) => setLayoutName(e.target.value)}
+                  placeholder="e.g., Summer Setup"
+                  className="mt-1.5 bg-white/5 border-white/10 focus:border-amber-500/50"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => { setCreateMode(false); setEditMode(false); }}
+                  className="hover:bg-white/10"
                 >
                   Cancel
                 </Button>
                 <Button
-                  type="submit"
                   onClick={createMode ? handleCreateLayout : handleUpdateLayout}
-                  disabled={createLayoutMutation.isPending || updateLayoutMutation.isPending}
+                  disabled={isPending}
+                  className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border-0"
                 >
-                  {createLayoutMutation.isPending || updateLayoutMutation.isPending
-                    ? "Saving..."
-                    : createMode
-                    ? "Create Layout"
-                    : "Update Layout"}
+                  {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {createMode ? 'Create' : 'Update'}
                 </Button>
-              </DialogFooter>
-            </>
+              </div>
+            </div>
           ) : (
-            renderLayoutList()
+            /* Layout List */
+            <ScrollArea className="max-h-[calc(85vh-120px)]">
+              <div className="p-6 pt-2 space-y-4">
+                <Button
+                  variant="outline"
+                  className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+                  onClick={() => {
+                    setLayoutName("");
+                    setCreateMode(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Layout
+                </Button>
+
+                {layouts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 mx-auto mb-3 bg-white/5 rounded-full flex items-center justify-center">
+                      <Grid2X2 className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No layouts yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {layouts.map((layout: TableLayout) => (
+                      <div
+                        key={layout.id}
+                        className="p-4 bg-[#181818] rounded-xl border border-white/5 hover:border-white/20 transition-colors cursor-pointer"
+                        onClick={() => setSelectedLayout(layout)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                              <Grid2X2 className="h-5 w-5 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{layout.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(layout.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-white/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLayoutToEdit(layout);
+                                setLayoutName(layout.name);
+                                setEditMode(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 text-amber-400" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-red-500/20"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLayoutToDelete(layout);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-[#1E2429] border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Layout</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the layout "{layoutToDelete?.name}" and all its tables. This action cannot be undone.
+              Are you sure you want to delete "{layoutToDelete?.name}"? This will also delete all tables within this layout.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => layoutToDelete && deleteLayoutMutation.mutate(layoutToDelete.id)}
+              className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

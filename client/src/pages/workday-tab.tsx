@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -123,6 +124,7 @@ export default function WorkdayTab() {
   const [workdayWorkers, setWorkdayWorkers] = useState<WorkdayWorkerState[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [addWorkerOpen, setAddWorkerOpen] = useState(false);
   const [dismissShiftsConfirmOpen, setDismissShiftsConfirmOpen] = useState(false);
@@ -555,14 +557,29 @@ export default function WorkdayTab() {
   return (
     <div className="p-4 pb-24 space-y-4">
       {/* Current Date Header */}
-      <div className="text-center py-3">
-        <p className="text-lg font-semibold">{formattedDate}</p>
-        <p className="text-xs text-muted-foreground">{t('workday.today')}</p>
-      </div>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0 * 0.1 }}
+      >
+        <Card className="overflow-hidden border-blue-500/20">
+          <CardContent className="p-4 relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent" />
+            <div className="relative text-center">
+              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{formattedDate}</div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Shifts Ended Today Banners - Each shift as separate expandable card */}
       {!isWorkdayActive && endedShiftsToday.length > 0 && !endedShiftsDismissed && (
-        <div className="space-y-3 pb-4 mb-2 border-b border-border">
+        <motion.div 
+          className="space-y-3 pb-4 mb-2 border-b border-border"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 * 0.1 }}
+        >
           {/* Header with dismiss button */}
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">
@@ -646,12 +663,17 @@ export default function WorkdayTab() {
               </CardContent>
             </Card>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Active Workday Display */}
       {isWorkdayActive && activeWorkday && (
-        <>
+        <motion.div
+          className="space-y-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 * 0.1 }}
+        >
           {/* Active Timer Card */}
           <Card className="overflow-hidden border-green-500/30 bg-gradient-to-br from-green-500/5 to-green-500/10">
             <CardContent className="p-6">
@@ -803,7 +825,7 @@ export default function WorkdayTab() {
           </Card>
 
           {/* Current Configuration */}
-          <Card className="mt-2">
+          <Card>
             <CardContent className="p-0">
               <div className="p-4 border-b flex items-center gap-3">
                 <div className="p-2.5 bg-purple-500/10 rounded-xl">
@@ -834,12 +856,17 @@ export default function WorkdayTab() {
               </div>
             </CardContent>
           </Card>
-        </>
+        </motion.div>
       )}
 
       {/* Setup Section - Only show when no active workday */}
       {!isWorkdayActive && (
-        <>
+        <motion.div
+          className="space-y-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2 * 0.1 }}
+        >
           {/* Menu Selection */}
           <Card>
             <CardContent className="p-0">
@@ -1075,33 +1102,69 @@ export default function WorkdayTab() {
           </Card>
 
           {/* Start Workday Button */}
-          <Button
-            size="lg"
-            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80"
-            onClick={handleStartWorkday}
-            disabled={isStarting || !selectedMenuId || !selectedLayoutId || workdayLoading}
+          <Card 
+            className={`overflow-hidden border-green-500/30 bg-green-500/5 cursor-pointer transition-colors hover:bg-green-500/10 ${
+              (isStarting || !selectedMenuId || !selectedLayoutId || workdayLoading) ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            onClick={() => {
+              if (!isStarting && selectedMenuId && selectedLayoutId && !workdayLoading) {
+                setStartConfirmOpen(true);
+              }
+            }}
           >
-            {isStarting ? (
-              <>
-                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                {t('workday.starting') || 'Starting...'}
-              </>
-            ) : (
-              <>
-                <Rocket className="mr-2 h-6 w-6" />
-                {t('workday.letsGetToWork') || "Let's Get to Work!"}
-              </>
-            )}
-          </Button>
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center gap-2 text-center">
+                {isStarting ? (
+                  <Loader2 className="h-6 w-6 text-green-600 dark:text-green-400 animate-spin" />
+                ) : (
+                  <Rocket className="h-6 w-6 text-green-600 dark:text-green-400" />
+                )}
+                <div className="font-medium text-green-600 dark:text-green-400">
+                  {isStarting ? (t('workday.starting') || 'Starting...') : (t('workday.letsGetToWork') || "Let's Get to Work!")}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {(!selectedMenuId || !selectedLayoutId) 
+                    ? (t('workday.selectBothRequired') || 'Select menu and layout first')
+                    : (t('workday.readyToStart') || 'Ready to start the workday')}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Helper text */}
-          {(!selectedMenuId || !selectedLayoutId) && (
-            <p className="text-sm text-muted-foreground text-center">
-              {t('workday.selectBothRequired') || 'Please select a menu and table layout to start'}
-            </p>
-          )}
-        </>
+        </motion.div>
       )}
+
+      {/* Start Workday Confirmation Dialog */}
+      <AlertDialog open={startConfirmOpen} onOpenChange={setStartConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('workday.startWorkdayConfirmTitle') || 'Start Workday?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('workday.startWorkdayConfirmDescription') || 'Are you sure you want to start the workday? Make sure you have selected the correct menu and table layout.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setStartConfirmOpen(false);
+                handleStartWorkday();
+              }}
+              className="bg-green-500 hover:bg-green-600"
+              disabled={isStarting}
+            >
+              {isStarting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('workday.starting') || 'Starting...'}
+                </>
+              ) : (
+                t('workday.startWorkday') || 'Start Workday'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* End Workday Confirmation Dialog */}
       <AlertDialog open={endConfirmOpen} onOpenChange={setEndConfirmOpen}>

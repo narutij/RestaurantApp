@@ -78,6 +78,7 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   markOrderComplete(id: number): Promise<Order | undefined>;
   markOrderIncomplete(id: number): Promise<Order | undefined>;
+  cancelOrder(id: number): Promise<Order | undefined>;
   clearOrdersByTable(tableId: number): Promise<void>;
   getNewOrders(): Promise<OrderWithDetails[]>;
   
@@ -122,6 +123,30 @@ export interface IStorage {
     orderCount: number;
     tablesServed: number;
     orders: OrderWithDetails[];
+  }>;
+  getDetailedHistory(restaurantId: number, date: string): Promise<{
+    shifts: Array<{
+      id: number;
+      startedAt: Date | null;
+      endedAt: Date | null;
+      isActive: boolean;
+      workers: Array<{
+        workerId: string;
+        joinedAt: Date;
+      }>;
+      revenue: number;
+      orderCount: number;
+      tablesServed: number;
+      peopleServed: number;
+      orders: OrderWithDetails[];
+    }>;
+    totals: {
+      revenue: number;
+      orderCount: number;
+      tablesServed: number;
+      peopleServed: number;
+      workersCount: number;
+    };
   }>;
 
   // Reminders
@@ -254,6 +279,53 @@ export class MemStorage implements IStorage {
         if (menu.id >= this.currentMenuId) {
           this.currentMenuId = menu.id + 1;
         }
+      }
+      
+      // Load restaurants
+      try {
+        const dbRestaurants = await db.select().from(restaurants);
+        console.log(`Loaded ${dbRestaurants.length} restaurants from database`);
+        
+        for (const restaurant of dbRestaurants) {
+          this.restaurantsMap.set(restaurant.id, restaurant);
+          if (restaurant.id >= this.currentRestaurantId) {
+            this.currentRestaurantId = restaurant.id + 1;
+          }
+        }
+      } catch (err) {
+        console.log("Could not load restaurants from database");
+      }
+      
+      // Load table layouts
+      try {
+        const dbTableLayouts = await db.select().from(tableLayouts);
+        console.log(`Loaded ${dbTableLayouts.length} table layouts from database`);
+        
+        for (const layout of dbTableLayouts) {
+          this.tableLayoutsMap.set(layout.id, layout);
+          if (layout.id >= this.currentTableLayoutId) {
+            this.currentTableLayoutId = layout.id + 1;
+          }
+        }
+      } catch (err) {
+        console.log("Could not load table layouts from database");
+      }
+      
+      // Load tables
+      try {
+        const dbTables = await db.select().from(tables);
+        console.log(`Loaded ${dbTables.length} tables from database`);
+        
+        for (const table of dbTables) {
+          // Reset active status on server restart - tables shouldn't be active after restart
+          const tableWithResetStatus = { ...table, isActive: false, activatedAt: null };
+          this.tablesMap.set(table.id, tableWithResetStatus);
+          if (table.id >= this.currentTableId) {
+            this.currentTableId = table.id + 1;
+          }
+        }
+      } catch (err) {
+        console.log("Could not load tables from database");
       }
       
       console.log("Storage initialization complete");
@@ -791,50 +863,123 @@ export class MemStorage implements IStorage {
   }
 
   async getTable(id: number): Promise<Table | undefined> {
-    return this.tablesMap.get(id);
+    // First check memory
+    const memTable = this.tablesMap.get(id);
+    if (memTable) return memTable;
+    
+    // If not in memory, try database
+    try {
+      const [dbTable] = await db.select().from(tables).where(eq(tables.id, id));
+      if (dbTable) {
+        // Cache in memory for future lookups
+        this.tablesMap.set(id, dbTable);
+        return dbTable;
+      }
+    } catch (error) {
+      console.error("Error fetching table from database:", error);
+    }
+    
+    return undefined;
   }
 
   async createTable(table: InsertTable): Promise<Table> {
-    const id = this.currentTableId++;
-    const now = new Date();
-    const newTable: Table = {
-      id,
-      number: table.number,
-      label: table.label,
-      description: table.description ?? null,
-      layoutId: table.layoutId ?? null,
-      isActive: table.isActive ?? false,
-      activatedAt: table.activatedAt ?? null,
-      peopleCount: table.peopleCount ?? null,
-      createdAt: now,
-      updatedAt: now
-    };
-    this.tablesMap.set(id, newTable);
-    return newTable;
+    try {
+      // Try to insert into database first
+      const [result] = await db.insert(tables).values({
+        number: table.number,
+        label: table.label,
+        description: table.description ?? null,
+        layoutId: table.layoutId ?? null,
+        isActive: table.isActive ?? false,
+        activatedAt: table.activatedAt ?? null,
+        peopleCount: table.peopleCount ?? null,
+      }).returning();
+      
+      // Cache in memory
+      this.tablesMap.set(result.id, result);
+      if (result.id >= this.currentTableId) {
+        this.currentTableId = result.id + 1;
+      }
+      return result;
+    } catch (error) {
+      console.error("Error creating table in database, using memory fallback:", error);
+      // Fallback to memory-only storage
+      const id = this.currentTableId++;
+      const now = new Date();
+      const newTable: Table = {
+        id,
+        number: table.number,
+        label: table.label,
+        description: table.description ?? null,
+        layoutId: table.layoutId ?? null,
+        isActive: table.isActive ?? false,
+        activatedAt: table.activatedAt ?? null,
+        peopleCount: table.peopleCount ?? null,
+        createdAt: now,
+        updatedAt: now
+      };
+      this.tablesMap.set(id, newTable);
+      return newTable;
+    }
   }
 
   async updateTable(id: number, table: Partial<InsertTable>): Promise<Table | undefined> {
     const existingTable = this.tablesMap.get(id);
     if (!existingTable) return undefined;
 
-    const updatedTable = { ...existingTable, ...table };
+    try {
+      // Try to update in database
+      const [result] = await db.update(tables)
+        .set({ ...table, updatedAt: new Date() })
+        .where(eq(tables.id, id))
+        .returning();
+      
+      if (result) {
+        this.tablesMap.set(id, result);
+        return result;
+      }
+    } catch (error) {
+      console.error("Error updating table in database, using memory fallback:", error);
+    }
+
+    // Fallback to memory-only update
+    const updatedTable = { ...existingTable, ...table, updatedAt: new Date() };
     this.tablesMap.set(id, updatedTable);
     return updatedTable;
   }
 
   async deleteTable(id: number): Promise<boolean> {
-    return this.tablesMap.delete(id);
+    try {
+      // Try to delete from database
+      const result = await db.delete(tables).where(eq(tables.id, id)).returning();
+      this.tablesMap.delete(id);
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting table from database, using memory fallback:", error);
+      return this.tablesMap.delete(id);
+    }
   }
 
   async activateTable(id: number): Promise<Table | undefined> {
     const table = this.tablesMap.get(id);
     if (!table) return undefined;
 
+    const activatedAt = new Date();
     const updatedTable: Table = { 
       ...table, 
       isActive: true, 
-      activatedAt: new Date() 
+      activatedAt 
     };
+    
+    // Persist to database
+    try {
+      await db.update(tables)
+        .set({ isActive: true, activatedAt, updatedAt: new Date() })
+        .where(eq(tables.id, id));
+    } catch (error) {
+      console.error("Error persisting table activation to database:", error);
+    }
+    
     this.tablesMap.set(id, updatedTable);
     return updatedTable;
   }
@@ -848,6 +993,16 @@ export class MemStorage implements IStorage {
       isActive: false, 
       activatedAt: null 
     };
+    
+    // Persist to database
+    try {
+      await db.update(tables)
+        .set({ isActive: false, activatedAt: null, updatedAt: new Date() })
+        .where(eq(tables.id, id));
+    } catch (error) {
+      console.error("Error persisting table deactivation to database:", error);
+    }
+    
     this.tablesMap.set(id, updatedTable);
     return updatedTable;
   }
@@ -930,10 +1085,24 @@ export class MemStorage implements IStorage {
   }
 
   async getOrdersWithDetailsByTable(tableId: number): Promise<OrderWithDetails[]> {
+    const table = await this.getTable(tableId);
     const tableOrders = await this.getOrdersByTable(tableId);
-    return Promise.all(tableOrders.map(async (order) => {
+    
+    // Filter orders to only show those from the CURRENT table session
+    // An order belongs to the current session if it was created after the table was activated
+    const currentSessionOrders = tableOrders.filter(order => {
+      // If table is not active or has no activatedAt, don't show any orders for current session
+      if (!table?.isActive || !table?.activatedAt) {
+        return false;
+      }
+      // Only show orders created after the table was activated for this session
+      const orderTime = order.timestamp ? new Date(order.timestamp).getTime() : 0;
+      const activatedTime = new Date(table.activatedAt).getTime();
+      return orderTime >= activatedTime;
+    });
+    
+    return Promise.all(currentSessionOrders.map(async (order) => {
       const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
-      const table = await this.getTable(order.tableId);
       const isSpecial = order.isSpecialItem ?? false;
       return {
         id: order.id,
@@ -1032,6 +1201,28 @@ export class MemStorage implements IStorage {
       if (!order) return undefined;
 
       const updatedOrder: Order = { ...order, completed: false };
+      this.ordersMap.set(id, updatedOrder);
+      return updatedOrder;
+    }
+  }
+
+  async cancelOrder(id: number): Promise<Order | undefined> {
+    try {
+      const [result] = await db.update(orders)
+        .set({ canceled: true })
+        .where(eq(orders.id, id))
+        .returning();
+      
+      if (result) {
+        this.ordersMap.set(id, result);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error canceling order in database:", error);
+      const order = this.ordersMap.get(id);
+      if (!order) return undefined;
+
+      const updatedOrder: Order = { ...order, canceled: true };
       this.ordersMap.set(id, updatedOrder);
       return updatedOrder;
     }
@@ -1800,9 +1991,45 @@ export class MemStorage implements IStorage {
       const dbOrders = await db.select().from(orders)
         .where(eq(orders.workdayId, workday.id));
       
-      return Promise.all(dbOrders.map(async (order) => {
+      // Get all unique table IDs and their status including activatedAt for session tracking
+      const tableIds = [...new Set(dbOrders.map(o => o.tableId))];
+      const tableStatusMap = new Map<number, { isActive: boolean; activatedAt: Date | null; tableNumber: string; tableLabel: string | null; peopleCount: number }>();
+      for (const tableId of tableIds) {
+        const table = await this.getTable(tableId);
+        if (table) {
+          tableStatusMap.set(tableId, {
+            isActive: table.isActive ?? false,
+            activatedAt: table.activatedAt,
+            tableNumber: table.number,
+            tableLabel: table.label,
+            peopleCount: table.peopleCount || 0,
+          });
+        }
+      }
+      
+      // Filter orders to include those from:
+      // 1. Closed tables - all orders
+      // 2. Active tables - only orders from PREVIOUS sessions (before current activation)
+      const historyOrders = dbOrders.filter(order => {
+        const tableStatus = tableStatusMap.get(order.tableId);
+        if (!tableStatus) return false;
+        
+        if (tableStatus.isActive === false) {
+          return true;
+        }
+        
+        if (tableStatus.activatedAt) {
+          const orderTime = new Date(order.timestamp).getTime();
+          const activatedTime = new Date(tableStatus.activatedAt).getTime();
+          return orderTime < activatedTime;
+        }
+        
+        return false;
+      });
+      
+      return Promise.all(historyOrders.map(async (order) => {
         const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
-        const table = await this.getTable(order.tableId);
+        const tableData = tableStatusMap.get(order.tableId);
         return {
           id: order.id,
           tableId: order.tableId,
@@ -1811,12 +2038,12 @@ export class MemStorage implements IStorage {
           timestamp: order.timestamp,
           completed: order.completed,
           price: order.price,
-          tableNumber: table?.number || 'Unknown',
-          tableLabel: table?.label || '',
+          tableNumber: tableData?.tableNumber || 'Unknown',
+          tableLabel: tableData?.tableLabel || '',
           notes: order.notes ?? null,
           specialItemName: order.specialItemName ?? null,
           isSpecialItem: order.isSpecialItem ?? false,
-          peopleCount: table?.peopleCount ?? 0
+          peopleCount: tableData?.peopleCount ?? 0
         };
       }));
     } catch (error) {
@@ -1825,10 +2052,46 @@ export class MemStorage implements IStorage {
       // Fallback to memory
       const allOrders = Array.from(this.ordersMap.values())
         .filter(order => order.workdayId === workday.id);
+      
+      // Get table status for filtering including activatedAt for session tracking
+      const tableIds = [...new Set(allOrders.map(o => o.tableId))];
+      const tableStatusMap = new Map<number, { isActive: boolean; activatedAt: Date | null; tableNumber: string; tableLabel: string | null; peopleCount: number }>();
+      for (const tableId of tableIds) {
+        const table = await this.getTable(tableId);
+        if (table) {
+          tableStatusMap.set(tableId, {
+            isActive: table.isActive ?? false,
+            activatedAt: table.activatedAt,
+            tableNumber: table.number,
+            tableLabel: table.label,
+            peopleCount: table.peopleCount || 0,
+          });
+        }
+      }
+      
+      // Filter orders to include those from:
+      // 1. Closed tables - all orders
+      // 2. Active tables - only orders from PREVIOUS sessions
+      const historyOrders = allOrders.filter(order => {
+        const tableStatus = tableStatusMap.get(order.tableId);
+        if (!tableStatus) return false;
+        
+        if (tableStatus.isActive === false) {
+          return true;
+        }
+        
+        if (tableStatus.activatedAt) {
+          const orderTime = new Date(order.timestamp).getTime();
+          const activatedTime = new Date(tableStatus.activatedAt).getTime();
+          return orderTime < activatedTime;
+        }
+        
+        return false;
+      });
 
-      return Promise.all(allOrders.map(async (order) => {
+      return Promise.all(historyOrders.map(async (order) => {
         const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
-        const table = await this.getTable(order.tableId);
+        const tableData = tableStatusMap.get(order.tableId);
         return {
           id: order.id,
           tableId: order.tableId,
@@ -1837,12 +2100,12 @@ export class MemStorage implements IStorage {
           timestamp: order.timestamp,
           completed: order.completed,
           price: order.price,
-          tableNumber: table?.number || 'Unknown',
-          tableLabel: table?.label || '',
+          tableNumber: tableData?.tableNumber || 'Unknown',
+          tableLabel: tableData?.tableLabel || '',
           notes: order.notes ?? null,
           specialItemName: order.specialItemName ?? null,
           isSpecialItem: order.isSpecialItem ?? false,
-          peopleCount: table?.peopleCount ?? 0
+          peopleCount: tableData?.peopleCount ?? 0
         };
       }));
     }
@@ -1878,6 +2141,268 @@ export class MemStorage implements IStorage {
     };
   }
 
+  async getDetailedHistory(restaurantId: number, date: string): Promise<{
+    shifts: Array<{
+      id: number;
+      startedAt: Date | null;
+      endedAt: Date | null;
+      isActive: boolean;
+      workers: Array<{
+        workerId: string;
+        joinedAt: Date;
+      }>;
+      revenue: number;
+      orderCount: number;
+      tablesServed: number;
+      peopleServed: number;
+      orders: OrderWithDetails[];
+    }>;
+    totals: {
+      revenue: number;
+      orderCount: number;
+      tablesServed: number;
+      peopleServed: number;
+      workersCount: number;
+    };
+  }> {
+    try {
+      // Get all workdays for this date (can be multiple shifts)
+      const allWorkdays = await db.select().from(workdays)
+        .where(and(eq(workdays.restaurantId, restaurantId), eq(workdays.date, date)));
+      
+      // Build shift data
+      const shifts = await Promise.all(allWorkdays.map(async (workday) => {
+        // Get workers for this shift
+        const workers = await this.getWorkdayWorkers(workday.id);
+        
+        // Get orders for this workday
+        const dbOrders = await db.select().from(orders)
+          .where(eq(orders.workdayId, workday.id));
+        
+        // Get all unique table IDs from orders
+        const tableIds = [...new Set(dbOrders.map(o => o.tableId))];
+        
+        // Get table data including activatedAt for session tracking
+        const tableStatusMap = new Map<number, { isActive: boolean; activatedAt: Date | null; tableNumber: string; tableLabel: string | null; peopleCount: number }>();
+        for (const tableId of tableIds) {
+          const table = await this.getTable(tableId);
+          if (table) {
+            tableStatusMap.set(tableId, {
+              isActive: table.isActive ?? false,
+              activatedAt: table.activatedAt,
+              tableNumber: table.number,
+              tableLabel: table.label,
+              peopleCount: table.peopleCount || 0,
+            });
+          }
+        }
+        
+        // Filter orders to include those from:
+        // 1. Closed tables (isActive = false) - all orders
+        // 2. Active tables BUT only orders from PREVIOUS sessions (order.timestamp < table.activatedAt)
+        const historyOrders = dbOrders.filter(order => {
+          const tableStatus = tableStatusMap.get(order.tableId);
+          if (!tableStatus) return false;
+          
+          // If table is closed, include all its orders
+          if (tableStatus.isActive === false) {
+            return true;
+          }
+          
+          // If table is active, only include orders from PREVIOUS sessions
+          // (orders created before the current activation time)
+          if (tableStatus.activatedAt) {
+            const orderTime = new Date(order.timestamp).getTime();
+            const activatedTime = new Date(tableStatus.activatedAt).getTime();
+            return orderTime < activatedTime;
+          }
+          
+          // If no activatedAt, exclude (shouldn't happen normally)
+          return false;
+        });
+        
+        // Enrich orders with details
+        const enrichedOrders: OrderWithDetails[] = await Promise.all(historyOrders.map(async (order) => {
+          const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
+          const tableData = tableStatusMap.get(order.tableId);
+          return {
+            ...order,
+            menuItemName: menuItem?.name || null,
+            menuItemCategory: menuItem?.category || null,
+            tableNumber: tableData?.tableNumber || String(order.tableId),
+            tableLabel: tableData?.tableLabel || null,
+            peopleCount: tableData?.peopleCount || null,
+          };
+        }));
+        
+        // Calculate stats for this shift (only from closed tables)
+        const revenue = enrichedOrders.reduce((sum, order) => sum + order.price, 0);
+        const uniqueTables = new Set(enrichedOrders.map(order => order.tableId));
+        const uniquePeople = enrichedOrders.reduce((map, order) => {
+          if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
+            map.set(order.tableId, order.peopleCount);
+          }
+          return map;
+        }, new Map<number, number>());
+        const peopleServed = Array.from(uniquePeople.values()).reduce((sum, count) => sum + count, 0);
+        
+        return {
+          id: workday.id,
+          startedAt: workday.startedAt,
+          endedAt: workday.endedAt,
+          isActive: workday.isActive,
+          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt })),
+          revenue,
+          orderCount: enrichedOrders.length,
+          tablesServed: uniqueTables.size,
+          peopleServed,
+          orders: enrichedOrders,
+        };
+      }));
+      
+      // Sort shifts by start time (earliest first)
+      shifts.sort((a, b) => {
+        const aTime = a.startedAt?.getTime() || 0;
+        const bTime = b.startedAt?.getTime() || 0;
+        return aTime - bTime;
+      });
+      
+      // Calculate totals across all shifts
+      const allOrders = shifts.flatMap(s => s.orders);
+      const allUniqueTables = new Set(allOrders.map(o => o.tableId));
+      const allUniquePeople = allOrders.reduce((map, order) => {
+        if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
+          map.set(order.tableId, order.peopleCount);
+        }
+        return map;
+      }, new Map<number, number>());
+      const allUniqueWorkers = new Set(shifts.flatMap(s => s.workers.map(w => w.workerId)));
+      
+      return {
+        shifts,
+        totals: {
+          revenue: shifts.reduce((sum, s) => sum + s.revenue, 0),
+          orderCount: allOrders.length,
+          tablesServed: allUniqueTables.size,
+          peopleServed: Array.from(allUniquePeople.values()).reduce((sum, count) => sum + count, 0),
+          workersCount: allUniqueWorkers.size,
+        },
+      };
+    } catch (error) {
+      console.error("Error getting detailed history:", error);
+      // Fallback to memory-based approach
+      const allWorkdays = Array.from(this.workdaysMap.values())
+        .filter(w => w.restaurantId === restaurantId && w.date === date);
+      
+      const shifts = await Promise.all(allWorkdays.map(async (workday) => {
+        const workers = await this.getWorkdayWorkers(workday.id);
+        const allOrders = Array.from(this.ordersMap.values())
+          .filter(order => order.workdayId === workday.id);
+        
+        // Get all unique table IDs from orders
+        const tableIds = [...new Set(allOrders.map(o => o.tableId))];
+        
+        // Get table data including activatedAt for session tracking
+        const tableStatusMap = new Map<number, { isActive: boolean; activatedAt: Date | null; tableNumber: string; tableLabel: string | null; peopleCount: number }>();
+        for (const tableId of tableIds) {
+          const table = await this.getTable(tableId);
+          if (table) {
+            tableStatusMap.set(tableId, {
+              isActive: table.isActive ?? false,
+              activatedAt: table.activatedAt,
+              tableNumber: table.number,
+              tableLabel: table.label,
+              peopleCount: table.peopleCount || 0,
+            });
+          }
+        }
+        
+        // Filter orders to include those from:
+        // 1. Closed tables (isActive = false) - all orders
+        // 2. Active tables BUT only orders from PREVIOUS sessions
+        const historyOrders = allOrders.filter(order => {
+          const tableStatus = tableStatusMap.get(order.tableId);
+          if (!tableStatus) return false;
+          
+          if (tableStatus.isActive === false) {
+            return true;
+          }
+          
+          if (tableStatus.activatedAt) {
+            const orderTime = new Date(order.timestamp).getTime();
+            const activatedTime = new Date(tableStatus.activatedAt).getTime();
+            return orderTime < activatedTime;
+          }
+          
+          return false;
+        });
+        
+        const enrichedOrders: OrderWithDetails[] = await Promise.all(historyOrders.map(async (order) => {
+          const menuItem = order.menuItemId ? await this.getMenuItem(order.menuItemId) : null;
+          const tableData = tableStatusMap.get(order.tableId);
+          return {
+            ...order,
+            menuItemName: menuItem?.name || null,
+            menuItemCategory: menuItem?.category || null,
+            tableNumber: tableData?.tableNumber || String(order.tableId),
+            tableLabel: tableData?.tableLabel || null,
+            peopleCount: tableData?.peopleCount || null,
+          };
+        }));
+        
+        const revenue = enrichedOrders.reduce((sum, order) => sum + order.price, 0);
+        const uniqueTables = new Set(enrichedOrders.map(order => order.tableId));
+        const uniquePeople = enrichedOrders.reduce((map, order) => {
+          if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
+            map.set(order.tableId, order.peopleCount);
+          }
+          return map;
+        }, new Map<number, number>());
+        const peopleServed = Array.from(uniquePeople.values()).reduce((sum, count) => sum + count, 0);
+        
+        return {
+          id: workday.id,
+          startedAt: workday.startedAt,
+          endedAt: workday.endedAt,
+          isActive: workday.isActive,
+          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt })),
+          revenue,
+          orderCount: enrichedOrders.length,
+          tablesServed: uniqueTables.size,
+          peopleServed,
+          orders: enrichedOrders,
+        };
+      }));
+      
+      shifts.sort((a, b) => {
+        const aTime = a.startedAt?.getTime() || 0;
+        const bTime = b.startedAt?.getTime() || 0;
+        return aTime - bTime;
+      });
+      
+      const allOrders = shifts.flatMap(s => s.orders);
+      const allUniqueTables = new Set(allOrders.map(o => o.tableId));
+      const allUniquePeople = allOrders.reduce((map, order) => {
+        if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
+          map.set(order.tableId, order.peopleCount);
+        }
+        return map;
+      }, new Map<number, number>());
+      const allUniqueWorkers = new Set(shifts.flatMap(s => s.workers.map(w => w.workerId)));
+      
+      return {
+        shifts,
+        totals: {
+          revenue: shifts.reduce((sum, s) => sum + s.revenue, 0),
+          orderCount: allOrders.length,
+          tablesServed: allUniqueTables.size,
+          peopleServed: Array.from(allUniquePeople.values()).reduce((sum, count) => sum + count, 0),
+          workersCount: allUniqueWorkers.size,
+        },
+      };
+    }
+  }
+
   // Reminders
   async getReminders(restaurantId: number): Promise<Reminder[]> {
     try {
@@ -1906,6 +2431,7 @@ export class MemStorage implements IStorage {
         text: reminder.text,
         createdBy: reminder.createdBy,
         createdByName: reminder.createdByName,
+        isImportant: reminder.isImportant ?? false,
         createdAt: new Date()
       };
       this.remindersMap.set(id, newReminder);
@@ -1964,9 +2490,9 @@ export class MemStorage implements IStorage {
         return { revenue: 0, peopleCount: 0, topItems: [] };
       }
 
-      // Get all orders for these workdays from memory
-      const allOrders = Array.from(this.ordersMap.values())
-        .filter(order => order.workdayId && workdayIds.includes(order.workdayId));
+      // Get all orders for these workdays from the database
+      const allOrders = await db.select().from(orders)
+        .where(inArray(orders.workdayId, workdayIds));
 
       // Calculate revenue
       const revenue = allOrders.reduce((sum, order) => sum + order.price, 0);

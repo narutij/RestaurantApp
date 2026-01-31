@@ -53,6 +53,10 @@ export default function AppLayout() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
+      {/* Edge Gradients - Behind pills, above content */}
+      <div className="fixed top-0 left-0 right-0 h-20 bg-gradient-to-b from-background via-background/80 to-transparent z-40 pointer-events-none" />
+      <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent z-40 pointer-events-none" />
+
       {/* Settings Sidebar */}
       <SettingsSidebar
         open={settingsSidebarOpen}
@@ -72,7 +76,7 @@ export default function AppLayout() {
       />
 
       {/* Main Content - scrollable container */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden ios-scroll">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden ios-scroll pt-16">
         <div className="w-full max-w-lg mx-auto">
           {renderTabContent()}
         </div>

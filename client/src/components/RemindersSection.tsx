@@ -8,13 +8,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import {
-  Bell,
+  Clipboard,
   Plus,
   Trash2,
   Calendar,
   User,
   Loader2,
   MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import type { Reminder } from '@shared/schema';
 
@@ -24,7 +25,7 @@ interface RemindersSectionProps {
 
 export function RemindersSection({ restaurantId }: RemindersSectionProps) {
   const [newReminder, setNewReminder] = useState('');
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isImportant, setIsImportant] = useState(false);
   const { appUser } = useAuth();
   const { t } = useLanguage();
   const { addNotification } = useNotifications();
@@ -42,7 +43,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, important }: { text: string; important: boolean }) => {
       const response = await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,6 +52,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
           text,
           createdBy: appUser?.id || 'unknown',
           createdByName: appUser?.name || 'Unknown User',
+          isImportant: important,
         }),
       });
       if (!response.ok) throw new Error('Failed to create reminder');
@@ -59,6 +61,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reminders', restaurantId] });
       setNewReminder('');
+      setIsImportant(false);
       addNotification(t('restaurant.reminderAdded') || 'Reminder added');
     },
     onError: () => {
@@ -82,7 +85,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
 
   const handleAddReminder = () => {
     if (newReminder.trim()) {
-      createMutation.mutate(newReminder.trim());
+      createMutation.mutate({ text: newReminder.trim(), important: isImportant });
     }
   };
 
@@ -104,104 +107,126 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
     });
   };
 
-  const displayedReminders = isExpanded ? reminders : reminders.slice(0, 3);
-
   if (!restaurantId) {
     return null;
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-amber-500" />
-            <CardTitle className="text-base">
-              {t('restaurant.reminders') || 'Reminders'}
-            </CardTitle>
-            {reminders.length > 0 && (
-              <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                {reminders.length}
-              </span>
-            )}
+    <Card className="overflow-hidden border-cyan-500/20">
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent" />
+        <CardHeader className="pb-3 relative">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-cyan-500/20 rounded-xl">
+              <Clipboard className="h-5 w-5 text-cyan-500" />
+            </div>
+            <div>
+              <CardTitle className="text-base">
+                Restaurant Board
+              </CardTitle>
+              {reminders.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {reminders.length} note{reminders.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
           </div>
-          {reminders.length > 3 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs"
-            >
-              {isExpanded
-                ? (t('common.showLess') || 'Show less')
-                : (t('common.showMore') || `Show all (${reminders.length})`)}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+        </CardHeader>
+      </div>
       <CardContent className="pt-0">
-        {/* Reminders List */}
+        {/* Notes List */}
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : reminders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <MessageSquare className="h-8 w-8 text-muted-foreground/50 mb-2" />
+            <div className="p-3 bg-cyan-500/10 rounded-full mb-3">
+              <MessageSquare className="h-6 w-6 text-cyan-500/50" />
+            </div>
             <p className="text-sm text-muted-foreground">
-              {t('restaurant.noReminders') || 'No reminders yet'}
+              No notes yet. Add one below!
             </p>
           </div>
         ) : (
-          <ScrollArea className={isExpanded ? 'h-[200px]' : ''}>
-            <div className="space-y-2">
-              {displayedReminders.map((reminder) => (
+          <ScrollArea className={reminders.length > 3 ? 'h-[220px]' : ''}>
+            <div className="space-y-2 pr-2 pt-2">
+              {/* Notes sorted by posting time (newest first from API) */}
+              {reminders.map((reminder) => (
                 <div
                   key={reminder.id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 group"
+                  className={`p-3 rounded-xl border group transition-colors relative ${
+                    reminder.isImportant 
+                      ? 'bg-amber-500/10 border-amber-500/30 hover:border-amber-500/50' 
+                      : 'bg-[#181818] border-white/5 hover:border-white/10'
+                  }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">{reminder.text}</p>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {reminder.createdByName}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(reminder.createdAt)}
-                      </span>
+                  {/* Important badge at top right */}
+                  {reminder.isImportant && (
+                    <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 rounded-full shadow-lg">
+                      <AlertTriangle className="h-3 w-3 text-white" />
                     </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <p className="text-sm flex-1" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      {reminder.text}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10"
+                      onClick={() => deleteMutation.mutate(reminder.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3 text-red-400" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => deleteMutation.mutate(reminder.id)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {reminder.createdByName}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(reminder.createdAt)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
           </ScrollArea>
         )}
 
-        {/* Add Reminder Input */}
-        <div className="flex gap-2 mt-3 pt-3 border-t">
+        {/* Add Note Input */}
+        <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
           <Input
-            placeholder={t('restaurant.reminderPlaceholder') || 'Add a reminder...'}
+            placeholder="Add a note to the board..."
             value={newReminder}
             onChange={(e) => setNewReminder(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={createMutation.isPending}
-            className="flex-1"
+            className={`flex-1 bg-[#181818] border-white/10 focus:border-cyan-500/50 ${
+              isImportant ? 'border-amber-500/30' : ''
+            }`}
           />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setIsImportant(!isImportant)}
+            className={`flex-shrink-0 ${
+              isImportant 
+                ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30' 
+                : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10'
+            }`}
+            title={isImportant ? 'Marked as important' : 'Mark as important'}
+          >
+            <AlertTriangle className="h-4 w-4" />
+          </Button>
           <Button
             size="icon"
             onClick={handleAddReminder}
             disabled={!newReminder.trim() || createMutation.isPending}
+            className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400"
           >
             {createMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { Table } from '@shared/schema';
+import { Table2, X, Loader2 } from 'lucide-react';
 
 type TableEntryModalProps = {
   open: boolean;
@@ -29,7 +29,6 @@ export function TableEntryModal({
   const queryClient = useQueryClient();
   const isEditMode = !!tableId;
 
-  // Reset form when opening or when tableId changes
   useEffect(() => {
     if (open) {
       if (!isEditMode) {
@@ -40,7 +39,6 @@ export function TableEntryModal({
     }
   }, [open, isEditMode]);
 
-  // Fetch table data if in edit mode
   useEffect(() => {
     if (open && isEditMode && tableId) {
       const fetchTable = async () => {
@@ -57,63 +55,37 @@ export function TableEntryModal({
           });
         }
       };
-
       fetchTable();
     }
   }, [open, tableId, isEditMode, toast]);
 
-  // Create table mutation
   const createTableMutation = useMutation({
     mutationFn: (data: { number: string; label: string; layoutId: number }) => 
-      apiRequest('/api/tables', { 
-        method: 'POST',
-        body: data
-      }),
+      apiRequest('/api/tables', { method: 'POST', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables', layoutId] });
       onOpenChange(false);
-      toast({
-        title: "Success",
-        description: "Table was added successfully.",
-      });
+      toast({ title: "Success", description: "Table was added successfully." });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add table. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Create table error:", error);
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add table.", variant: "destructive" });
     }
   });
 
-  // Update table mutation
   const updateTableMutation = useMutation({
     mutationFn: (data: { id: number; data: { number: string; label: string } }) => 
-      apiRequest(`/api/tables/${data.id}`, { 
-        method: 'PUT',
-        body: data.data
-      }),
+      apiRequest(`/api/tables/${data.id}`, { method: 'PUT', body: data.data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables', layoutId] });
       onOpenChange(false);
-      toast({
-        title: "Success",
-        description: "Table was updated successfully.",
-      });
+      toast({ title: "Success", description: "Table was updated successfully." });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update table. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Update table error:", error);
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update table.", variant: "destructive" });
     }
   });
 
-  // Validate inputs
-  const validateInputs = (): boolean => {
+  const handleSubmit = () => {
     const newErrors = { number: '', label: '' };
     let isValid = true;
 
@@ -127,23 +99,15 @@ export function TableEntryModal({
       isValid = false;
     }
 
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  // Handle form submission
-  const handleSubmit = () => {
-    if (!validateInputs()) {
+    if (!isValid) {
+      setErrors(newErrors);
       return;
     }
 
     if (isEditMode && tableId) {
       updateTableMutation.mutate({
         id: tableId,
-        data: {
-          number: tableNumber.trim(),
-          label: tableLabel.trim()
-        }
+        data: { number: tableNumber.trim(), label: tableLabel.trim() }
       });
     } else {
       createTableMutation.mutate({
@@ -154,48 +118,80 @@ export function TableEntryModal({
     }
   };
 
+  const isPending = createTableMutation.isPending || updateTableMutation.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Table' : 'Add Table'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="number">Table Number</Label>
-            <Input
-              id="number"
-              placeholder="e.g. 5"
-              value={tableNumber}
-              onChange={(e) => setTableNumber(e.target.value)}
-            />
-            {errors.number && <p className="text-sm text-destructive">{errors.number}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="label">Table Label</Label>
-            <Input
-              id="label"
-              placeholder="e.g. Patio"
-              value={tableLabel}
-              onChange={(e) => setTableLabel(e.target.value)}
-            />
-            {errors.label && <p className="text-sm text-destructive">{errors.label}</p>}
+      <DialogContent className="sm:max-w-[400px] p-0 bg-[#1E2429] border-white/10 overflow-hidden" hideCloseButton>
+        {/* Header */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent" />
+          <div className="relative px-6 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500/20 rounded-xl">
+                  <Table2 className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {isEditMode ? 'Edit Table' : 'Add Table'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Table details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+
+        {/* Form */}
+        <div className="p-6 pt-2 space-y-4">
+          <div>
+            <Label className="text-xs text-muted-foreground">Table Number</Label>
+            <Input
+              value={tableNumber}
+              onChange={(e) => setTableNumber(e.target.value)}
+              placeholder="e.g., 5"
+              className="mt-1.5 bg-white/5 border-white/10 focus:border-amber-500/50"
+            />
+            {errors.number && <p className="text-xs text-red-400 mt-1">{errors.number}</p>}
+          </div>
+          
+          <div>
+            <Label className="text-xs text-muted-foreground">Description</Label>
+            <Input
+              value={tableLabel}
+              onChange={(e) => setTableLabel(e.target.value)}
+              placeholder="e.g., Near window"
+              className="mt-1.5 bg-white/5 border-white/10 focus:border-amber-500/50"
+            />
+            {errors.label && <p className="text-xs text-red-400 mt-1">{errors.label}</p>}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/5 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            className="hover:bg-white/10"
+          >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
+          <Button
             onClick={handleSubmit}
-            disabled={createTableMutation.isPending || updateTableMutation.isPending}
+            disabled={isPending}
+            className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border-0"
           >
-            {createTableMutation.isPending || updateTableMutation.isPending 
-              ? 'Saving...' 
-              : (isEditMode ? 'Save Changes' : 'Add Table')}
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditMode ? 'Save Changes' : 'Add Table'}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

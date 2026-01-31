@@ -1,4 +1,12 @@
-import { Building2, CalendarDays, Receipt, UtensilsCrossed, History } from 'lucide-react';
+import { useRef, useEffect, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Building2, 
+  CalendarClock, 
+  ShoppingBag, 
+  ChefHat, 
+  BarChart3 
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTab, type TabId } from '@/contexts/TabContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -10,27 +18,50 @@ interface NavItemProps {
   label: string;
   isActive: boolean;
   onSelect: (tabId: TabId) => void;
+  onMeasure: (tabId: TabId, rect: DOMRect) => void;
 }
 
-function NavItem({ tabId, icon, label, isActive, onSelect }: NavItemProps) {
+function NavItem({ tabId, icon, label, isActive, onSelect, onMeasure }: NavItemProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      onMeasure(tabId, ref.current.getBoundingClientRect());
+    }
+  }, [tabId, onMeasure]);
+
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => onSelect(tabId)}
       className={cn(
-        'flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-200',
-        'min-w-[60px]',
+        'relative flex-1 flex flex-col items-center justify-center py-1.5 rounded-full z-10 transition-colors duration-200',
         isActive
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+          ? 'text-white'
+          : 'text-muted-foreground hover:text-foreground'
       )}
     >
-      <div className={cn('transition-transform duration-200', isActive && 'scale-110')}>
+      <motion.div
+        initial={false}
+        animate={{ 
+          scale: isActive ? 1.1 : 1,
+          y: isActive ? -2 : 0
+        }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      >
         {icon}
-      </div>
-      <span className={cn('text-[10px] mt-1 font-medium', isActive && 'font-semibold')}>
+      </motion.div>
+      <motion.span 
+        className={cn('text-[9px] mt-0.5 font-medium')}
+        initial={false}
+        animate={{ 
+          fontWeight: isActive ? 600 : 500,
+          opacity: isActive ? 1 : 0.8
+        }}
+      >
         {label}
-      </span>
+      </motion.span>
     </button>
   );
 }
@@ -39,31 +70,91 @@ export default function TabNavigation() {
   const { activeTab, setActiveTab } = useTab();
   const { isAdmin } = useAuth();
   const { t } = useLanguage();
+  const buttonsContainerRef = useRef<HTMLDivElement>(null);
+  const [tabRects, setTabRects] = useState<Record<string, DOMRect>>({});
+  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
 
-  const tabs: { tabId: TabId; icon: React.ReactNode; label: string }[] = [
+  // Measure buttons container on mount
+  useEffect(() => {
+    if (buttonsContainerRef.current) {
+      setContainerRect(buttonsContainerRef.current.getBoundingClientRect());
+    }
+    
+    const handleResize = () => {
+      if (buttonsContainerRef.current) {
+        setContainerRect(buttonsContainerRef.current.getBoundingClientRect());
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleMeasure = (tabId: TabId, rect: DOMRect) => {
+    setTabRects(prev => ({ ...prev, [tabId]: rect }));
+  };
+
+  const tabs: { tabId: TabId; icon: React.ReactNode; label: string }[] = useMemo(() => [
     ...(isAdmin
-      ? [{ tabId: 'restaurant' as TabId, icon: <Building2 className="h-5 w-5" />, label: t('nav.restaurant') }]
+      ? [{ tabId: 'restaurant' as TabId, icon: <Building2 className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.restaurant') }]
       : []),
-    { tabId: 'workday', icon: <CalendarDays className="h-5 w-5" />, label: t('nav.workday') },
-    { tabId: 'orders', icon: <Receipt className="h-5 w-5" />, label: t('nav.orders') },
-    { tabId: 'kitchen', icon: <UtensilsCrossed className="h-5 w-5" />, label: t('nav.kitchen') },
-    { tabId: 'history', icon: <History className="h-5 w-5" />, label: t('nav.history') },
-  ];
+    { tabId: 'workday', icon: <CalendarClock className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.workday') },
+    { tabId: 'orders', icon: <ShoppingBag className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.orders') },
+    { tabId: 'kitchen', icon: <ChefHat className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.kitchen') },
+    { tabId: 'history', icon: <BarChart3 className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.history') },
+  ], [isAdmin, t]);
+
+  // Calculate highlight position relative to buttons container
+  const activeRect = tabRects[activeTab];
+  const highlightStyle = activeRect && containerRect ? {
+    left: activeRect.left - containerRect.left,
+    width: activeRect.width,
+  } : { left: 0, width: 0 };
 
   return (
-    <nav className="flex-shrink-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-t safe-bottom">
-      <div className="max-w-lg mx-auto px-2 py-1">
-        <div className="flex justify-around items-center gap-1">
-          {tabs.map((tab) => (
-            <NavItem
-              key={tab.tabId}
-              tabId={tab.tabId}
-              icon={tab.icon}
-              label={tab.label}
-              isActive={activeTab === tab.tabId}
-              onSelect={setActiveTab}
-            />
-          ))}
+    <nav className="fixed bottom-[15px] left-0 right-0 z-50 px-4 pointer-events-none">
+      <div className="max-w-md mx-auto pointer-events-auto">
+        {/* Floating Pill Container */}
+        <div className="relative bg-[#181E23] rounded-full shadow-lg shadow-black/20 dark:shadow-black/40 border border-white/5 p-1.5">
+          {/* Tab Items Container */}
+          <div 
+            ref={buttonsContainerRef}
+            className="relative flex items-center"
+          >
+            {/* Animated Highlight Background */}
+            <AnimatePresence>
+              {highlightStyle.width > 0 && (
+                <motion.div
+                  className="absolute top-0 bottom-0 bg-[#1A242E] rounded-full"
+                  initial={false}
+                  animate={{
+                    left: highlightStyle.left,
+                    width: highlightStyle.width,
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 400,
+                    damping: 30,
+                  }}
+                />
+              )}
+            </AnimatePresence>
+
+            {tabs.map((tab) => (
+              <NavItem
+                key={tab.tabId}
+                tabId={tab.tabId}
+                icon={tab.icon}
+                label={tab.label}
+                isActive={activeTab === tab.tabId}
+                onSelect={setActiveTab}
+                onMeasure={handleMeasure}
+              />
+            ))}
+          </div>
+
+          {/* Subtle inner glow */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-transparent to-white/5 pointer-events-none" />
         </div>
       </div>
     </nav>
