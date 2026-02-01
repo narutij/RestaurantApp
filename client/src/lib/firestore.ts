@@ -41,7 +41,7 @@ export const collections = {
 } as const;
 
 // User roles
-export type UserRole = "admin" | "user" | "worker" | "kitchen" | "manager";
+export type UserRole = "admin" | "user" | "worker" | "kitchen" | "manager" | "floor";
 
 // User types
 export type AppUser = {
@@ -56,6 +56,8 @@ export type AppUser = {
   approvedBy?: string;
   approvedAt?: Date;
   isOnline?: boolean; // For displaying online status
+  assignedRestaurants?: number[]; // Restaurant IDs this user can access (for non-admins)
+  photoUrl?: string; // Profile photo URL
 };
 
 export type AccountRequest = {

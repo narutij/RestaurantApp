@@ -38,7 +38,7 @@ function NavItem({ tabId, icon, label, isActive, onSelect, onMeasure }: NavItemP
       className={cn(
         'relative flex-1 flex flex-col items-center justify-center py-1.5 rounded-full z-10 transition-colors duration-200',
         isActive
-          ? 'text-white'
+          ? 'text-gray-900 dark:text-white'
           : 'text-muted-foreground hover:text-foreground'
       )}
     >
@@ -94,15 +94,14 @@ export default function TabNavigation() {
     setTabRects(prev => ({ ...prev, [tabId]: rect }));
   };
 
+  // Restaurant tab is now visible to all users (with restricted content for non-admins)
   const tabs: { tabId: TabId; icon: React.ReactNode; label: string }[] = useMemo(() => [
-    ...(isAdmin
-      ? [{ tabId: 'restaurant' as TabId, icon: <Building2 className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.restaurant') }]
-      : []),
+    { tabId: 'restaurant' as TabId, icon: <Building2 className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.restaurant') },
     { tabId: 'workday', icon: <CalendarClock className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.workday') },
     { tabId: 'orders', icon: <ShoppingBag className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.orders') },
     { tabId: 'kitchen', icon: <ChefHat className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.kitchen') },
     { tabId: 'history', icon: <BarChart3 className="h-[17px] w-[17px] stroke-[1.75]" />, label: t('nav.history') },
-  ], [isAdmin, t]);
+  ], [t]);
 
   // Calculate highlight position relative to buttons container
   const activeRect = tabRects[activeTab];
@@ -115,7 +114,7 @@ export default function TabNavigation() {
     <nav className="fixed bottom-[15px] left-0 right-0 z-50 px-4 pointer-events-none">
       <div className="max-w-md mx-auto pointer-events-auto">
         {/* Floating Pill Container */}
-        <div className="relative bg-[#181E23] rounded-full shadow-lg shadow-black/20 dark:shadow-black/40 border border-white/5 p-1.5">
+        <div className="relative bg-white dark:bg-[#181E23] rounded-full shadow-lg shadow-black/10 dark:shadow-black/40 border border-gray-200 dark:border-white/5 p-1.5">
           {/* Tab Items Container */}
           <div 
             ref={buttonsContainerRef}
@@ -125,7 +124,7 @@ export default function TabNavigation() {
             <AnimatePresence>
               {highlightStyle.width > 0 && (
                 <motion.div
-                  className="absolute top-0 bottom-0 bg-[#1A242E] rounded-full"
+                  className="absolute top-0 bottom-0 bg-gray-100 dark:bg-[#1A242E] rounded-full"
                   initial={false}
                   animate={{
                     left: highlightStyle.left,

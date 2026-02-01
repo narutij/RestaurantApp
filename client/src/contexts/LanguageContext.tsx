@@ -28,6 +28,7 @@ const translations = {
     'topbar.noNotifications': 'No notifications',
     'topbar.activeUsers': 'Active Users',
     'topbar.usersOnline': 'users online',
+    'topbar.noUsersOnline': 'No users online',
 
     // Time
     'time.justNow': 'just now',
@@ -87,8 +88,15 @@ const translations = {
     'restaurant.noRestaurant': 'No Restaurant Selected',
     'restaurant.selectFromTopBar': 'Select a restaurant from the top bar to get started.',
     'restaurant.adminOnly': 'Restaurant management is only available for administrators.',
+    'restaurant.staff': 'Staff',
+    'restaurant.viewTeam': 'View team members',
+    'restaurant.viewCreateMenus': 'View and create menus',
+    'restaurant.topStaff': 'Top Staff',
+    'restaurant.noStaffData': 'No staff data available',
+    'restaurant.viewCreateLayouts': 'View and create layouts',
 
     // Timeframes
+    'timeframe.day': 'Day',
     'timeframe.week': 'Week',
     'timeframe.month': 'Month',
     'timeframe.quarter': 'Quarter',
@@ -112,6 +120,7 @@ const translations = {
     'workday.endWorkday': 'End Workday',
     'workday.ending': 'Ending...',
     'workday.startWorkday': 'Start Workday',
+    'workday.readyToStart': 'Ready to start!',
     'workday.startWorkdayConfirmTitle': 'Start Workday?',
     'workday.startWorkdayConfirmDescription': 'Are you sure you want to start the workday? Make sure you have selected the correct menu and table layout.',
     'workday.currentConfig': 'Current Configuration',
@@ -208,7 +217,6 @@ const translations = {
     'orders.closeTableWarning': 'Are you sure you want to close this table? All orders will be saved to history.',
     'orders.totalOrders': 'Total Orders',
     'orders.confirmClose': 'Yes, Close Table',
-    'orders.people': 'people',
     'orders.unfinishedOrdersWarning': 'Orders still in progress!',
     'orders.unfinishedOrdersMessage': 'There are orders that have not been completed by the kitchen. These will be marked as canceled if you close the table.',
     'orders.unfinishedOrders': 'Unfinished Orders',
@@ -289,6 +297,7 @@ const translations = {
     'topbar.noNotifications': 'Pranešimų nėra',
     'topbar.activeUsers': 'Aktyvūs vartotojai',
     'topbar.usersOnline': 'prisijungę',
+    'topbar.noUsersOnline': 'Nėra prisijungusių',
 
     // Time
     'time.justNow': 'ką tik',
@@ -348,8 +357,15 @@ const translations = {
     'restaurant.noRestaurant': 'Restoranas nepasirinktas',
     'restaurant.selectFromTopBar': 'Pasirinkite restoraną iš viršutinės juostos.',
     'restaurant.adminOnly': 'Restorano valdymas prieinamas tik administratoriams.',
+    'restaurant.staff': 'Personalas',
+    'restaurant.viewTeam': 'Peržiūrėti komandą',
+    'restaurant.viewCreateMenus': 'Peržiūrėti ir kurti meniu',
+    'restaurant.topStaff': 'Geriausi darbuotojai',
+    'restaurant.noStaffData': 'Darbuotojų duomenų nėra',
+    'restaurant.viewCreateLayouts': 'Peržiūrėti ir kurti išdėstymus',
 
     // Timeframes
+    'timeframe.day': 'Diena',
     'timeframe.week': 'Savaitė',
     'timeframe.month': 'Mėnuo',
     'timeframe.quarter': 'Ketvirtis',
@@ -373,6 +389,7 @@ const translations = {
     'workday.endWorkday': 'Baigti darbo dieną',
     'workday.ending': 'Baigiama...',
     'workday.startWorkday': 'Pradėti darbo dieną',
+    'workday.readyToStart': 'Pasiruošta pradėti!',
     'workday.startWorkdayConfirmTitle': 'Pradėti darbo dieną?',
     'workday.startWorkdayConfirmDescription': 'Ar tikrai norite pradėti darbo dieną? Įsitikinkite, kad pasirinkote teisingą meniu ir stalų išdėstymą.',
     'workday.currentConfig': 'Dabartinė konfigūracija',
@@ -469,7 +486,6 @@ const translations = {
     'orders.closeTableWarning': 'Ar tikrai norite uždaryti šį stalą? Visi užsakymai bus išsaugoti istorijoje.',
     'orders.totalOrders': 'Iš viso užsakymų',
     'orders.confirmClose': 'Taip, uždaryti',
-    'orders.people': 'žmonių',
     'orders.unfinishedOrdersWarning': 'Yra nepabaigti užsakymai!',
     'orders.unfinishedOrdersMessage': 'Yra užsakymų, kurių virtuvė dar nepabaigė. Uždarius stalą, jie bus pažymėti kaip atšaukti.',
     'orders.unfinishedOrders': 'Nepabaigti užsakymai',

@@ -31,6 +31,7 @@ type TableLayoutsModalProps = {
   onOpenChange: (open: boolean) => void;
   restaurant: Restaurant | null;
   onSelectLayout?: (layout: Layout) => void;
+  canDelete?: boolean;
 };
 
 export function TableLayoutsModal({
@@ -38,6 +39,7 @@ export function TableLayoutsModal({
   onOpenChange,
   restaurant,
   onSelectLayout,
+  canDelete = true,
 }: TableLayoutsModalProps) {
   const [selectedLayout, setSelectedLayout] = useState<Layout | null>(null);
   const [showLayoutForm, setShowLayoutForm] = useState(false);
@@ -245,7 +247,7 @@ export function TableLayoutsModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] p-0 bg-[#1E2429] border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[500px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           {/* Header */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent" />
@@ -299,7 +301,7 @@ export function TableLayoutsModal({
               <div className="p-6 pt-2 space-y-4">
                 {/* Add Table Form */}
                 {showTableForm ? (
-                  <div className="p-4 bg-[#181818] rounded-xl border border-white/5 space-y-4">
+                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
                       {isEditingTable ? 'Edit Table' : 'Add New Table'}
                     </h3>
@@ -310,7 +312,7 @@ export function TableLayoutsModal({
                           value={tableNumber}
                           onChange={(e) => setTableNumber(e.target.value)}
                           placeholder="e.g., 5"
-                          className="mt-1 bg-white/5 border-white/10"
+                          className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -319,7 +321,7 @@ export function TableLayoutsModal({
                           value={tableLabel}
                           onChange={(e) => setTableLabel(e.target.value)}
                           placeholder="e.g., Near window"
-                          className="mt-1 bg-white/5 border-white/10"
+                          className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
                         />
                       </div>
                     </div>
@@ -352,7 +354,7 @@ export function TableLayoutsModal({
                 ) : (
                   <Button
                     variant="outline"
-                    className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+                    className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
                     onClick={() => {
                       setTableNumber("");
                       setTableLabel("");
@@ -378,7 +380,7 @@ export function TableLayoutsModal({
                     {(selectedLayout?.tables || []).map((table) => (
                       <div
                         key={table.id}
-                        className="p-4 bg-[#181818] rounded-xl border border-white/5 flex items-center justify-between"
+                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
@@ -404,17 +406,19 @@ export function TableLayoutsModal({
                           >
                             <Pencil className="h-4 w-4 text-amber-400" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-red-500/20"
-                            onClick={() => {
-                              setTableToDelete(table);
-                              setDeleteTableDialog(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-400" />
-                          </Button>
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-red-500/20"
+                              onClick={() => {
+                                setTableToDelete(table);
+                                setDeleteTableDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-400" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -428,7 +432,7 @@ export function TableLayoutsModal({
               <div className="p-6 pt-2 space-y-4">
                 {/* Add Layout Form */}
                 {showLayoutForm && !isSelectionMode ? (
-                  <div className="p-4 bg-[#181818] rounded-xl border border-white/5 space-y-4">
+                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
                       {isEditingLayout ? 'Edit Layout' : 'Create New Layout'}
                     </h3>
@@ -438,7 +442,7 @@ export function TableLayoutsModal({
                         value={layoutName}
                         onChange={(e) => setLayoutName(e.target.value)}
                         placeholder="e.g., Summer Setup"
-                        className="mt-1 bg-white/5 border-white/10"
+                        className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
@@ -469,7 +473,7 @@ export function TableLayoutsModal({
                 ) : !isSelectionMode && (
                   <Button
                     variant="outline"
-                    className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+                    className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
                     onClick={() => {
                       setLayoutName("");
                       setIsEditingLayout(false);
@@ -494,10 +498,10 @@ export function TableLayoutsModal({
                     {layouts.map((layout) => (
                       <div
                         key={layout.id}
-                        className={`p-4 bg-[#181818] rounded-xl border transition-colors cursor-pointer ${
+                        className={`p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border transition-colors cursor-pointer ${
                           (isSelectionMode ? tempSelectedLayoutId === layout.id : selectedLayout?.id === layout.id)
                             ? 'border-amber-500/50 bg-amber-500/5'
-                            : 'border-white/5 hover:border-white/20'
+                            : 'border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20'
                         }`}
                         onClick={() => handleSelectLayout(layout)}
                       >
@@ -529,18 +533,20 @@ export function TableLayoutsModal({
                               >
                                 <Pencil className="h-4 w-4 text-amber-400" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 hover:bg-red-500/20"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLayoutToDelete(layout);
-                                  setDeleteLayoutDialog(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-400" />
-                              </Button>
+                              {canDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-red-500/20"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLayoutToDelete(layout);
+                                    setDeleteLayoutDialog(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -554,7 +560,7 @@ export function TableLayoutsModal({
 
           {/* Selection Mode Footer */}
           {isSelectionMode && (
-            <div className="p-4 border-t border-white/5">
+            <div className="p-4 border-t border-gray-200 dark:border-white/5">
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>
                   Cancel
@@ -579,7 +585,7 @@ export function TableLayoutsModal({
       
       {/* Delete Layout Dialog */}
       <AlertDialog open={deleteLayoutDialog} onOpenChange={setDeleteLayoutDialog}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Layout</AlertDialogTitle>
             <AlertDialogDescription>
@@ -587,7 +593,7 @@ export function TableLayoutsModal({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => layoutToDelete && deleteLayoutMutation.mutate(layoutToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -600,7 +606,7 @@ export function TableLayoutsModal({
       
       {/* Delete Table Dialog */}
       <AlertDialog open={deleteTableDialog} onOpenChange={setDeleteTableDialog}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Table</AlertDialogTitle>
             <AlertDialogDescription>
@@ -608,7 +614,7 @@ export function TableLayoutsModal({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => tableToDelete && deleteTableMutation.mutate(tableToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"

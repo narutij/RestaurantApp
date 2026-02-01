@@ -94,7 +94,7 @@ export function CategoryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] p-0 bg-[#1E2429] border-white/10 overflow-hidden" hideCloseButton>
+      <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
         {/* Header */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent" />
@@ -129,13 +129,13 @@ export function CategoryModal({
               value={categoryName}
               onChange={(e) => setCategoryName(e.target.value)}
               placeholder="e.g., Main Courses"
-              className="mt-1.5 bg-white/5 border-white/10 focus:border-blue-500/50"
+              className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-blue-500/50"
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/5 flex justify-end gap-2">
+        <div className="p-4 border-t border-gray-200 dark:border-white/5 flex justify-end gap-2">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}

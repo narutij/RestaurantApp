@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Users, Clock, Building2, Menu, Bell, Trash2, Upload, Image as ImageIcon, Plus, Pencil, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocketContext, type ConnectedUserInfo } from '@/contexts/WebSocketContext';
 
 // Mock online users for UI/UX demonstration
@@ -70,6 +71,7 @@ export default function TopBar({
 }: TopBarProps) {
   const { connectedUsers, connectedUsersList } = useWebSocketContext();
   const { t } = useLanguage();
+  const { isAdmin, appUser } = useAuth();
 
   // Combine real connected users with mock users
   const allConnectedUsers = useMemo(() => {
@@ -96,10 +98,21 @@ export default function TopBar({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Fetch restaurants
-  const { data: restaurants = [], isLoading: restaurantsLoading } = useQuery({
+  const { data: allRestaurants = [], isLoading: restaurantsLoading } = useQuery({
     queryKey: ['/api/restaurants'],
     queryFn: () => apiRequest('/api/restaurants'),
   });
+
+  // Filter restaurants based on user's assigned restaurants (non-admins only see assigned)
+  const restaurants = useMemo(() => {
+    if (isAdmin) return allRestaurants;
+    if (!appUser?.assignedRestaurants || appUser.assignedRestaurants.length === 0) {
+      return allRestaurants; // If no assignments, show all (fallback)
+    }
+    return allRestaurants.filter((r: Restaurant) =>
+      appUser.assignedRestaurants!.includes(r.id)
+    );
+  }, [allRestaurants, isAdmin, appUser?.assignedRestaurants]);
 
   // Create restaurant mutation
   const createRestaurantMutation = useMutation({
@@ -266,7 +279,7 @@ export default function TopBar({
           {/* Menu Button - Round Frame */}
           <button
             onClick={onMenuClick}
-            className="p-2.5 bg-[#181E23] hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/20 border border-white/5"
+            className="p-2.5 bg-white dark:bg-[#181E23] hover:bg-gray-100 dark:hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/10 dark:shadow-black/20 border border-gray-200 dark:border-white/5"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -274,14 +287,14 @@ export default function TopBar({
 
         {/* Center Section - Restaurant & Connected Users in Pill */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-1.5 pointer-events-auto">
-          <div className="flex items-center bg-[#181E23] rounded-full shadow-lg shadow-black/20 border border-white/5 p-1">
+          <div className="flex items-center bg-white dark:bg-[#181E23] rounded-full shadow-lg shadow-black/10 dark:shadow-black/20 border border-gray-200 dark:border-white/5 p-1">
             {/* Restaurant Selector */}
             <Popover open={restaurantPopoverOpen} onOpenChange={(open) => {
               setRestaurantPopoverOpen(open);
               if (!open) handleCancel();
             }}>
               <PopoverTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#1A242E] transition-colors">
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-[#1A242E] transition-colors">
                   {selectedRestaurant ? (
                     <>
                       {selectedRestaurant.imageUrl ? (
@@ -468,12 +481,12 @@ export default function TopBar({
           </Popover>
 
             {/* Separator */}
-            <div className="w-px h-6 bg-white/10 mx-1" />
+            <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1" />
 
             {/* Connected Workers - Inside Center Pill */}
             <Popover open={usersPopoverOpen} onOpenChange={setUsersPopoverOpen}>
               <PopoverTrigger asChild>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-[#1A242E] transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-[#1A242E] transition-colors">
                   <Users className="h-4 w-4" />
                   <span className="text-xs font-medium">{totalConnectedUsers}</span>
                 </button>
@@ -523,7 +536,7 @@ export default function TopBar({
         <div className="ml-auto flex items-center gap-2 pointer-events-auto">
           {/* Workday Timer - Green pulsing frame */}
           {activeWorkday?.isActive && (
-            <div className="px-3 py-2.5 rounded-full bg-[#181E23] shadow-lg shadow-black/20 border border-green-500/50 animate-pulse">
+            <div className="px-3 py-2.5 rounded-full bg-white dark:bg-[#181E23] shadow-lg shadow-black/10 dark:shadow-black/20 border border-green-500/50 animate-pulse">
               <span className="text-xs font-mono font-bold text-green-500">
                 {workdayElapsedTime.split(':').slice(0, 2).join(':')}
               </span>
@@ -533,7 +546,7 @@ export default function TopBar({
           {/* Notifications - Round Frame */}
           <Popover open={notificationsOpen} onOpenChange={handleNotificationsOpenChange}>
             <PopoverTrigger asChild>
-              <button className="relative p-2.5 bg-[#181E23] hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/20 border border-white/5">
+              <button className="relative p-2.5 bg-white dark:bg-[#181E23] hover:bg-gray-100 dark:hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/10 dark:shadow-black/20 border border-gray-200 dark:border-white/5">
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">

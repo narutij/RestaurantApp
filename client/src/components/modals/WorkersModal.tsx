@@ -1,26 +1,35 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { accountRequestService, userService, type AppUser, type AccountRequest } from "@/lib/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { 
-  UserCheck, 
-  UserX, 
-  Clock, 
-  Shield, 
-  Loader2, 
+import { StaffDetailModal } from './StaffDetailModal';
+import { apiRequest } from '@/lib/queryClient';
+import type { Restaurant } from '@shared/schema';
+import {
+  UserCheck,
+  UserX,
+  Clock,
+  Shield,
+  Loader2,
   ChefHat,
   Users,
   X,
   Check,
   Ban,
-  Footprints
+  Footprints,
+  Building2,
+  ChevronDown
 } from 'lucide-react';
 
 // Mock workers for UI/UX demonstration
@@ -83,18 +92,54 @@ interface WorkersModalProps {
 export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [activeUsers, setActiveUsers] = useState<AppUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccountRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, WorkerRole>>({});
-  
+
+  // Staff detail modal state
+  const [selectedStaff, setSelectedStaff] = useState<AppUser | null>(null);
+  const [staffDetailOpen, setStaffDetailOpen] = useState(false);
+
+  // Restaurant assignment popover state
+  const [restaurantAssignOpen, setRestaurantAssignOpen] = useState<string | null>(null);
+
   // Role change confirmation state
   const [roleChangeConfirm, setRoleChangeConfirm] = useState<{
     user: AppUser;
     newRole: WorkerRole;
     isMock: boolean;
   } | null>(null);
+
+  // Fetch all restaurants for assignment
+  const { data: allRestaurants = [] } = useQuery<Restaurant[]>({
+    queryKey: ['/api/restaurants'],
+    queryFn: () => apiRequest('/api/restaurants'),
+    enabled: open && isAdmin,
+  });
+
+  // Update user's assigned restaurants
+  const updateAssignmentMutation = useMutation({
+    mutationFn: async ({ userId, restaurantIds }: { userId: string; restaurantIds: number[] }) => {
+      await userService.update(userId, { assignedRestaurants: restaurantIds });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Restaurants Updated",
+        description: "Staff restaurant assignments have been updated",
+      });
+      loadData();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update restaurant assignments",
+        variant: "destructive"
+      });
+    },
+  });
 
   useEffect(() => {
     if (open && isAdmin) {
@@ -278,25 +323,109 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
   };
 
 
+  // View-only staff list for non-admins
   if (!isAdmin) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[400px] p-0 bg-[#1E2429] border-white/10 overflow-hidden" hideCloseButton>
-          <div className="p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
-              <UserX className="h-8 w-8 text-red-400" />
+      <>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="sm:max-w-[440px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+            {/* Header */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-violet-500/10 to-transparent" />
+              <div className="relative px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-purple-500/20 rounded-xl">
+                      <Users className="h-5 w-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold">Staff</h2>
+                      <p className="text-xs text-muted-foreground">{activeUsers.length} team member{activeUsers.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onOpenChange(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <X className="h-5 w-5 text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
-            <p className="text-sm text-muted-foreground">You need admin privileges to access worker management.</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[calc(85vh-100px)]">
+                <div className="p-6 pt-2 space-y-2">
+                  {activeUsers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">No staff members found</p>
+                    </div>
+                  ) : (
+                    activeUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 cursor-pointer transition-colors"
+                        onClick={() => {
+                          setSelectedStaff(user);
+                          setStaffDetailOpen(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-shrink-0">
+                            {user.photoUrl ? (
+                              <img
+                                src={user.photoUrl}
+                                alt={user.name}
+                                className="h-10 w-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
+                                <span className="text-sm font-medium">
+                                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </span>
+                              </div>
+                            )}
+                            <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
+                              user.isOnline ? 'bg-green-500' : 'bg-gray-500'
+                            }`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{user.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {user.role === 'admin' && <Shield className="h-3 w-3 text-purple-400" />}
+                              {user.role === 'kitchen' && <ChefHat className="h-3 w-3 text-orange-400" />}
+                              {user.role === 'floor' && <Footprints className="h-3 w-3 text-blue-400" />}
+                              <span className="text-xs text-muted-foreground">{getRoleLabel(user.role || 'floor')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Staff Detail Modal */}
+        <StaffDetailModal
+          open={staffDetailOpen}
+          onOpenChange={setStaffDetailOpen}
+          user={selectedStaff}
+        />
+      </>
     );
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0 bg-[#1E2429] border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+      <DialogContent className="sm:max-w-[440px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
         {/* Header */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-violet-500/10 to-transparent" />
@@ -341,7 +470,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                     {pendingRequests.map((request) => (
                       <div
                         key={request.id}
-                        className="p-4 bg-[#181818] rounded-xl border border-white/5"
+                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5"
                       >
                         <div className="flex items-start gap-3">
                           {/* Avatar */}
@@ -399,7 +528,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 }}
                                 disabled={processingRequest === request.id}
                               >
-                                <SelectTrigger className="w-full h-8 text-xs bg-white/5 border-white/10">
+                                <SelectTrigger className="w-full h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -448,28 +577,48 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                   ) : (
                     activeUsers.map((user) => {
                       const isMockUser = user.id.startsWith('mock-') || user.id.startsWith('approved-');
-                      
+                      const assignedRestaurants = user.assignedRestaurants || [];
+
                       return (
                         <div
                           key={user.id}
-                          className="p-4 bg-[#181818] rounded-xl border border-white/5"
+                          className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 transition-colors"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="relative flex-shrink-0">
+                          {/* Clickable user info */}
+                          <div
+                            className="flex items-center gap-3 min-w-0 cursor-pointer"
+                            onClick={() => {
+                              setSelectedStaff(user);
+                              setStaffDetailOpen(true);
+                            }}
+                          >
+                            <div className="relative flex-shrink-0">
+                              {user.photoUrl ? (
+                                <img
+                                  src={user.photoUrl}
+                                  alt={user.name}
+                                  className="h-10 w-10 rounded-full object-cover"
+                                />
+                              ) : (
                                 <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
                                   <span className="text-sm font-medium">
                                     {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                                   </span>
                                 </div>
-                                <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
-                                  user.isOnline ? 'bg-green-500' : 'bg-gray-500'
-                                }`} />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-medium text-sm truncate">{user.name}</p>
-                              </div>
+                              )}
+                              <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
+                                user.isOnline ? 'bg-green-500' : 'bg-gray-500'
+                              }`} />
                             </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm truncate">{user.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            </div>
+                          </div>
+
+                          {/* Role and Restaurant Assignment Row */}
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-white/5">
+                            {/* Role Select */}
                             <Select
                               value={user.role || 'floor'}
                               onValueChange={(role: WorkerRole) => {
@@ -482,7 +631,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 }
                               }}
                             >
-                              <SelectTrigger className="w-[100px] h-8 text-xs bg-white/5 border-white/10 flex-shrink-0">
+                              <SelectTrigger className="w-[100px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 flex-shrink-0">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -506,6 +655,91 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 </SelectItem>
                               </SelectContent>
                             </Select>
+
+                            {/* Restaurant Assignment (only for non-admin roles) */}
+                            {user.role !== 'admin' && (
+                              <Popover
+                                open={restaurantAssignOpen === user.id}
+                                onOpenChange={(open) => setRestaurantAssignOpen(open ? user.id : null)}
+                              >
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 flex-1 justify-between text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                                  >
+                                    <div className="flex items-center gap-1.5 truncate">
+                                      <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                                      <span className="truncate">
+                                        {assignedRestaurants.length === 0
+                                          ? 'All restaurants'
+                                          : `${assignedRestaurants.length} restaurant${assignedRestaurants.length > 1 ? 's' : ''}`
+                                        }
+                                      </span>
+                                    </div>
+                                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground ml-1" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[220px] p-2" align="start">
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+                                      Assign to restaurants
+                                    </p>
+                                    {allRestaurants.map((restaurant) => {
+                                      const isAssigned = assignedRestaurants.includes(restaurant.id);
+                                      return (
+                                        <div
+                                          key={restaurant.id}
+                                          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                                          onClick={() => {
+                                            const newAssignments = isAssigned
+                                              ? assignedRestaurants.filter(id => id !== restaurant.id)
+                                              : [...assignedRestaurants, restaurant.id];
+
+                                            if (!isMockUser) {
+                                              updateAssignmentMutation.mutate({
+                                                userId: user.id,
+                                                restaurantIds: newAssignments
+                                              });
+                                            } else {
+                                              // Update mock user locally
+                                              setActiveUsers(prev => prev.map(u =>
+                                                u.id === user.id
+                                                  ? { ...u, assignedRestaurants: newAssignments }
+                                                  : u
+                                              ));
+                                              toast({
+                                                title: "Restaurants Updated",
+                                                description: `${user.name}'s restaurant access has been updated`,
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          <Checkbox
+                                            checked={isAssigned}
+                                            className="h-4 w-4"
+                                          />
+                                          <span className="text-sm truncate">{restaurant.name}</span>
+                                        </div>
+                                      );
+                                    })}
+                                    {allRestaurants.length === 0 && (
+                                      <p className="text-xs text-muted-foreground text-center py-2">
+                                        No restaurants available
+                                      </p>
+                                    )}
+                                    <div className="border-t border-gray-200 dark:border-white/5 mt-2 pt-2">
+                                      <p className="text-[10px] text-muted-foreground px-2">
+                                        {assignedRestaurants.length === 0
+                                          ? 'Access to all restaurants'
+                                          : 'Only selected restaurants'
+                                        }
+                                      </p>
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
                           </div>
                         </div>
                       );
@@ -520,7 +754,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
       
       {/* Role Change Confirmation Dialog */}
       <AlertDialog open={!!roleChangeConfirm} onOpenChange={(open) => !open && setRoleChangeConfirm(null)}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Role Change</AlertDialogTitle>
             <AlertDialogDescription>
@@ -530,7 +764,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmRoleChange}
               className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border-0"
@@ -540,6 +774,13 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Staff Detail Modal */}
+      <StaffDetailModal
+        open={staffDetailOpen}
+        onOpenChange={setStaffDetailOpen}
+        user={selectedStaff}
+      />
     </Dialog>
   );
 }

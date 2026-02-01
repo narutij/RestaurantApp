@@ -17,9 +17,10 @@ type MenuModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   restaurant: Restaurant | null;
+  canDelete?: boolean;
 };
 
-export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
+export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: MenuModalProps) {
   // Menu states
   const [showMenuForm, setShowMenuForm] = useState(false);
   const [isEditingMenu, setIsEditingMenu] = useState(false);
@@ -108,7 +109,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
   if (!restaurant) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[400px] p-0 bg-[#1E2429] border-white/10 overflow-hidden" hideCloseButton>
+        <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
           <div className="p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
               <MenuSquare className="h-8 w-8 text-green-400" />
@@ -124,7 +125,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] p-0 bg-[#1E2429] border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[500px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           {/* Header */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent" />
@@ -168,14 +169,14 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
             </div>
           ) : selectedMenu ? (
             /* Menu Detail View - Categories */
-            <CategoryList menuId={selectedMenu.id} />
+            <CategoryList menuId={selectedMenu.id} canDelete={canDelete} />
           ) : (
             /* Menu List View */
             <ScrollArea className="max-h-[calc(85vh-120px)]">
               <div className="p-6 pt-2 space-y-4">
                 {/* Menu Form */}
                 {showMenuForm ? (
-                  <div className="p-4 bg-[#181818] rounded-xl border border-white/5 space-y-4">
+                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
                       {isEditingMenu ? 'Edit Menu' : 'Create New Menu'}
                     </h3>
@@ -185,7 +186,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
                         value={menuName}
                         onChange={(e) => setMenuName(e.target.value)}
                         placeholder="e.g., Lunch Menu"
-                        className="mt-1 bg-white/5 border-white/10"
+                        className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
@@ -216,7 +217,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
                 ) : (
                   <Button
                     variant="outline"
-                    className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+                    className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
                     onClick={() => {
                       setMenuName("");
                       setIsEditingMenu(false);
@@ -240,7 +241,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
                     {menus.map((menu: Menu) => (
                       <div
                         key={menu.id}
-                        className="p-4 bg-[#181818] rounded-xl border border-white/5 hover:border-white/20 transition-colors cursor-pointer"
+                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20 transition-colors cursor-pointer"
                         onClick={() => setSelectedMenu(menu)}
                       >
                         <div className="flex items-center justify-between">
@@ -268,18 +269,20 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
                             >
                               <Pencil className="h-4 w-4 text-amber-400" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 hover:bg-red-500/20"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuToDelete(menu);
-                                setDeleteMenuDialog(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-400" />
-                            </Button>
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-red-500/20"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuToDelete(menu);
+                                  setDeleteMenuDialog(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-400" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -294,7 +297,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
       
       {/* Delete Menu Dialog */}
       <AlertDialog open={deleteMenuDialog} onOpenChange={setDeleteMenuDialog}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Menu</AlertDialogTitle>
             <AlertDialogDescription>
@@ -302,7 +305,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => menuToDelete && deleteMenuMutation.mutate(menuToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -316,7 +319,7 @@ export function MenuModal({ open, onOpenChange, restaurant }: MenuModalProps) {
   );
 }
 
-function CategoryList({ menuId }: { menuId: number }) {
+function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?: boolean }) {
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
   
   // Category form states
@@ -505,7 +508,7 @@ function CategoryList({ menuId }: { menuId: number }) {
         <div className="p-6 pt-2 space-y-4">
           {/* Category Form */}
           {showCategoryForm ? (
-            <div className="p-4 bg-[#181818] rounded-xl border border-white/5 space-y-4">
+            <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <FolderOpen className="h-4 w-4 text-blue-400" />
                 {isEditingCategory ? 'Edit Category' : 'Add Category'}
@@ -516,7 +519,7 @@ function CategoryList({ menuId }: { menuId: number }) {
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="e.g., Main Courses"
-                  className="mt-1 bg-white/5 border-white/10"
+                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -546,7 +549,7 @@ function CategoryList({ menuId }: { menuId: number }) {
             </div>
           ) : showItemForm ? (
             /* Item Form */
-            <div className="p-4 bg-[#181818] rounded-xl border border-white/5 space-y-4">
+            <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <UtensilsCrossed className="h-4 w-4 text-emerald-400" />
                 {isEditingItem ? 'Edit Item' : 'Add Item'}
@@ -557,7 +560,7 @@ function CategoryList({ menuId }: { menuId: number }) {
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
                   placeholder="e.g., Margherita Pizza"
-                  className="mt-1 bg-white/5 border-white/10"
+                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
                 />
               </div>
               <div>
@@ -569,7 +572,7 @@ function CategoryList({ menuId }: { menuId: number }) {
                   value={itemPrice}
                   onChange={(e) => setItemPrice(e.target.value)}
                   placeholder="0.00"
-                  className="mt-1 bg-white/5 border-white/10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div>
@@ -578,7 +581,7 @@ function CategoryList({ menuId }: { menuId: number }) {
                   value={itemDescription}
                   onChange={(e) => setItemDescription(e.target.value)}
                   placeholder="Brief description..."
-                  className="mt-1 bg-white/5 border-white/10 resize-none h-16"
+                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 resize-none h-16"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -600,7 +603,7 @@ function CategoryList({ menuId }: { menuId: number }) {
           ) : (
             <Button
               variant="outline"
-              className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+              className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
               onClick={() => {
                 setCategoryName("");
                 setIsEditingCategory(false);
@@ -622,7 +625,7 @@ function CategoryList({ menuId }: { menuId: number }) {
           ) : (
             <div className="space-y-3">
               {categories.map((category: any) => (
-                <div key={category.id} className="bg-[#181818] rounded-xl border border-white/5 overflow-hidden">
+                <div key={category.id} className="bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 overflow-hidden">
                   {/* Category Header */}
                   <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors"
@@ -666,25 +669,28 @@ function CategoryList({ menuId }: { menuId: number }) {
                       >
                         <Pencil className="h-3.5 w-3.5 text-amber-400" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 hover:bg-red-500/20"
-                        onClick={() => {
-                          setDeletingCategoryId(category.id);
-                          setDeletingCategoryName(category.name);
-                          setDeleteCategoryDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 hover:bg-red-500/20"
+                          onClick={() => {
+                            setDeletingCategoryId(category.id);
+                            setDeletingCategoryName(category.name);
+                            setDeleteCategoryDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                        </Button>
+                      )}
                     </div>
                   </div>
 
                   {/* Category Items */}
                   {expandedCategories[category.id] && (
-                    <CategoryItems 
+                    <CategoryItems
                       categoryId={category.id}
+                      canDelete={canDelete}
                       onEditItem={(item) => {
                         setItemToEdit(item);
                         setItemCategoryId(category.id);
@@ -711,13 +717,13 @@ function CategoryList({ menuId }: { menuId: number }) {
 
       {/* Delete Item Dialog */}
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Item</AlertDialogTitle>
             <AlertDialogDescription>Delete "{deletingItemName}"?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingItemId && deleteItemMutation.mutate(deletingItemId)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -730,13 +736,13 @@ function CategoryList({ menuId }: { menuId: number }) {
       
       {/* Delete Category Dialog */}
       <AlertDialog open={deleteCategoryDialogOpen} onOpenChange={setDeleteCategoryDialogOpen}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>Delete "{deletingCategoryName}" and all its items?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingCategoryId && deleteCategoryMutation.mutate(deletingCategoryId)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -763,8 +769,9 @@ function CategoryItemCount({ categoryId }: { categoryId: number }) {
   );
 }
 
-function CategoryItems({ categoryId, onEditItem, onDeleteItem }: { 
+function CategoryItems({ categoryId, canDelete = true, onEditItem, onDeleteItem }: {
   categoryId: number,
+  canDelete?: boolean,
   onEditItem: (item: any) => void,
   onDeleteItem: (itemId: number, itemName: string) => void
 }) {
@@ -775,7 +782,7 @@ function CategoryItems({ categoryId, onEditItem, onDeleteItem }: {
 
   if (isLoading) {
     return (
-      <div className="p-4 border-t border-white/5">
+      <div className="p-4 border-t border-gray-200 dark:border-white/5">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mx-auto" />
       </div>
     );
@@ -783,14 +790,14 @@ function CategoryItems({ categoryId, onEditItem, onDeleteItem }: {
 
   if (items.length === 0) {
     return (
-      <div className="p-4 border-t border-white/5 text-center">
+      <div className="p-4 border-t border-gray-200 dark:border-white/5 text-center">
         <p className="text-xs text-muted-foreground">No items in this category</p>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-white/5 divide-y divide-white/5">
+    <div className="border-t border-gray-200 dark:border-white/5 divide-y divide-gray-200 dark:divide-white/5">
       {items.map((item: any) => (
         <div key={item.id} className="flex items-center justify-between p-3 pl-10 hover:bg-white/5 transition-colors">
           <div>
@@ -809,14 +816,16 @@ function CategoryItems({ categoryId, onEditItem, onDeleteItem }: {
             >
               <Pencil className="h-3.5 w-3.5 text-amber-400" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 hover:bg-red-500/20"
-              onClick={() => onDeleteItem(item.id, item.name)}
-            >
-              <Trash2 className="h-3.5 w-3.5 text-red-400" />
-            </Button>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 hover:bg-red-500/20"
+                onClick={() => onDeleteItem(item.id, item.name)}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-red-400" />
+              </Button>
+            )}
           </div>
         </div>
       ))}

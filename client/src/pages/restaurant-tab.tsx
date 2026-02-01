@@ -7,6 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { type Timeframe } from "@/components/widgets/StatWidget";
 import { TopItemsWidget } from "@/components/widgets/TopItemsWidget";
+import { TopStaffWidget } from "@/components/widgets/TopStaffWidget";
 import { RemindersSection } from "@/components/RemindersSection";
 import { MenuModal } from "@/components/modals/MenuModal";
 import { TableLayoutsModal } from "@/components/modals/TableLayoutsModal";
@@ -35,6 +36,14 @@ interface Statistics {
   topItems: Array<{ name: string; count: number; revenue: number }>;
 }
 
+interface TopWorker {
+  workerId: string;
+  name: string;
+  totalMinutes: number;
+}
+
+type StaffTimeframe = 'day' | 'week' | 'month';
+
 export default function RestaurantInfoTab() {
   const { isAdmin } = useAuth();
   const { selectedRestaurant } = useWorkday();
@@ -49,8 +58,9 @@ export default function RestaurantInfoTab() {
   const [revenueTimeframe, setRevenueTimeframe] = useState<Timeframe>('week');
   const [clientsTimeframe, setClientsTimeframe] = useState<Timeframe>('week');
   const [topDishesTimeframe, setTopDishesTimeframe] = useState<Timeframe>('week');
+  const [topStaffTimeframe, setTopStaffTimeframe] = useState<StaffTimeframe>('week');
 
-  // Fetch revenue statistics
+  // Fetch revenue statistics (admin only)
   const { data: revenueStats } = useQuery<Statistics>({
     queryKey: ['statistics', selectedRestaurant?.id, revenueTimeframe, 'revenue'],
     queryFn: async () => {
@@ -59,10 +69,10 @@ export default function RestaurantInfoTab() {
       if (!res.ok) throw new Error('Failed to fetch statistics');
       return res.json();
     },
-    enabled: !!selectedRestaurant?.id,
+    enabled: !!selectedRestaurant?.id && isAdmin,
   });
 
-  // Fetch clients statistics
+  // Fetch clients statistics (admin only)
   const { data: clientsStats } = useQuery<Statistics>({
     queryKey: ['statistics', selectedRestaurant?.id, clientsTimeframe, 'clients'],
     queryFn: async () => {
@@ -71,10 +81,10 @@ export default function RestaurantInfoTab() {
       if (!res.ok) throw new Error('Failed to fetch statistics');
       return res.json();
     },
-    enabled: !!selectedRestaurant?.id,
+    enabled: !!selectedRestaurant?.id && isAdmin,
   });
 
-  // Fetch top dishes statistics
+  // Fetch top dishes statistics (admin only)
   const { data: topDishesStats, isLoading: loadingTopDishes } = useQuery<Statistics>({
     queryKey: ['statistics', selectedRestaurant?.id, topDishesTimeframe, 'topDishes'],
     queryFn: async () => {
@@ -83,7 +93,19 @@ export default function RestaurantInfoTab() {
       if (!res.ok) throw new Error('Failed to fetch statistics');
       return res.json();
     },
-    enabled: !!selectedRestaurant?.id,
+    enabled: !!selectedRestaurant?.id && isAdmin,
+  });
+
+  // Fetch top staff statistics (non-admin only)
+  const { data: topStaffData, isLoading: loadingTopStaff } = useQuery<{ workers: TopWorker[] }>({
+    queryKey: ['top-staff', selectedRestaurant?.id, topStaffTimeframe],
+    queryFn: async () => {
+      if (!selectedRestaurant?.id) return { workers: [] };
+      const res = await fetch(`/api/statistics/top-workers?restaurantId=${selectedRestaurant.id}&timeframe=${topStaffTimeframe}`);
+      if (!res.ok) throw new Error('Failed to fetch top staff');
+      return res.json();
+    },
+    enabled: !!selectedRestaurant?.id && !isAdmin,
   });
 
   const formatPrice = (price: number) => {
@@ -102,21 +124,6 @@ export default function RestaurantInfoTab() {
     year: t('timeframe.year') || 'Year',
   };
 
-  // Only show to admins
-  if (!isAdmin) {
-    return (
-      <div className="p-4 pb-24 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="p-4 bg-destructive/10 rounded-full mb-4">
-          <Building2 className="h-12 w-12 text-destructive" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">{t('common.accessRestricted') || 'Access Restricted'}</h2>
-        <p className="text-muted-foreground text-center max-w-sm">
-          {t('restaurant.adminOnly') || 'Restaurant management is only available for administrators.'}
-        </p>
-      </div>
-    );
-  }
-
   // Show restaurant selection prompt if none selected
   if (!selectedRestaurant) {
     return (
@@ -132,10 +139,129 @@ export default function RestaurantInfoTab() {
     );
   }
 
+  // Restricted view for non-admins (Floor/Kitchen roles)
+  if (!isAdmin) {
+    return (
+      <div className="p-4 pb-24 space-y-4">
+        {/* Top Staff Widget - Shows top workers by working time */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0 * 0.1 }}
+        >
+          <TopStaffWidget
+            workers={topStaffData?.workers || []}
+            timeframe={topStaffTimeframe}
+            onTimeframeChange={setTopStaffTimeframe}
+            isLoading={loadingTopStaff}
+          />
+        </motion.div>
+
+        {/* Restaurant Board */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 * 0.1 }}
+        >
+          <RemindersSection restaurantId={selectedRestaurant?.id} />
+        </motion.div>
+
+        {/* Action Buttons - Staff (view-only), Menu Designer, Floor Layouts */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2 * 0.1 }}
+        >
+          <Card>
+            <CardContent className="p-0 divide-y divide-border">
+              {/* Staff (view-only for non-admins) */}
+              <button
+                className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors"
+                onClick={() => setWorkersModalOpen(true)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-500/10 rounded-xl">
+                    <Users className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-medium block">{t('restaurant.staff') || 'Staff'}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('restaurant.viewTeam') || 'View team members'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+
+              {/* Menu Designer */}
+              <button
+                className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors"
+                onClick={() => setMenuModalOpen(true)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-green-500/10 rounded-xl">
+                    <MenuSquare className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-medium block">{t('restaurant.menuDesigner') || 'Menu Designer'}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('restaurant.viewCreateMenus') || 'View and create menus'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+
+              {/* Floor Layouts */}
+              <button
+                className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors"
+                onClick={() => setTableLayoutModalOpen(true)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                    <Grid2X2 className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-medium block">{t('restaurant.floorLayouts') || 'Floor Layouts'}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('restaurant.viewCreateLayouts') || 'View and create layouts'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Modals - passing canDelete=false for non-admins */}
+        <WorkersModal
+          open={workersModalOpen}
+          onOpenChange={setWorkersModalOpen}
+        />
+
+        <MenuModal
+          open={menuModalOpen}
+          onOpenChange={setMenuModalOpen}
+          restaurant={selectedRestaurant}
+          canDelete={false}
+        />
+
+        <TableLayoutsModal
+          open={tableLayoutModalOpen}
+          onOpenChange={setTableLayoutModalOpen}
+          restaurant={selectedRestaurant}
+          canDelete={false}
+        />
+      </div>
+    );
+  }
+
+  // Full admin view
   return (
     <div className="p-4 pb-24 space-y-4">
       {/* Revenue & Clients - Horizontal Row */}
-      <motion.div 
+      <motion.div
         className="grid grid-cols-2 gap-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -323,12 +449,14 @@ export default function RestaurantInfoTab() {
         open={menuModalOpen}
         onOpenChange={setMenuModalOpen}
         restaurant={selectedRestaurant}
+        canDelete={true}
       />
 
       <TableLayoutsModal
         open={tableLayoutModalOpen}
         onOpenChange={setTableLayoutModalOpen}
         restaurant={selectedRestaurant}
+        canDelete={true}
       />
     </div>
   );

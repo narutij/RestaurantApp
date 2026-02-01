@@ -1299,6 +1299,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================
+  // Worker Statistics API endpoints
+  // ============================================
+
+  // Get top workers by working time for a restaurant
+  app.get('/api/statistics/top-workers', async (req: Request, res: Response) => {
+    try {
+      const restaurantId = parseInt(req.query.restaurantId as string, 10);
+      const timeframe = (req.query.timeframe as string) || 'week';
+
+      if (!restaurantId || isNaN(restaurantId)) {
+        return res.status(400).json({ error: "restaurantId is required" });
+      }
+
+      // Calculate date range based on timeframe
+      const now = new Date();
+      let startDate: Date;
+
+      switch (timeframe) {
+        case 'day':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      const topWorkers = await storage.getTopWorkersByTime(restaurantId, startDate, now);
+      res.json({ workers: topWorkers });
+    } catch (error) {
+      console.error('Error getting top workers:', error);
+      res.status(500).json({ error: "Failed to get top workers" });
+    }
+  });
+
+  // Get detailed statistics for a specific worker
+  app.get('/api/workers/:workerId/statistics', async (req: Request, res: Response) => {
+    try {
+      const workerId = req.params.workerId;
+      const period = (req.query.period as string) || 'week';
+
+      if (!workerId) {
+        return res.status(400).json({ error: "workerId is required" });
+      }
+
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+
+      switch (period) {
+        case 'day':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'quarter':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case 'year':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      const statistics = await storage.getWorkerStatistics(workerId, startDate, now);
+      res.json(statistics);
+    } catch (error) {
+      console.error('Error getting worker statistics:', error);
+      res.status(500).json({ error: "Failed to get worker statistics" });
+    }
+  });
+
+  // ============================================
   // History API endpoints
   // ============================================
 

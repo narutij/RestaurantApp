@@ -3,16 +3,20 @@ import {
   User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, googleProvider } from '@/lib/firebase';
 import { userService, type AppUser, type UserRole } from '@/lib/firestore';
 
-// DEV MODE - set to true to bypass Firebase authentication
-const DEV_MODE = true;
+// DEV MODE - set to false for production with real Firebase auth
+const DEV_MODE = false;
 
-// Mock user for development
+// First admin email - this user gets admin role automatically
+const FIRST_ADMIN_EMAIL = 'narutisjustinas@gmail.com';
+
+// Mock user for development (only used when DEV_MODE is true)
 const DEV_USER: AppUser = {
   id: 'dev-user-123',
   uid: 'dev-user-123',
@@ -31,9 +35,11 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: { name?: string }) => Promise<void>;
   isAdmin: boolean;
+  isFloorOrKitchen: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,6 +52,45 @@ export function useAuth() {
   return context;
 }
 
+// Helper to check if email is the first admin
+const isFirstAdminEmail = (email: string): boolean => {
+  return email.toLowerCase() === FIRST_ADMIN_EMAIL.toLowerCase();
+};
+
+// Helper to create or get user record
+const getOrCreateUserRecord = async (user: User): Promise<AppUser | null> => {
+  // Check if user already exists in Firestore
+  let userData = await userService.getByUid(user.uid);
+
+  if (userData) {
+    return userData;
+  }
+
+  // User doesn't exist, check if it's the first admin
+  const email = user.email || '';
+  const isAdmin = isFirstAdminEmail(email);
+
+  // For first admin, create and auto-approve
+  if (isAdmin) {
+    const newUser: Omit<AppUser, 'id'> = {
+      uid: user.uid,
+      email: email,
+      name: user.displayName || email.split('@')[0],
+      role: 'admin',
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const userId = await userService.add(newUser);
+    return { id: userId, ...newUser };
+  }
+
+  // For non-admin users signing in with Google, create pending record
+  // They need admin approval
+  return null;
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(DEV_MODE ? DEV_USER : null);
@@ -53,7 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     if (DEV_MODE) {
-      // In dev mode, accept any credentials
       setAppUser(DEV_USER);
       return;
     }
@@ -61,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
     // Check if user exists in our users collection and is approved
-    const userData = await userService.getByUid(userCredential.user.uid);
+    const userData = await getOrCreateUserRecord(userCredential.user);
     if (!userData || userData.status !== 'active') {
       await signOut(auth);
       throw new Error('Account not approved or inactive. Please contact admin.');
@@ -70,17 +114,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (email: string, password: string) => {
     if (DEV_MODE) {
-      // In dev mode, just pretend signup worked
       return;
     }
     await createUserWithEmailAndPassword(auth, email, password);
   };
 
+  const signInWithGoogle = async () => {
+    if (DEV_MODE) {
+      setAppUser(DEV_USER);
+      return;
+    }
+
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+
+    // Check/create user record
+    const userData = await getOrCreateUserRecord(user);
+
+    if (!userData) {
+      // User is not approved (not the first admin and not in system)
+      await signOut(auth);
+      throw new Error('Account not approved. Please request access and wait for admin approval.');
+    }
+
+    if (userData.status !== 'active') {
+      await signOut(auth);
+      throw new Error('Account is inactive. Please contact admin.');
+    }
+
+    setAppUser(userData);
+  };
+
   const logout = async () => {
     if (DEV_MODE) {
-      // In dev mode, we don't actually log out (refresh to "log back in")
       setAppUser(null);
-      setTimeout(() => setAppUser(DEV_USER), 100); // Auto re-login
+      setTimeout(() => setAppUser(DEV_USER), 100);
       return;
     }
     await signOut(auth);
@@ -88,25 +156,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = async (updates: { name?: string }) => {
     if (!appUser) return;
-    
+
     if (DEV_MODE) {
-      // In dev mode, just update local state
       setAppUser(prev => prev ? { ...prev, ...updates } : null);
       return;
     }
-    
-    // Update in Firestore
+
     await userService.update(appUser.id, {
       ...updates,
       updatedAt: new Date()
     });
-    
-    // Update local state
+
     setAppUser(prev => prev ? { ...prev, ...updates } : null);
   };
 
   useEffect(() => {
-    // Skip Firebase auth listener in dev mode
     if (DEV_MODE) {
       setLoading(false);
       return;
@@ -116,14 +180,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(user);
 
       if (user) {
-        // Fetch user data from Firestore
         try {
-          const userData = await userService.getByUid(user.uid);
+          const userData = await getOrCreateUserRecord(user);
           if (userData && userData.status === 'active') {
             setAppUser(userData);
           } else {
             setAppUser(null);
-            // If user not approved, sign them out
             if (userData?.status !== 'active') {
               await signOut(auth);
             }
@@ -139,7 +201,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    // Set a timeout to ensure loading doesn't get stuck forever
     const timeout = setTimeout(() => {
       console.warn('Auth loading timeout - forcing loading to false');
       setLoading(false);
@@ -158,9 +219,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     login,
     signup,
+    signInWithGoogle,
     logout,
     updateProfile,
-    isAdmin: appUser?.role === 'admin'
+    isAdmin: appUser?.role === 'admin',
+    isFloorOrKitchen: appUser?.role === 'worker' || appUser?.role === 'kitchen'
   };
 
   return (

@@ -144,7 +144,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
   }) => (
     <div
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors rounded-xl mx-2 group ${onClick ? 'cursor-pointer' : ''}`}
+      className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors rounded-xl mx-2 group ${onClick ? 'cursor-pointer' : ''}`}
       style={{ width: 'calc(100% - 16px)' }}
     >
       <div className="flex items-center gap-3">
@@ -167,7 +167,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-[320px] sm:w-[360px] flex flex-col p-0 bg-[#181818] border-r border-white/5">
+        <SheetContent side="left" className="w-[320px] sm:w-[360px] flex flex-col p-0 bg-white dark:bg-[#181818] border-r border-gray-200 dark:border-white/5">
           {/* Header with gradient */}
           <div className="relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-purple-500/10 to-transparent" />
@@ -179,7 +179,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
               {/* User Profile Card */}
               <button
                 onClick={handleUserBlockClick}
-                className="w-full p-4 bg-[#1E2429] hover:bg-[#252B32] rounded-2xl transition-all group border border-white/5"
+                className="w-full p-4 bg-gray-100 dark:bg-[#1E2429] hover:bg-gray-200 dark:hover:bg-[#252B32] rounded-2xl transition-all group border border-gray-200 dark:border-white/5"
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-14 w-14 ring-2 ring-primary/30 flex-shrink-0">
@@ -232,13 +232,13 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                   label="Language"
                   description={language === 'en' ? 'English' : 'Lietuvių'}
                   action={
-                    <div className="flex items-center gap-0.5 bg-white/5 rounded-full p-1">
+                    <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-white/5 rounded-full p-1">
                       <button
                         type="button"
                         onClick={() => setLanguage('en')}
                         className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
                           language === 'en'
-                            ? 'bg-white/10 text-white'
+                            ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -249,7 +249,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                         onClick={() => setLanguage('lt')}
                         className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
                           language === 'lt'
-                            ? 'bg-white/10 text-white'
+                            ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -317,7 +317,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
           </div>
 
           {/* Footer with version and logout */}
-          <div className="p-4 border-t border-white/5 space-y-3">
+          <div className="p-4 border-t border-gray-200 dark:border-white/5 space-y-3">
             <div className="flex items-center justify-between px-2 py-2">
               <div className="flex items-center gap-2">
                 <Smartphone className="h-4 w-4 text-muted-foreground" />
@@ -339,7 +339,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
 
       {/* Profile Edit Modal */}
       <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
-        <DialogContent className="sm:max-w-[400px] p-0 bg-[#1E2429] border-white/10 overflow-hidden" hideCloseButton>
+        <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
           {/* Header with gradient */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-purple-500/10 to-transparent" />
@@ -418,7 +418,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   placeholder="Enter your name"
-                  className="h-11 bg-[#181818] border-white/10 focus:border-primary/50 rounded-xl"
+                  className="h-11 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 focus:border-primary/50 rounded-xl"
                 />
               </div>
               
@@ -427,7 +427,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 <Label className="text-xs text-muted-foreground">
                   Email Address
                 </Label>
-                <div className="h-11 px-3 flex items-center bg-[#181818]/50 border border-white/5 rounded-xl">
+                <div className="h-11 px-3 flex items-center bg-gray-50 dark:bg-[#181818]/50 border border-gray-200 dark:border-white/5 rounded-xl">
                   <span className="text-sm text-muted-foreground">{appUser?.email || 'Not set'}</span>
                 </div>
               </div>
@@ -437,7 +437,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 <Label className="text-xs text-muted-foreground">
                   Role
                 </Label>
-                <div className="h-11 px-3 flex items-center justify-between bg-[#181818]/50 border border-white/5 rounded-xl">
+                <div className="h-11 px-3 flex items-center justify-between bg-gray-50 dark:bg-[#181818]/50 border border-gray-200 dark:border-white/5 rounded-xl">
                   <span className="text-sm text-muted-foreground">{getTranslatedRole(appUser?.role)}</span>
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${getRoleBadgeColor(appUser?.role)}`}>
                     {appUser?.role === 'admin' ? 'Full Access' : 'Limited'}
@@ -450,7 +450,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
             <div className="flex gap-3 pt-2">
               <Button
                 variant="ghost"
-                className="flex-1 h-11 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl"
+                className="flex-1 h-11 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl"
                 onClick={() => setProfileModalOpen(false)}
                 disabled={isUpdatingProfile}
               >

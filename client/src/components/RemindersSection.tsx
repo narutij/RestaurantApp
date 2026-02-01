@@ -26,7 +26,7 @@ interface RemindersSectionProps {
 export function RemindersSection({ restaurantId }: RemindersSectionProps) {
   const [newReminder, setNewReminder] = useState('');
   const [isImportant, setIsImportant] = useState(false);
-  const { appUser } = useAuth();
+  const { appUser, isAdmin } = useAuth();
   const { t } = useLanguage();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
@@ -158,7 +158,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
                   className={`p-3 rounded-xl border group transition-colors relative ${
                     reminder.isImportant 
                       ? 'bg-amber-500/10 border-amber-500/30 hover:border-amber-500/50' 
-                      : 'bg-[#181818] border-white/5 hover:border-white/10'
+                      : 'bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10'
                   }`}
                 >
                   {/* Important badge at top right */}
@@ -171,15 +171,18 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
                     <p className="text-sm flex-1" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                       {reminder.text}
                     </p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10"
-                      onClick={() => deleteMutation.mutate(reminder.id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="h-3 w-3 text-red-400" />
-                    </Button>
+                    {/* Only show delete button for own notes or for admins */}
+                    {(isAdmin || reminder.createdBy === appUser?.id) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10"
+                        onClick={() => deleteMutation.mutate(reminder.id)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-3 w-3 text-red-400" />
+                      </Button>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
@@ -198,14 +201,14 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
         )}
 
         {/* Add Note Input */}
-        <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-white/5">
           <Input
             placeholder="Add a note to the board..."
             value={newReminder}
             onChange={(e) => setNewReminder(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={createMutation.isPending}
-            className={`flex-1 bg-[#181818] border-white/10 focus:border-cyan-500/50 ${
+            className={`flex-1 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 focus:border-cyan-500/50 ${
               isImportant ? 'border-amber-500/30' : ''
             }`}
           />

@@ -135,7 +135,7 @@ export function TableLayoutModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] p-0 bg-[#1E2429] border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[500px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           {/* Header */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent" />
@@ -190,7 +190,7 @@ export function TableLayoutModal({
               <div className="p-6 pt-2 space-y-4">
                 <Button
                   variant="outline"
-                  className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+                  className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
                   onClick={() => {
                     setEditingTableId(null);
                     setTableEntryModalOpen(true);
@@ -212,7 +212,7 @@ export function TableLayoutModal({
                     {tables.map((table: any) => (
                       <div
                         key={table.id}
-                        className="p-4 bg-[#181818] rounded-xl border border-white/5 flex items-center justify-between"
+                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
@@ -251,7 +251,7 @@ export function TableLayoutModal({
                   value={layoutName}
                   onChange={(e) => setLayoutName(e.target.value)}
                   placeholder="e.g., Summer Setup"
-                  className="mt-1.5 bg-white/5 border-white/10 focus:border-amber-500/50"
+                  className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-amber-500/50"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
@@ -278,7 +278,7 @@ export function TableLayoutModal({
               <div className="p-6 pt-2 space-y-4">
                 <Button
                   variant="outline"
-                  className="w-full border-dashed border-white/20 hover:border-white/40 hover:bg-white/5"
+                  className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
                   onClick={() => {
                     setLayoutName("");
                     setCreateMode(true);
@@ -300,7 +300,7 @@ export function TableLayoutModal({
                     {layouts.map((layout: TableLayout) => (
                       <div
                         key={layout.id}
-                        className="p-4 bg-[#181818] rounded-xl border border-white/5 hover:border-white/20 transition-colors cursor-pointer"
+                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20 transition-colors cursor-pointer"
                         onClick={() => setSelectedLayout(layout)}
                       >
                         <div className="flex items-center justify-between">
@@ -355,7 +355,7 @@ export function TableLayoutModal({
       
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-[#1E2429] border-white/10">
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Layout</AlertDialogTitle>
             <AlertDialogDescription>
@@ -363,7 +363,7 @@ export function TableLayoutModal({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => layoutToDelete && deleteLayoutMutation.mutate(layoutToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"

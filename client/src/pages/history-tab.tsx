@@ -29,6 +29,7 @@ import { useWorkday } from '@/contexts/WorkdayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice, formatTime } from '@/lib/utils';
 import { type OrderWithDetails, type WebSocketMessage } from '@shared/schema';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -549,6 +550,7 @@ export default function HistoryTab() {
   const queryClient = useQueryClient();
   const { addMessageListener } = useWebSocketContext();
   const { addNotification } = useNotifications();
+  const { isAdmin } = useAuth();
 
   // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -710,7 +712,8 @@ export default function HistoryTab() {
                   Live Updates
                 </Badge>
               )}
-              {!hasActiveShift && (
+              {/* Export button only visible to admins */}
+              {isAdmin && !hasActiveShift && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -725,65 +728,82 @@ export default function HistoryTab() {
           </div>
         </div>
 
-        {/* Date Navigation */}
+        {/* Date Navigation - Only admins can navigate dates */}
         <CardContent className="p-4 border-t">
           <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => changeDay('prev')}
-              className="h-10 w-10"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
+            {isAdmin ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => changeDay('prev')}
+                className="h-10 w-10"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            ) : (
+              <div className="w-10" /> /* Spacer for non-admins */
+            )}
 
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2 text-base font-medium hover:bg-muted/50"
-                >
-                  <CalendarIcon className="h-5 w-5" />
-                  <span>{formattedDate}</span>
-                  {isToday && (
-                    <Badge variant="secondary" className="ml-2">Today</Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => {
-                    if (date) {
-                      setSelectedDate(date);
-                      setCalendarOpen(false);
-                    }
-                  }}
-                  initialFocus
-                />
-                <div className="p-3 border-t">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={goToToday}
+            {isAdmin ? (
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 text-base font-medium hover:bg-muted/50"
                   >
-                    Go to Today
+                    <CalendarIcon className="h-5 w-5" />
+                    <span>{formattedDate}</span>
+                    {isToday && (
+                      <Badge variant="secondary" className="ml-2">Today</Badge>
+                    )}
                   </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate(date);
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    initialFocus
+                  />
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={goToToday}
+                    >
+                      Go to Today
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              /* Non-admins see static "Today" display */
+              <div className="flex items-center gap-2 text-base font-medium">
+                <CalendarIcon className="h-5 w-5" />
+                <span>{formattedDate}</span>
+                <Badge variant="secondary" className="ml-2">Today</Badge>
+              </div>
+            )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => changeDay('next')}
-              className="h-10 w-10"
-              disabled={isToday}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+            {isAdmin ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => changeDay('next')}
+                className="h-10 w-10"
+                disabled={isToday}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            ) : (
+              <div className="w-10" /> /* Spacer for non-admins */
+            )}
           </div>
         </CardContent>
       </Card>

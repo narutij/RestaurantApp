@@ -160,6 +160,20 @@ export interface IStorage {
     peopleCount: number;
     topItems: Array<{ name: string; count: number; revenue: number }>;
   }>;
+
+  // Worker Statistics
+  getTopWorkersByTime(restaurantId: number, startDate: Date, endDate: Date): Promise<Array<{
+    workerId: string;
+    name: string;
+    totalMinutes: number;
+  }>>;
+
+  getWorkerStatistics(workerId: string, startDate: Date, endDate: Date): Promise<{
+    totalHours: number;
+    shiftsCount: number;
+    averageShiftLength: number;
+    restaurants: Array<{ id: number; name: string; hours: number }>;
+  }>;
 }
 
 export class MemStorage implements IStorage {
@@ -2574,6 +2588,156 @@ export class MemStorage implements IStorage {
     } catch (error) {
       console.error("Error getting statistics:", error);
       return { revenue: 0, peopleCount: 0, topItems: [] };
+    }
+  }
+
+  // Get top workers by working time
+  async getTopWorkersByTime(restaurantId: number, startDate: Date, endDate: Date): Promise<Array<{
+    workerId: string;
+    name: string;
+    totalMinutes: number;
+  }>> {
+    try {
+      // Get workdays for this restaurant within the date range
+      const restaurantWorkdays = await db.select().from(workdays)
+        .where(eq(workdays.restaurantId, restaurantId));
+
+      const filteredWorkdays = restaurantWorkdays.filter(wd => {
+        if (!wd.startedAt) return false;
+        const wdDate = new Date(wd.startedAt);
+        return wdDate >= startDate && wdDate <= endDate;
+      });
+
+      if (filteredWorkdays.length === 0) {
+        return [];
+      }
+
+      const workdayIds = filteredWorkdays.map(wd => wd.id);
+
+      // Get all workers who worked during these workdays
+      const allWorkdayWorkers = await db.select().from(workdayWorkers)
+        .where(inArray(workdayWorkers.workdayId, workdayIds));
+
+      // Calculate total working time for each worker
+      const workerTimeMap = new Map<string, { totalMinutes: number; name: string }>();
+
+      for (const ww of allWorkdayWorkers) {
+        const workday = filteredWorkdays.find(wd => wd.id === ww.workdayId);
+        if (!workday) continue;
+
+        const joinedAt = new Date(ww.joinedAt!);
+        const endTime = workday.endedAt ? new Date(workday.endedAt) : new Date();
+        const minutesWorked = Math.max(0, (endTime.getTime() - joinedAt.getTime()) / (1000 * 60));
+
+        const existing = workerTimeMap.get(ww.workerId) || { totalMinutes: 0, name: ww.workerId };
+        workerTimeMap.set(ww.workerId, {
+          totalMinutes: existing.totalMinutes + minutesWorked,
+          name: existing.name
+        });
+      }
+
+      // Get worker names from restaurant workers
+      const restaurantWorkersList = await this.getRestaurantWorkers(restaurantId);
+      for (const rw of restaurantWorkersList) {
+        if (workerTimeMap.has(rw.workerId)) {
+          const data = workerTimeMap.get(rw.workerId)!;
+          data.name = rw.name;
+        }
+      }
+
+      // Convert to array and sort by total minutes (descending)
+      const topWorkers = Array.from(workerTimeMap.entries())
+        .map(([workerId, data]) => ({
+          workerId,
+          name: data.name,
+          totalMinutes: Math.round(data.totalMinutes)
+        }))
+        .sort((a, b) => b.totalMinutes - a.totalMinutes)
+        .slice(0, 3);
+
+      return topWorkers;
+    } catch (error) {
+      console.error("Error getting top workers by time:", error);
+      return [];
+    }
+  }
+
+  // Get detailed worker statistics
+  async getWorkerStatistics(workerId: string, startDate: Date, endDate: Date): Promise<{
+    totalHours: number;
+    shiftsCount: number;
+    averageShiftLength: number;
+    restaurants: Array<{ id: number; name: string; hours: number }>;
+  }> {
+    try {
+      // Get all workday workers entries for this worker
+      const allWorkdayWorkers = await db.select().from(workdayWorkers)
+        .where(eq(workdayWorkers.workerId, workerId));
+
+      if (allWorkdayWorkers.length === 0) {
+        return { totalHours: 0, shiftsCount: 0, averageShiftLength: 0, restaurants: [] };
+      }
+
+      const workdayIds = allWorkdayWorkers.map(ww => ww.workdayId);
+
+      // Get corresponding workdays
+      const workerWorkdays = await db.select().from(workdays)
+        .where(inArray(workdays.id, workdayIds));
+
+      // Filter by date range
+      const filteredWorkdays = workerWorkdays.filter(wd => {
+        if (!wd.startedAt) return false;
+        const wdDate = new Date(wd.startedAt);
+        return wdDate >= startDate && wdDate <= endDate;
+      });
+
+      if (filteredWorkdays.length === 0) {
+        return { totalHours: 0, shiftsCount: 0, averageShiftLength: 0, restaurants: [] };
+      }
+
+      // Calculate statistics
+      let totalMinutes = 0;
+      const restaurantHoursMap = new Map<number, number>();
+
+      for (const wd of filteredWorkdays) {
+        const workerEntry = allWorkdayWorkers.find(ww => ww.workdayId === wd.id);
+        if (!workerEntry || !workerEntry.joinedAt) continue;
+
+        const joinedAt = new Date(workerEntry.joinedAt);
+        const endTime = wd.endedAt ? new Date(wd.endedAt) : new Date();
+        const minutesWorked = Math.max(0, (endTime.getTime() - joinedAt.getTime()) / (1000 * 60));
+
+        totalMinutes += minutesWorked;
+
+        // Track hours per restaurant
+        const currentHours = restaurantHoursMap.get(wd.restaurantId) || 0;
+        restaurantHoursMap.set(wd.restaurantId, currentHours + minutesWorked / 60);
+      }
+
+      // Get restaurant names
+      const restaurantStats: Array<{ id: number; name: string; hours: number }> = [];
+      for (const [restaurantId, hours] of restaurantHoursMap.entries()) {
+        const restaurant = await this.getRestaurant(restaurantId);
+        restaurantStats.push({
+          id: restaurantId,
+          name: restaurant?.name || `Restaurant ${restaurantId}`,
+          hours: Math.round(hours * 10) / 10
+        });
+      }
+
+      const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
+      const shiftsCount = filteredWorkdays.length;
+      const averageShiftLength = shiftsCount > 0 ? Math.round(totalHours / shiftsCount * 10) / 10 : 0;
+
+      return {
+        totalHours,
+        shiftsCount,
+        averageShiftLength,
+        restaurants: restaurantStats.sort((a, b) => b.hours - a.hours)
+      };
+    } catch (error) {
+      console.error("Error getting worker statistics:", error);
+      return { totalHours: 0, shiftsCount: 0, averageShiftLength: 0, restaurants: [] };
     }
   }
 }
