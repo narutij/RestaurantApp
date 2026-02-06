@@ -11,7 +11,7 @@ import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Menu, Restaurant } from '@shared/schema';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { formatPrice } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type MenuModalProps = {
   open: boolean;
@@ -21,6 +21,7 @@ type MenuModalProps = {
 };
 
 export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: MenuModalProps) {
+  const { formatPrice, t } = useLanguage();
   // Menu states
   const [showMenuForm, setShowMenuForm] = useState(false);
   const [isEditingMenu, setIsEditingMenu] = useState(false);
@@ -57,10 +58,10 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
       queryClient.invalidateQueries({ queryKey: ['/api/menus', restaurant?.id] });
       setShowMenuForm(false);
       setMenuName("");
-      toast({ title: "Menu Created", description: "Menu has been created successfully." });
+      toast({ title: t('menu.menuCreated'), description: t('menu.menuCreatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create menu.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedCreate'), variant: "destructive" });
     }
   });
 
@@ -73,10 +74,10 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
       setIsEditingMenu(false);
       setMenuToEdit(null);
       setMenuName("");
-      toast({ title: "Menu Updated", description: "Menu has been updated successfully." });
+      toast({ title: t('menu.menuUpdated'), description: t('menu.menuUpdatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update menu.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedUpdate'), variant: "destructive" });
     }
   });
 
@@ -89,10 +90,10 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       setDeleteMenuDialog(false);
       setMenuToDelete(null);
-      toast({ title: "Menu Deleted", description: "Menu has been deleted successfully." });
+      toast({ title: t('menu.menuDeleted'), description: t('menu.menuDeletedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to delete menu.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedDelete'), variant: "destructive" });
     }
   });
 
@@ -114,8 +115,8 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
             <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
               <MenuSquare className="h-8 w-8 text-green-400" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No Restaurant Selected</h3>
-            <p className="text-sm text-muted-foreground">Please select a restaurant first.</p>
+            <h3 className="text-lg font-semibold mb-2">{t('menu.noRestaurant')}</h3>
+            <p className="text-sm text-muted-foreground">{t('menu.selectRestaurantFirst')}</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -146,10 +147,10 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                   )}
                   <div>
                     <h2 className="text-lg font-semibold">
-                      {selectedMenu ? selectedMenu.name : 'Menu Designer'}
+                      {selectedMenu ? selectedMenu.name : t('menu.designer')}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      {selectedMenu ? 'Manage categories and items' : `${menus.length} menus`}
+                      {selectedMenu ? t('menu.manageCategoriesItems') : `${menus.length} ${t('menu.menusCount')}`}
                     </p>
                   </div>
                 </div>
@@ -178,10 +179,10 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                 {showMenuForm ? (
                   <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
-                      {isEditingMenu ? 'Edit Menu' : 'Create New Menu'}
+                      {isEditingMenu ? t('menu.editMenu') : t('menu.createNewMenu')}
                     </h3>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Menu Name</Label>
+                      <Label className="text-xs text-muted-foreground">{t('menu.menuName')}</Label>
                       <Input
                         value={menuName}
                         onChange={(e) => setMenuName(e.target.value)}
@@ -200,7 +201,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                           setMenuName("");
                         }}
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                       <Button
                         size="sm"
@@ -210,7 +211,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                         {(createMenuMutation.isPending || updateMenuMutation.isPending) && (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         )}
-                        {isEditingMenu ? 'Update' : 'Create'}
+                        {isEditingMenu ? t('menu.update') : t('common.create')}
                       </Button>
                     </div>
                   </div>
@@ -225,7 +226,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Create New Menu
+                    {t('menu.createNewMenu')}
                   </Button>
                 )}
 
@@ -234,7 +235,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                     <div className="w-12 h-12 mx-auto mb-3 bg-white/5 rounded-full flex items-center justify-center">
                       <MenuSquare className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No menus yet</p>
+                    <p className="text-sm text-muted-foreground">{t('menu.noMenus')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -251,7 +252,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                             </div>
                             <div>
                               <p className="text-sm font-medium">{menu.name}</p>
-                              <p className="text-xs text-muted-foreground">Click to manage</p>
+                              <p className="text-xs text-muted-foreground">{t('menu.clickToManage')}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
@@ -299,18 +300,18 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
       <AlertDialog open={deleteMenuDialog} onOpenChange={setDeleteMenuDialog}>
         <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Menu</AlertDialogTitle>
+            <AlertDialogTitle>{t('menu.deleteMenu')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete "{menuToDelete?.name}" and all its categories and items?
+              {t('common.delete')} "{menuToDelete?.name}" {t('menu.deleteAndAllItems')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => menuToDelete && deleteMenuMutation.mutate(menuToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -345,6 +346,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['/api/menu-categories', menuId],
@@ -361,10 +363,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
       queryClient.invalidateQueries({ queryKey: ['/api/menu-categories', menuId] });
       setShowCategoryForm(false);
       setCategoryName("");
-      toast({ title: "Category Created", description: "Category has been created successfully." });
+      toast({ title: t('menu.categoryCreated'), description: t('menu.categoryCreatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create category.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedCreateCategory'), variant: "destructive" });
     }
   });
 
@@ -377,10 +379,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
       setIsEditingCategory(false);
       setCategoryToEdit(null);
       setCategoryName("");
-      toast({ title: "Category Updated", description: "Category has been updated successfully." });
+      toast({ title: t('menu.categoryUpdated'), description: t('menu.categoryUpdatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update category.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedUpdateCategory'), variant: "destructive" });
     }
   });
 
@@ -391,10 +393,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       setDeleteCategoryDialogOpen(false);
       setDeletingCategoryId(null);
-      toast({ title: "Category Deleted", description: "Category has been deleted." });
+      toast({ title: t('menu.categoryDeleted'), description: t('menu.categoryDeletedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to delete category.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedDeleteCategory'), variant: "destructive" });
     }
   });
 
@@ -405,10 +407,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
     onSuccess: () => {
       if (itemCategoryId) queryClient.invalidateQueries({ queryKey: ['/api/menu-items', itemCategoryId] });
       resetItemForm();
-      toast({ title: "Item Created", description: "Menu item has been created successfully." });
+      toast({ title: t('menu.itemCreated'), description: t('menu.itemCreatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create item.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedCreateItem'), variant: "destructive" });
     }
   });
 
@@ -418,10 +420,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
     onSuccess: () => {
       if (itemCategoryId) queryClient.invalidateQueries({ queryKey: ['/api/menu-items', itemCategoryId] });
       resetItemForm();
-      toast({ title: "Item Updated", description: "Menu item has been updated successfully." });
+      toast({ title: t('menu.itemUpdated'), description: t('menu.itemUpdatedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update item.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedUpdateItem'), variant: "destructive" });
     }
   });
 
@@ -431,10 +433,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
       setDeleteItemDialogOpen(false);
       setDeletingItemId(null);
-      toast({ title: "Item Deleted", description: "Menu item has been deleted." });
+      toast({ title: t('menu.itemDeleted'), description: t('menu.itemDeletedDesc') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to delete item.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('menu.failedDeleteItem'), variant: "destructive" });
     }
   });
 
@@ -462,7 +464,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
     if (!itemName.trim() || !itemCategoryId) return;
     const price = parseFloat(itemPrice);
     if (isNaN(price) || price <= 0) {
-      toast({ title: "Invalid Price", description: "Please enter a valid price.", variant: "destructive" });
+      toast({ title: t('menu.invalidPrice'), description: t('menu.enterValidPrice'), variant: "destructive" });
       return;
     }
     createItemMutation.mutate({
@@ -477,7 +479,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
     if (!itemName.trim() || !itemToEdit) return;
     const price = parseFloat(itemPrice);
     if (isNaN(price) || price <= 0) {
-      toast({ title: "Invalid Price", description: "Please enter a valid price.", variant: "destructive" });
+      toast({ title: t('menu.invalidPrice'), description: t('menu.enterValidPrice'), variant: "destructive" });
       return;
     }
     updateItemMutation.mutate({
@@ -511,10 +513,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
             <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <FolderOpen className="h-4 w-4 text-blue-400" />
-                {isEditingCategory ? 'Edit Category' : 'Add Category'}
+                {isEditingCategory ? t('menu.editCategory') : t('menu.addCategory')}
               </h3>
               <div>
-                <Label className="text-xs text-muted-foreground">Category Name</Label>
+                <Label className="text-xs text-muted-foreground">{t('menu.categoryName')}</Label>
                 <Input
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
@@ -533,7 +535,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                     setCategoryName("");
                   }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   size="sm"
@@ -543,7 +545,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                   {(createCategoryMutation.isPending || updateCategoryMutation.isPending) && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}
-                  {isEditingCategory ? 'Update' : 'Add'}
+                  {isEditingCategory ? t('menu.update') : t('workday.add')}
                 </Button>
               </div>
             </div>
@@ -552,10 +554,10 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
             <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <UtensilsCrossed className="h-4 w-4 text-emerald-400" />
-                {isEditingItem ? 'Edit Item' : 'Add Item'}
+                {isEditingItem ? t('menu.editItem') : t('menu.addItem')}
               </h3>
               <div>
-                <Label className="text-xs text-muted-foreground">Item Name</Label>
+                <Label className="text-xs text-muted-foreground">{t('menu.itemName')}</Label>
                 <Input
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
@@ -564,7 +566,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Price (€)</Label>
+                <Label className="text-xs text-muted-foreground">{t('menu.price')} (€)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -576,7 +578,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Description (Optional)</Label>
+                <Label className="text-xs text-muted-foreground">{t('menu.descriptionOptional')}</Label>
                 <Textarea
                   value={itemDescription}
                   onChange={(e) => setItemDescription(e.target.value)}
@@ -586,7 +588,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={resetItemForm}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   size="sm"
@@ -596,7 +598,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                   {(createItemMutation.isPending || updateItemMutation.isPending) && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}
-                  {isEditingItem ? 'Update' : 'Add'}
+                  {isEditingItem ? t('menu.update') : t('workday.add')}
                 </Button>
               </div>
             </div>
@@ -611,7 +613,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
               }}
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Category
+              {t('menu.addCategory')}
             </Button>
           )}
 
@@ -620,7 +622,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
               <div className="w-12 h-12 mx-auto mb-3 bg-white/5 rounded-full flex items-center justify-center">
                 <UtensilsCrossed className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm text-muted-foreground">No categories yet</p>
+              <p className="text-sm text-muted-foreground">{t('menu.noCategories')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -719,16 +721,16 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Item</AlertDialogTitle>
-            <AlertDialogDescription>Delete "{deletingItemName}"?</AlertDialogDescription>
+            <AlertDialogTitle>{t('menu.deleteItem')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('common.delete')} "{deletingItemName}"?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingItemId && deleteItemMutation.mutate(deletingItemId)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -738,16 +740,16 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
       <AlertDialog open={deleteCategoryDialogOpen} onOpenChange={setDeleteCategoryDialogOpen}>
         <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Category</AlertDialogTitle>
-            <AlertDialogDescription>Delete "{deletingCategoryName}" and all its items?</AlertDialogDescription>
+            <AlertDialogTitle>{t('menu.deleteCategory')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('common.delete')} "{deletingCategoryName}" {t('menu.deleteCategoryAndItems')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingCategoryId && deleteCategoryMutation.mutate(deletingCategoryId)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -757,14 +759,15 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
 }
 
 function CategoryItemCount({ categoryId }: { categoryId: number }) {
+  const { t } = useLanguage();
   const { data: items = [] } = useQuery({
     queryKey: ['/api/menu-items', categoryId],
     queryFn: () => apiRequest(`/api/menu-items?categoryId=${categoryId}`),
   });
-  
+
   return (
     <span className="ml-2 text-xs text-muted-foreground">
-      ({items.length} item{items.length !== 1 ? 's' : ''})
+      ({items.length} {items.length !== 1 ? t('menu.items') : t('menu.item')})
     </span>
   );
 }
@@ -779,6 +782,7 @@ function CategoryItems({ categoryId, canDelete = true, onEditItem, onDeleteItem 
     queryKey: ['/api/menu-items', categoryId],
     queryFn: () => apiRequest(`/api/menu-items?categoryId=${categoryId}`),
   });
+  const { t, formatPrice } = useLanguage();
 
   if (isLoading) {
     return (
@@ -791,7 +795,7 @@ function CategoryItems({ categoryId, canDelete = true, onEditItem, onDeleteItem 
   if (items.length === 0) {
     return (
       <div className="p-4 border-t border-gray-200 dark:border-white/5 text-center">
-        <p className="text-xs text-muted-foreground">No items in this category</p>
+        <p className="text-xs text-muted-foreground">{t('menu.noItems')}</p>
       </div>
     );
   }

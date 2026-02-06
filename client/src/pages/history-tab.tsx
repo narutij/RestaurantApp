@@ -30,7 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatPrice, formatTime } from '@/lib/utils';
+import { formatTime } from '@/lib/utils';
 import { type OrderWithDetails, type WebSocketMessage } from '@shared/schema';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type DateRange } from 'react-day-picker';
@@ -40,6 +40,7 @@ import {
   ChevronRight,
   ChevronDown,
   DollarSign,
+  Euro,
   ShoppingCart,
   Users,
   AlertCircle,
@@ -139,11 +140,11 @@ const formatShiftDuration = (startedAt: Date | null, endedAt: Date | null): stri
 };
 
 // Format time range
-const formatTimeRange = (startedAt: Date | null, endedAt: Date | null): string => {
-  if (!startedAt) return 'Not started';
+const formatTimeRange = (startedAt: Date | null, endedAt: Date | null, t?: (key: string) => string): string => {
+  if (!startedAt) return t ? t('history.notStarted') : 'Not started';
   const start = new Date(startedAt);
   const startStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (!endedAt) return `${startStr} - ongoing`;
+  if (!endedAt) return `${startStr} - ${t ? t('history.ongoing') : 'ongoing'}`;
   const end = new Date(endedAt);
   const endStr = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${startStr} - ${endStr}`;
@@ -208,6 +209,7 @@ const ShiftCard = ({
   shiftNumber: number;
   totalShifts: number;
 }) => {
+  const { t, formatPrice } = useLanguage();
   const [isTableBreakdownOpen, setIsTableBreakdownOpen] = useState(false);
   const [isWorkersBreakdownOpen, setIsWorkersBreakdownOpen] = useState(false);
   const [expandedTables, setExpandedTables] = useState<string[]>([]);
@@ -321,19 +323,19 @@ const ShiftCard = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-lg">
-                    Shift {shiftNumber}
+                    {t('history.shift')} {shiftNumber}
                     {totalShifts > 1 && <span className="text-muted-foreground">/{totalShifts}</span>}
                   </h3>
                   {shift.isActive && (
                     <Badge className="bg-green-500 text-white animate-pulse">
                       <CircleDot className="h-3 w-3 mr-1" />
-                      Live
+                      {t('history.live')}
                     </Badge>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground flex items-center gap-2">
                   <Timer className="h-3.5 w-3.5" />
-                  {formatTimeRange(shift.startedAt, shift.endedAt)}
+                  {formatTimeRange(shift.startedAt, shift.endedAt, t)}
                 </div>
               </div>
             </div>
@@ -363,19 +365,19 @@ const ShiftCard = ({
               <div className="text-xl font-bold text-green-600 dark:text-green-400">
                 {formatPrice(shift.revenue)}
               </div>
-              <div className="text-xs text-muted-foreground">Revenue</div>
+              <div className="text-xs text-muted-foreground">{t('history.revenue')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl font-bold">{shift.orderCount}</div>
-              <div className="text-xs text-muted-foreground">Orders</div>
+              <div className="text-xs text-muted-foreground">{t('history.orders')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl font-bold">{shift.tablesServed}</div>
-              <div className="text-xs text-muted-foreground">Tables</div>
+              <div className="text-xs text-muted-foreground">{t('history.tables')}</div>
             </div>
             <div className="text-center">
               <div className="text-xl font-bold">{shift.peopleServed}</div>
-              <div className="text-xs text-muted-foreground">Guests</div>
+              <div className="text-xs text-muted-foreground">{t('history.guests')}</div>
             </div>
           </div>
         </div>
@@ -387,7 +389,7 @@ const ShiftCard = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Workers</span>
+                  <span className="text-sm font-medium">{t('history.workers')}</span>
                   <Badge variant="secondary" className="text-xs">
                     {shift.workers.length}
                   </Badge>
@@ -409,14 +411,14 @@ const ShiftCard = ({
                       <div>
                         <div className="font-medium">{worker.workerId}</div>
                         <div className="text-xs text-muted-foreground">
-                          Started {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {t('history.started')} {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="font-medium">{worker.workingTime}</div>
                       <div className="text-xs text-muted-foreground">
-                        {worker.tablesServed} tables
+                        {worker.tablesServed} {t('history.tables').toLowerCase()}
                       </div>
                     </div>
                   </div>
@@ -433,9 +435,9 @@ const ShiftCard = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Table Breakdown</span>
+                  <span className="text-sm font-medium">{t('history.tableBreakdown')}</span>
                   <Badge variant="secondary" className="text-xs">
-                    {tableGroups.length} sessions
+                    {tableGroups.length} {t('history.sessions')}
                   </Badge>
                 </div>
                 <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTableBreakdownOpen ? 'rotate-180' : ''}`} />
@@ -460,10 +462,10 @@ const ShiftCard = ({
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2">
                               <Utensils className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">Table {table.tableNumber}</span>
+                              <span className="font-medium">{t('history.table')} {table.tableNumber}</span>
                             </div>
                             <Badge variant="secondary" className="text-xs">
-                              {table.orders.length} items
+                              {table.orders.length} {t('history.items')}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
                               <Users className="h-3 w-3 mr-1" />
@@ -471,7 +473,7 @@ const ShiftCard = ({
                             </Badge>
                             <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400">
                               <Clock className="h-3 w-3 mr-1" />
-                              {table.sessionDuration || '< 1m'}
+                              {table.sessionDuration || t('history.lessThan1m')}
                             </Badge>
                           </div>
                           <span className="font-semibold text-green-600 dark:text-green-400">
@@ -502,7 +504,7 @@ const ShiftCard = ({
                                     </span>
                                     {order.isSpecialItem && (
                                       <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600">
-                                        Special
+                                        {t('history.special')}
                                       </Badge>
                                     )}
                                   </div>
@@ -535,7 +537,7 @@ const ShiftCard = ({
         {tableGroups.length === 0 && shift.workers.length === 0 && (
           <div className="p-8 text-center">
             <History className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-            <p className="text-muted-foreground text-sm">No orders in this shift yet</p>
+            <p className="text-muted-foreground text-sm">{t('history.noOrdersInShift')}</p>
           </div>
         )}
       </Card>
@@ -546,7 +548,7 @@ const ShiftCard = ({
 // Main History Tab Component
 export default function HistoryTab() {
   const { selectedRestaurant } = useWorkday();
-  const { t } = useLanguage();
+  const { t, formatPrice, language } = useLanguage();
   const queryClient = useQueryClient();
   const { addMessageListener } = useWebSocketContext();
   const { addNotification } = useNotifications();
@@ -678,7 +680,7 @@ export default function HistoryTab() {
         </div>
         <h2 className="text-xl font-semibold mb-2">{t('workday.noRestaurantSelected')}</h2>
         <p className="text-muted-foreground text-center max-w-sm">
-          Select a restaurant to view history
+          {t('history.selectRestaurant')}
         </p>
       </div>
     );
@@ -700,16 +702,16 @@ export default function HistoryTab() {
         <div className="p-4 bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-transparent">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold">History</h2>
+              <h2 className="text-lg font-bold">{t('history.title')}</h2>
               <p className="text-sm text-muted-foreground">
-                Daily statistics & orders
+                {t('history.dailyStats')}
               </p>
             </div>
             <div className="flex items-center gap-2">
               {hasActiveShift && isToday && (
                 <Badge className="bg-green-500 text-white animate-pulse">
                   <Activity className="h-3 w-3 mr-1" />
-                  Live Updates
+                  {t('history.liveUpdates')}
                 </Badge>
               )}
               {/* Export button only visible to admins */}
@@ -721,7 +723,7 @@ export default function HistoryTab() {
                   onClick={() => setExportModalOpen(true)}
                 >
                   <Download className="h-4 w-4 mr-2 text-indigo-500" />
-                  <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Export</span>
+                  <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">{t('history.export')}</span>
                 </Button>
               )}
             </div>
@@ -754,7 +756,7 @@ export default function HistoryTab() {
                     <CalendarIcon className="h-5 w-5" />
                     <span>{formattedDate}</span>
                     {isToday && (
-                      <Badge variant="secondary" className="ml-2">Today</Badge>
+                      <Badge variant="secondary" className="ml-2">{t('history.today')}</Badge>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -777,7 +779,7 @@ export default function HistoryTab() {
                       className="w-full"
                       onClick={goToToday}
                     >
-                      Go to Today
+                      {t('history.goToToday')}
                     </Button>
                   </div>
                 </PopoverContent>
@@ -787,7 +789,7 @@ export default function HistoryTab() {
               <div className="flex items-center gap-2 text-base font-medium">
                 <CalendarIcon className="h-5 w-5" />
                 <span>{formattedDate}</span>
-                <Badge variant="secondary" className="ml-2">Today</Badge>
+                <Badge variant="secondary" className="ml-2">{t('history.today')}</Badge>
               </div>
             )}
 
@@ -840,10 +842,10 @@ export default function HistoryTab() {
             <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-full flex items-center justify-center">
               <History className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No Activity</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('history.noActivity')}</h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              No shifts or orders recorded for this day.
-              {isToday && " Start a workday to begin tracking."}
+              {t('history.noShiftsRecorded')}
+              {isToday && ` ${t('history.startWorkdayToTrack')}`}
             </p>
           </CardContent>
         </Card>
@@ -861,26 +863,26 @@ export default function HistoryTab() {
             {/* Total Stats Grid - These are COMBINED totals from all shifts */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard
-                icon={DollarSign}
-                label="Total Revenue"
+                icon={language === 'lt' ? Euro : DollarSign}
+                label={t('history.totalRevenue')}
                 value={formatPrice(history?.totals.revenue || 0)}
                 color="success"
               />
               <StatCard
                 icon={ShoppingCart}
-                label="Total Orders"
+                label={t('history.totalOrders')}
                 value={history?.totals.orderCount || 0}
                 color="primary"
               />
               <StatCard
                 icon={Utensils}
-                label="Tables Served"
+                label={t('history.tablesServed')}
                 value={history?.totals.tablesServed || 0}
                 color="warning"
               />
               <StatCard
                 icon={Users}
-                label="Guests Served"
+                label={t('history.guestsServed')}
                 value={history?.totals.peopleServed || 0}
                 color="info"
               />
@@ -889,63 +891,76 @@ export default function HistoryTab() {
             {/* Workers Widget - Extended */}
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3">
                   {/* Left side - icon and stats */}
-                  <div className="flex items-center gap-3 min-w-[140px]">
+                  <div className="flex items-center gap-3 min-w-[100px]">
                     <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                       <UserCheck className="h-5 w-5" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold tracking-tight">{history?.totals.workersCount || 0}</div>
-                      <div className="text-xs text-muted-foreground">Workers</div>
+                      <div className="text-xs text-muted-foreground">{t('history.workers')}</div>
                       <div className="text-xs text-muted-foreground/70 mt-0.5">
-                        {history?.shifts.length || 0} shift{(history?.shifts.length || 0) > 1 ? 's' : ''}
+                        {history?.shifts.length || 0} {t('history.shiftsCount')}
                       </div>
                     </div>
                   </div>
 
-                  {/* Divider */}
+                  {/* Divider - moved left */}
                   <div className="w-px h-16 bg-border self-center" />
 
-                  {/* Right side - worker list */}
+                  {/* Right side - real worker list from shifts */}
                   <div className="flex-1 min-w-0">
                     <ScrollArea className="h-[68px]">
-                      <div className="space-y-2 pr-2">
-                        {/* Mock worker data - replace with real data later */}
-                        {[
-                          { name: 'John Smith', shift: 1, time: '09:00 - 17:30' },
-                          { name: 'Emma Wilson', shift: 1, time: '09:15 - 17:00' },
-                          { name: 'Mike Johnson', shift: 2, time: '17:00 - 23:30' },
-                          { name: 'Sarah Davis', shift: 2, time: '17:30 - 23:45' },
-                          { name: 'Alex Brown', shift: 2, time: '18:00 - 00:15' },
-                        ].slice(0, Math.max(3, history?.totals.workersCount || 0)).map((worker, idx) => (
-                          <div 
-                            key={idx}
-                            className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-[10px] font-semibold text-primary">
-                                  {worker.name.split(' ').map(n => n[0]).join('')}
-                                </span>
+                      <div className="space-y-1.5 pr-2">
+                        {(() => {
+                          // Aggregate unique workers across all shifts
+                          const workerMap = new Map<string, { shiftNumbers: number[] }>();
+                          history?.shifts.forEach((shift, sIdx) => {
+                            shift.workers.forEach(w => {
+                              const existing = workerMap.get(w.workerId);
+                              if (existing) {
+                                if (!existing.shiftNumbers.includes(sIdx + 1)) {
+                                  existing.shiftNumbers.push(sIdx + 1);
+                                }
+                              } else {
+                                workerMap.set(w.workerId, { shiftNumbers: [sIdx + 1] });
+                              }
+                            });
+                          });
+
+                          if (workerMap.size === 0) {
+                            return (
+                              <div className="text-xs text-muted-foreground py-2">
+                                {t('history.noWorkerData')}
                               </div>
-                              <span className="text-sm font-medium truncate">{worker.name}</span>
+                            );
+                          }
+
+                          return Array.from(workerMap.entries()).map(([workerId, data]) => (
+                            <div
+                              key={workerId}
+                              className="flex items-center justify-between py-1 px-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
+                            >
+                              <span className="text-sm font-medium truncate">{workerId}</span>
+                              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                {data.shiftNumbers.map(s => (
+                                  <Badge
+                                    key={s}
+                                    variant="outline"
+                                    className={`text-[10px] px-1.5 py-0 h-5 ${
+                                      s === 1
+                                        ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                        : 'bg-purple-500/10 text-purple-600 border-purple-500/30'
+                                    }`}
+                                  >
+                                    S{s}
+                                  </Badge>
+                                ))}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                              <span className="text-xs text-muted-foreground">{worker.time}</span>
-                              <Badge 
-                                variant="outline" 
-                                className={`text-[10px] px-1.5 py-0 h-5 ${
-                                  worker.shift === 1 
-                                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30' 
-                                    : 'bg-purple-500/10 text-purple-600 border-purple-500/30'
-                                }`}
-                              >
-                                S{worker.shift}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
+                          ));
+                        })()}
                       </div>
                     </ScrollArea>
                   </div>
@@ -962,9 +977,9 @@ export default function HistoryTab() {
                       <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div className="flex-1">
-                      <div className="font-medium">Multiple Shifts Today</div>
+                      <div className="font-medium">{t('history.multipleShifts')}</div>
                       <div className="text-sm text-muted-foreground">
-                        {history.shifts.length} shifts recorded. Above stats are combined totals.
+                        {history.shifts.length} {t('history.shiftsCount')}. {t('history.combinedTotals')}
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -1014,9 +1029,9 @@ export default function HistoryTab() {
                 <FileSpreadsheet className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold">Export Report</DialogTitle>
+                <DialogTitle className="text-lg font-bold">{t('history.exportReport')}</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Download Excel report to your device
+                  {t('history.downloadExcel')}
                 </p>
               </div>
             </div>
@@ -1025,7 +1040,7 @@ export default function HistoryTab() {
           <div className="space-y-5 pt-2">
             {/* Date Range */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Date Range</Label>
+              <Label className="text-sm font-medium">{t('history.dateRange')}</Label>
               <Popover open={exportRangeCalendarOpen} onOpenChange={setExportRangeCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -1042,7 +1057,7 @@ export default function HistoryTab() {
                         exportDateRange.from.toLocaleDateString()
                       )
                     ) : (
-                      <span className="text-muted-foreground">Select date range...</span>
+                      <span className="text-muted-foreground">{t('history.selectDateRange')}</span>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -1066,7 +1081,7 @@ export default function HistoryTab() {
                         setExportDateRange({ from: weekAgo, to: today });
                       }}
                     >
-                      Last 7 days
+                      {t('history.last7Days')}
                     </Button>
                     <Button 
                       variant="outline" 
@@ -1078,7 +1093,7 @@ export default function HistoryTab() {
                         setExportDateRange({ from: monthAgo, to: today });
                       }}
                     >
-                      Last 30 days
+                      {t('history.last30Days')}
                     </Button>
                   </div>
                 </PopoverContent>
@@ -1089,7 +1104,7 @@ export default function HistoryTab() {
 
           <DialogFooter className="gap-2 pt-4">
             <Button variant="outline" onClick={() => setExportModalOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleExport}
@@ -1099,12 +1114,12 @@ export default function HistoryTab() {
               {isExporting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
+                  {t('history.generating')}
                 </>
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Download Report
+                  {t('history.downloadReport')}
                 </>
               )}
             </Button>

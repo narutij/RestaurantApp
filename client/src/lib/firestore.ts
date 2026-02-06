@@ -9,33 +9,15 @@ import {
   onSnapshot,
   query,
   where,
-  orderBy,
   Timestamp
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type {
-  Restaurant,
-  Menu,
-  MenuItem,
-  Table,
-  Order,
-  UserProfile,
-  MenuCategory,
-  TableLayout,
-  DayTemplate
-} from "@shared/schema";
+
+// Firestore is used ONLY for user accounts and account requests.
+// All restaurant data (orders, tables, menus, etc.) lives in PostgreSQL.
 
 // Collections
-export const collections = {
-  restaurants: "restaurants",
-  menus: "menus",
-  menuCategories: "menuCategories",
-  menuItems: "menuItems",
-  tables: "tables",
-  tableLayouts: "tableLayouts",
-  orders: "orders",
-  userProfiles: "userProfiles",
-  dayTemplates: "dayTemplates",
+const collections = {
   users: "users",
   accountRequests: "accountRequests"
 } as const;
@@ -46,7 +28,7 @@ export type UserRole = "admin" | "user" | "worker" | "kitchen" | "manager" | "fl
 // User types
 export type AppUser = {
   id: string;
-  uid?: string; // Firebase Auth UID (optional for mock users)
+  uid?: string;
   email: string;
   name: string;
   role: UserRole;
@@ -55,9 +37,9 @@ export type AppUser = {
   updatedAt?: Date;
   approvedBy?: string;
   approvedAt?: Date;
-  isOnline?: boolean; // For displaying online status
-  assignedRestaurants?: number[]; // Restaurant IDs this user can access (for non-admins)
-  photoUrl?: string; // Profile photo URL
+  isOnline?: boolean;
+  assignedRestaurants?: number[];
+  photoUrl?: string;
 };
 
 export type AccountRequest = {
@@ -76,7 +58,7 @@ export type AccountRequest = {
 };
 
 // Generic Firestore operations
-export async function addDocument<T>(collectionName: string, data: Omit<T, 'id'>) {
+async function addDocument<T>(collectionName: string, data: Omit<T, 'id'>) {
   const docRef = await addDoc(collection(db, collectionName), {
     ...data,
     createdAt: Timestamp.now(),
@@ -85,7 +67,7 @@ export async function addDocument<T>(collectionName: string, data: Omit<T, 'id'>
   return docRef.id;
 }
 
-export async function updateDocument<T>(collectionName: string, id: string, data: Partial<T>) {
+async function updateDocument<T>(collectionName: string, id: string, data: Partial<T>) {
   const docRef = doc(db, collectionName, id);
   await updateDoc(docRef, {
     ...data,
@@ -93,23 +75,21 @@ export async function updateDocument<T>(collectionName: string, id: string, data
   });
 }
 
-export async function deleteDocument(collectionName: string, id: string) {
+async function deleteDocument(collectionName: string, id: string) {
   const docRef = doc(db, collectionName, id);
   await deleteDoc(docRef);
 }
 
-export async function getDocument<T>(collectionName: string, id: string): Promise<T | null> {
+async function getDocument<T>(collectionName: string, id: string): Promise<T | null> {
   const docRef = doc(db, collectionName, id);
   const docSnap = await getDoc(docRef);
-
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() } as T;
-  } else {
-    return null;
   }
+  return null;
 }
 
-export async function getCollection<T>(collectionName: string): Promise<T[]> {
+async function getCollection<T>(collectionName: string): Promise<T[]> {
   const querySnapshot = await getDocs(collection(db, collectionName));
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
@@ -117,8 +97,7 @@ export async function getCollection<T>(collectionName: string): Promise<T[]> {
   } as T));
 }
 
-// Real-time listeners
-export function listenToCollection<T>(
+function listenToCollection<T>(
   collectionName: string,
   callback: (data: T[]) => void,
   queryConstraints?: any[]
@@ -135,77 +114,7 @@ export function listenToCollection<T>(
   });
 }
 
-// Specific collection operations
-export const restaurantService = {
-  getAll: () => getCollection<Restaurant>(collections.restaurants),
-  get: (id: string) => getDocument<Restaurant>(collections.restaurants, id),
-  add: (data: Omit<Restaurant, 'id'>) => addDocument<Restaurant>(collections.restaurants, data),
-  update: (id: string, data: Partial<Restaurant>) => updateDocument<Restaurant>(collections.restaurants, id, data),
-  delete: (id: string) => deleteDocument(collections.restaurants, id),
-  listen: (callback: (data: Restaurant[]) => void) => listenToCollection<Restaurant>(collections.restaurants, callback)
-};
-
-export const menuService = {
-  getAll: () => getCollection<Menu>(collections.menus),
-  getByRestaurant: async (restaurantId: string) => {
-    const q = query(collection(db, collections.menus), where("restaurantId", "==", restaurantId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Menu));
-  },
-  get: (id: string) => getDocument<Menu>(collections.menus, id),
-  add: (data: Omit<Menu, 'id'>) => addDocument<Menu>(collections.menus, data),
-  update: (id: string, data: Partial<Menu>) => updateDocument<Menu>(collections.menus, id, data),
-  delete: (id: string) => deleteDocument(collections.menus, id)
-};
-
-export const menuItemService = {
-  getAll: () => getCollection<MenuItem>(collections.menuItems),
-  getByCategory: async (categoryId: string) => {
-    const q = query(collection(db, collections.menuItems), where("categoryId", "==", categoryId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MenuItem));
-  },
-  get: (id: string) => getDocument<MenuItem>(collections.menuItems, id),
-  add: (data: Omit<MenuItem, 'id'>) => addDocument<MenuItem>(collections.menuItems, data),
-  update: (id: string, data: Partial<MenuItem>) => updateDocument<MenuItem>(collections.menuItems, id, data),
-  delete: (id: string) => deleteDocument(collections.menuItems, id)
-};
-
-export const tableService = {
-  getAll: () => getCollection<Table>(collections.tables),
-  getByLayout: async (layoutId: string) => {
-    const q = query(collection(db, collections.tables), where("layoutId", "==", layoutId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Table));
-  },
-  getActive: async () => {
-    const q = query(collection(db, collections.tables), where("isActive", "==", true));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Table));
-  },
-  get: (id: string) => getDocument<Table>(collections.tables, id),
-  add: (data: Omit<Table, 'id'>) => addDocument<Table>(collections.tables, data),
-  update: (id: string, data: Partial<Table>) => updateDocument<Table>(collections.tables, id, data),
-  delete: (id: string) => deleteDocument(collections.tables, id),
-  listen: (callback: (data: Table[]) => void) => listenToCollection<Table>(collections.tables, callback)
-};
-
-export const orderService = {
-  getAll: () => getCollection<Order>(collections.orders),
-  getByTable: async (tableId: string) => {
-    const q = query(collection(db, collections.orders), where("tableId", "==", tableId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-  },
-  get: (id: string) => getDocument<Order>(collections.orders, id),
-  add: (data: Omit<Order, 'id'>) => addDocument<Order>(collections.orders, data),
-  update: (id: string, data: Partial<Order>) => updateDocument<Order>(collections.orders, id, data),
-  delete: (id: string) => deleteDocument(collections.orders, id),
-  listen: (callback: (data: Order[]) => void) => listenToCollection<Order>(collections.orders, callback),
-  listenActive: (callback: (data: Order[]) => void) =>
-    listenToCollection<Order>(collections.orders, callback, [where("completed", "==", false)])
-};
-
+// ─── User Service ───────────────────────────────────────────────
 export const userService = {
   getAll: () => getCollection<AppUser>(collections.users),
   getByUid: async (uid: string) => {
@@ -227,6 +136,7 @@ export const userService = {
   listen: (callback: (data: AppUser[]) => void) => listenToCollection<AppUser>(collections.users, callback)
 };
 
+// ─── Account Request Service ────────────────────────────────────
 export const accountRequestService = {
   getAll: () => getCollection<AccountRequest>(collections.accountRequests),
   getPending: async () => {
@@ -242,3 +152,23 @@ export const accountRequestService = {
   listenPending: (callback: (data: AccountRequest[]) => void) =>
     listenToCollection<AccountRequest>(collections.accountRequests, callback, [where("status", "==", "pending")])
 };
+
+// ─── Firestore Cleanup ─────────────────────────────────────────
+// Deletes all documents from old/unused Firestore collections (restaurant data).
+// Call this once to clean up leftover data that should only live in PostgreSQL.
+export async function purgeFirestoreRestaurantData() {
+  const staleCollections = [
+    "restaurants", "menus", "menuCategories", "menuItems",
+    "tables", "tableLayouts", "orders", "userProfiles", "dayTemplates"
+  ];
+
+  let totalDeleted = 0;
+  for (const name of staleCollections) {
+    const snapshot = await getDocs(collection(db, name));
+    for (const docSnap of snapshot.docs) {
+      await deleteDoc(doc(db, name, docSnap.id));
+      totalDeleted++;
+    }
+  }
+  return totalDeleted;
+}

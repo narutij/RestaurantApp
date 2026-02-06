@@ -11,6 +11,7 @@ import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Restaurant } from '@shared/schema';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type Layout = {
   id: number;
@@ -60,6 +61,7 @@ export function TableLayoutsModal({
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const { data: serverTables = [], isLoading: isLoadingTables } = useQuery<Table[]>({
     queryKey: ['/api/tables'],
@@ -122,10 +124,10 @@ export function TableLayoutsModal({
       setShowTableForm(false);
       setTableNumber("");
       setTableLabel("");
-      toast({ title: "Success", description: "Table was added successfully." });
+      toast({ title: t('common.success'), description: t('layout.tableAdded') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create table.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('layout.failedCreateTable'), variant: "destructive" });
     }
   });
 
@@ -139,10 +141,10 @@ export function TableLayoutsModal({
       setTableToEdit(null);
       setTableNumber("");
       setTableLabel("");
-      toast({ title: "Success", description: "Table was updated successfully." });
+      toast({ title: t('common.success'), description: t('layout.tableUpdated') });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update table.", variant: "destructive" });
+      toast({ title: t('common.error'), description: t('layout.failedUpdateTable'), variant: "destructive" });
     }
   });
 
@@ -152,16 +154,16 @@ export function TableLayoutsModal({
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       setDeleteTableDialog(false);
       setTableToDelete(null);
-      toast({ title: "Success", description: "Table was deleted successfully." });
+      toast({ title: t('common.success'), description: t('layout.tableDeleted') });
     },
     onError: (error: any) => {
       if (error?.message?.includes('JSON')) {
         queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
         setDeleteTableDialog(false);
         setTableToDelete(null);
-        toast({ title: "Success", description: "Table was deleted successfully." });
+        toast({ title: t('common.success'), description: t('layout.tableDeleted') });
       } else {
-        toast({ title: "Error", description: "Failed to delete table.", variant: "destructive" });
+        toast({ title: t('common.error'), description: t('layout.failedDeleteTable'), variant: "destructive" });
       }
     }
   });
@@ -173,10 +175,10 @@ export function TableLayoutsModal({
       queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
       setShowLayoutForm(false);
       setLayoutName('');
-      toast({ title: 'Success', description: 'Layout was created successfully.' });
+      toast({ title: t('common.success'), description: t('layout.layoutCreated') });
     },
     onError: () => {
-      toast({ title: 'Error', description: 'Failed to create layout.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('layout.failedCreateLayout'), variant: 'destructive' });
     },
   });
 
@@ -189,10 +191,10 @@ export function TableLayoutsModal({
       setIsEditingLayout(false);
       setLayoutToEdit(null);
       setLayoutName('');
-      toast({ title: 'Success', description: 'Layout was updated successfully.' });
+      toast({ title: t('common.success'), description: t('layout.layoutUpdated') });
     },
     onError: () => {
-      toast({ title: 'Error', description: 'Failed to update layout.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('layout.failedUpdateLayout'), variant: 'destructive' });
     },
   });
 
@@ -206,10 +208,10 @@ export function TableLayoutsModal({
       if (selectedLayout && layoutToDelete && selectedLayout.id === layoutToDelete.id) {
         setSelectedLayout(null);
       }
-      toast({ title: 'Success', description: 'Layout was deleted successfully.' });
+      toast({ title: t('common.success'), description: t('layout.layoutDeleted') });
     },
     onError: () => {
-      toast({ title: 'Error', description: 'Failed to delete layout.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('layout.failedDeleteLayout'), variant: 'destructive' });
     },
   });
 
@@ -271,12 +273,12 @@ export function TableLayoutsModal({
                   )}
                   <div>
                     <h2 className="text-lg font-semibold">
-                      {selectedLayout ? selectedLayout.name : 'Floor Layouts'}
+                      {selectedLayout ? selectedLayout.name : t('layout.floorLayouts')}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      {selectedLayout 
-                        ? `${selectedLayout.tables?.length || 0} tables`
-                        : `${layouts.length} layouts`
+                      {selectedLayout
+                        ? `${selectedLayout.tables?.length || 0} ${t('layout.tables')}`
+                        : `${layouts.length} ${t('layout.layouts')}`
                       }
                     </p>
                   </div>
@@ -303,11 +305,11 @@ export function TableLayoutsModal({
                 {showTableForm ? (
                   <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
-                      {isEditingTable ? 'Edit Table' : 'Add New Table'}
+                      {isEditingTable ? t('layout.editTable') : t('layout.addNewTable')}
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <Label className="text-xs text-muted-foreground">Table Number</Label>
+                        <Label className="text-xs text-muted-foreground">{t('layout.tableNumber')}</Label>
                         <Input
                           value={tableNumber}
                           onChange={(e) => setTableNumber(e.target.value)}
@@ -316,7 +318,7 @@ export function TableLayoutsModal({
                         />
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Description</Label>
+                        <Label className="text-xs text-muted-foreground">{t('layout.description')}</Label>
                         <Input
                           value={tableLabel}
                           onChange={(e) => setTableLabel(e.target.value)}
@@ -337,7 +339,7 @@ export function TableLayoutsModal({
                           setTableLabel("");
                         }}
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                       <Button
                         size="sm"
@@ -347,7 +349,7 @@ export function TableLayoutsModal({
                         {(createTableMutation.isPending || updateTableMutation.isPending) && (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         )}
-                        {isEditingTable ? 'Update' : 'Add Table'}
+                        {isEditingTable ? t('menu.update') : t('layout.addTable')}
                       </Button>
                     </div>
                   </div>
@@ -363,7 +365,7 @@ export function TableLayoutsModal({
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Table
+                    {t('layout.addTable')}
                   </Button>
                 )}
 
@@ -373,7 +375,7 @@ export function TableLayoutsModal({
                     <div className="w-12 h-12 mx-auto mb-3 bg-white/5 rounded-full flex items-center justify-center">
                       <Table2 className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No tables yet</p>
+                    <p className="text-sm text-muted-foreground">{t('layout.noTables')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -387,7 +389,7 @@ export function TableLayoutsModal({
                             <span className="text-sm font-bold text-amber-400">{String(table.number).slice(0, 2)}</span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium">Table {table.number}</p>
+                            <p className="text-sm font-medium">{t('layout.table')} {table.number}</p>
                             <p className="text-xs text-muted-foreground">{table.label}</p>
                           </div>
                         </div>
@@ -434,10 +436,10 @@ export function TableLayoutsModal({
                 {showLayoutForm && !isSelectionMode ? (
                   <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
-                      {isEditingLayout ? 'Edit Layout' : 'Create New Layout'}
+                      {isEditingLayout ? t('layout.editLayout') : t('layout.createNewLayout')}
                     </h3>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Layout Name</Label>
+                      <Label className="text-xs text-muted-foreground">{t('layout.layoutName')}</Label>
                       <Input
                         value={layoutName}
                         onChange={(e) => setLayoutName(e.target.value)}
@@ -456,7 +458,7 @@ export function TableLayoutsModal({
                           setLayoutName("");
                         }}
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                       <Button
                         size="sm"
@@ -466,7 +468,7 @@ export function TableLayoutsModal({
                         {(createLayoutMutation.isPending || updateLayoutMutation.isPending) && (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         )}
-                        {isEditingLayout ? 'Update' : 'Create'}
+                        {isEditingLayout ? t('menu.update') : t('common.create')}
                       </Button>
                     </div>
                   </div>
@@ -481,7 +483,7 @@ export function TableLayoutsModal({
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Create New Layout
+                    {t('layout.createNewLayout')}
                   </Button>
                 )}
 
@@ -491,7 +493,7 @@ export function TableLayoutsModal({
                     <div className="w-12 h-12 mx-auto mb-3 bg-white/5 rounded-full flex items-center justify-center">
                       <Grid2X2 className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No layouts yet</p>
+                    <p className="text-sm text-muted-foreground">{t('layout.noLayouts')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -513,7 +515,7 @@ export function TableLayoutsModal({
                             <div>
                               <p className="text-sm font-medium">{layout.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {layout.tables?.length || 0} table{(layout.tables?.length || 0) !== 1 ? 's' : ''}
+                                {layout.tables?.length || 0} {(layout.tables?.length || 0) !== 1 ? t('layout.tables') : t('layout.table1')}
                               </p>
                             </div>
                           </div>
@@ -563,7 +565,7 @@ export function TableLayoutsModal({
             <div className="p-4 border-t border-gray-200 dark:border-white/5">
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={() => {
@@ -575,7 +577,7 @@ export function TableLayoutsModal({
                   }}
                   disabled={!tempSelectedLayoutId}
                 >
-                  Select Layout
+                  {t('layout.selectLayout')}
                 </Button>
               </div>
             </div>
@@ -587,39 +589,39 @@ export function TableLayoutsModal({
       <AlertDialog open={deleteLayoutDialog} onOpenChange={setDeleteLayoutDialog}>
         <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Layout</AlertDialogTitle>
+            <AlertDialogTitle>{t('layout.deleteLayout')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{layoutToDelete?.name}"? This will also delete all tables within this layout.
+              {t('common.delete')} "{layoutToDelete?.name}"? {t('layout.deleteLayoutDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => layoutToDelete && deleteLayoutMutation.mutate(layoutToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       {/* Delete Table Dialog */}
       <AlertDialog open={deleteTableDialog} onOpenChange={setDeleteTableDialog}>
         <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Table</AlertDialogTitle>
+            <AlertDialogTitle>{t('layout.deleteTable')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete table "{tableToDelete?.number}"?
+              {t('common.delete')} {t('layout.table1')} "{tableToDelete?.number}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => tableToDelete && deleteTableMutation.mutate(tableToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

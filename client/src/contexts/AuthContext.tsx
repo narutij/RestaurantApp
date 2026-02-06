@@ -37,7 +37,7 @@ interface AuthContextType {
   signup: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (updates: { name?: string }) => Promise<void>;
+  updateProfile: (updates: { name?: string; photoUrl?: string }) => Promise<void>;
   isAdmin: boolean;
   isFloorOrKitchen: boolean;
 }
@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
-  const updateProfile = async (updates: { name?: string }) => {
+  const updateProfile = async (updates: { name?: string; photoUrl?: string }) => {
     if (!appUser) return;
 
     if (DEV_MODE) {

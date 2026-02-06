@@ -41,33 +41,6 @@ import {
   ChevronUp,
 } from 'lucide-react';
 
-// Mock workers for UI/UX demonstration
-const MOCK_WORKERS: AppUser[] = [
-  {
-    id: 'mock-1',
-    name: 'Jonas Kazlauskas',
-    email: 'jonas@example.com',
-    role: 'worker',
-    status: 'active',
-    isOnline: true,
-  },
-  {
-    id: 'mock-2',
-    name: 'Eglė Petrauskienė',
-    email: 'egle@example.com',
-    role: 'worker',
-    status: 'active',
-    isOnline: true,
-  },
-  {
-    id: 'mock-3',
-    name: 'Tomas Jonaitis',
-    email: 'tomas@example.com',
-    role: 'kitchen',
-    status: 'active',
-    isOnline: false,
-  },
-];
 
 // Worker status during workday
 type WorkerShiftStatus = 'working' | 'resting' | 'released';
@@ -286,8 +259,8 @@ export default function WorkdayTab() {
     },
   });
 
-  // Combine real workers with mock workers for UI demonstration
-  const allWorkers = [...realWorkers, ...MOCK_WORKERS];
+  // Filter out the main admin account from worker selection
+  const allWorkers = realWorkers.filter(w => w.email !== 'narutisjustinas@gmail.com');
 
   // Create workday mutation
   const createWorkdayMutation = useMutation({
@@ -353,6 +326,19 @@ export default function WorkdayTab() {
       }
 
       await startWorkday(workday.id);
+
+      // Save workers to database for history tracking
+      for (const workerId of selectedWorkerIds) {
+        try {
+          await fetch(`/api/workdays/${workday.id}/workers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workerId }),
+          });
+        } catch (e) {
+          console.error('Failed to save worker to workday:', e);
+        }
+      }
 
       // Initialize workers
       const now = new Date();
@@ -492,11 +478,24 @@ export default function WorkdayTab() {
   };
 
   // Add worker during active workday
-  const handleAddWorkerToShift = (workerId: string) => {
+  const handleAddWorkerToShift = async (workerId: string) => {
     const worker = allWorkers.find(w => w.id === workerId);
     if (!worker) return;
 
     if (workdayWorkers.find(w => w.id === workerId)) return;
+
+    // Save to database for history tracking
+    if (activeWorkday?.id) {
+      try {
+        await fetch(`/api/workdays/${activeWorkday.id}/workers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workerId }),
+        });
+      } catch (e) {
+        console.error('Failed to save worker to workday:', e);
+      }
+    }
 
     const now = new Date();
     setWorkdayWorkers(prev => [...prev, {

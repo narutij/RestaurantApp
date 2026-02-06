@@ -122,11 +122,11 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
             </div>
             <div>
               <CardTitle className="text-base">
-                Restaurant Board
+                {t('board.title')}
               </CardTitle>
               {reminders.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {reminders.length} note{reminders.length !== 1 ? 's' : ''}
+                  {reminders.length} {reminders.length !== 1 ? t('board.notes') : t('board.note')}
                 </p>
               )}
             </div>
@@ -145,7 +145,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
               <MessageSquare className="h-6 w-6 text-cyan-500/50" />
             </div>
             <p className="text-sm text-muted-foreground">
-              No notes yet. Add one below!
+              {t('board.noNotes')}
             </p>
           </div>
         ) : (
@@ -203,7 +203,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
         {/* Add Note Input */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-white/5">
           <Input
-            placeholder="Add a note to the board..."
+            placeholder={t('board.addNote')}
             value={newReminder}
             onChange={(e) => setNewReminder(e.target.value)}
             onKeyPress={handleKeyPress}
@@ -221,7 +221,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
                 ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30' 
                 : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10'
             }`}
-            title={isImportant ? 'Marked as important' : 'Mark as important'}
+            title={isImportant ? t('board.markedImportant') : t('board.markImportant')}
           >
             <AlertTriangle className="h-4 w-4" />
           </Button>

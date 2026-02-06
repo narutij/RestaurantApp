@@ -22,7 +22,7 @@ import { useWorkday } from '@/contexts/WorkdayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { apiRequest } from '@/lib/queryClient';
-import { formatPrice } from '@/lib/utils';
+// formatPrice from useLanguage() context
 import { WebSocketMessage, type MenuItem, type Table, type OrderWithDetails, type MenuCategory } from '@shared/schema';
 import {
   Plus,
@@ -112,8 +112,8 @@ export default function OrderTab() {
   const { addNotification } = useNotifications();
   const { addMessageListener } = useWebSocketContext();
   const { activeWorkday, isWorkdayActive } = useWorkday();
-  const { t } = useLanguage();
-  
+  const { t, formatPrice } = useLanguage();
+
   // Use context for persistent state across tab switches
   const { 
     selectedTableId: activeTableId, 
@@ -175,16 +175,40 @@ export default function OrderTab() {
     const stored = localStorage.getItem('orderCustomBadges');
     return stored ? JSON.parse(stored) : [];
   });
+  const [hiddenDefaultBadges, setHiddenDefaultBadges] = useState<string[]>(() => {
+    const stored = localStorage.getItem('hiddenDefaultBadges');
+    return stored ? JSON.parse(stored) : [];
+  });
   const [newBadgeName, setNewBadgeName] = useState('');
   const [showAddBadge, setShowAddBadge] = useState(false);
+  const [badgeEditMode, setBadgeEditMode] = useState(false);
 
-  // Persist custom badges
+  // Persist custom badges and hidden badges
   useEffect(() => {
     localStorage.setItem('orderCustomBadges', JSON.stringify(customBadges));
   }, [customBadges]);
 
-  // All badges combined
-  const allBadges = useMemo(() => [...DEFAULT_BADGES, ...customBadges], [customBadges]);
+  useEffect(() => {
+    localStorage.setItem('hiddenDefaultBadges', JSON.stringify(hiddenDefaultBadges));
+  }, [hiddenDefaultBadges]);
+
+  // Remove a badge (custom or hide default)
+  const handleRemoveBadge = (badge: string) => {
+    if (DEFAULT_BADGES.includes(badge)) {
+      setHiddenDefaultBadges(prev => [...prev, badge]);
+    } else {
+      setCustomBadges(prev => prev.filter(b => b !== badge));
+    }
+    // Also deselect it if selected
+    setItemBadges(prev => prev.filter(b => b !== badge));
+    setSelectedBadges(prev => prev.filter(b => b !== badge));
+  };
+
+  // All badges combined (filtering out hidden defaults)
+  const allBadges = useMemo(() => [
+    ...DEFAULT_BADGES.filter(b => !hiddenDefaultBadges.includes(b)),
+    ...customBadges
+  ], [customBadges, hiddenDefaultBadges]);
 
   // Active time calculation
   const [, setTick] = useState(0);
@@ -749,7 +773,7 @@ export default function OrderTab() {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground mt-1">{t('orders.tapToActivate') || 'Tap to activate'}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{t('orders.tapToOpen') || 'Tap to open'}</div>
                     )}
                   </button>
                 );
@@ -988,19 +1012,47 @@ export default function OrderTab() {
                 />
                 <div className="flex flex-wrap gap-1.5">
                   {allBadges.map(badge => (
-                    <button
-                      key={badge}
-                      type="button"
-                      onClick={() => toggleItemBadge(badge)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                        itemBadges.includes(badge)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-muted hover:bg-muted/80 text-foreground'
-                      }`}
-                    >
-                      {badge}
-                    </button>
+                    <div key={badge} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => !badgeEditMode && toggleItemBadge(badge)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                          badgeEditMode
+                            ? 'bg-red-500/10 text-red-600 border border-red-300 animate-[wiggle_0.3s_ease-in-out]'
+                            : itemBadges.includes(badge)
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-muted hover:bg-muted/80 text-foreground'
+                        }`}
+                      >
+                        {badge}
+                        {badgeEditMode && (
+                          <span
+                            className="ml-1 inline-flex cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveBadge(badge); }}
+                          >
+                            ×
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   ))}
+
+                  {/* Edit badges toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setBadgeEditMode(!badgeEditMode)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                      badgeEditMode
+                        ? 'bg-red-500 text-white'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {badgeEditMode ? (
+                      <>{t('common.done') || 'Done'}</>
+                    ) : (
+                      <><Tag className="h-3 w-3 inline mr-0.5" />{t('orders.editBadges') || 'Edit'}</>
+                    )}
+                  </button>
 
                   {/* Add custom badge button */}
                   {!showAddBadge ? (
@@ -1017,7 +1069,7 @@ export default function OrderTab() {
                       <Input
                         value={newBadgeName}
                         onChange={(e) => setNewBadgeName(e.target.value)}
-                        placeholder="Badge name"
+                        placeholder={t('orders.badgeName')}
                         className="h-7 w-24 text-xs"
                         onKeyDown={(e) => e.key === 'Enter' && handleAddCustomBadge()}
                       />
@@ -1055,8 +1107,8 @@ export default function OrderTab() {
                       const key = item.categoryId?.toString() ?? 'uncategorized';
                       if (!acc[key]) {
                         const name = key === 'uncategorized'
-                          ? 'Uncategorized'
-                          : menuCategories.find(c => c.id === item.categoryId)?.name || 'Uncategorized';
+                          ? t('orders.uncategorized')
+                          : menuCategories.find(c => c.id === item.categoryId)?.name || t('orders.uncategorized');
                         acc[key] = { name, items: [] };
                       }
                       acc[key].items.push(item);
@@ -1139,7 +1191,7 @@ export default function OrderTab() {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>
-              {t('orders.activateTable')} {tableToActivate?.number}
+              {t('orders.openTable') || 'Open Table'} {tableToActivate?.number}
             </DialogTitle>
             <DialogDescription>
               {t('orders.howManyPeople')}
@@ -1190,7 +1242,7 @@ export default function OrderTab() {
               ) : (
                 <Check className="h-4 w-4 mr-2" />
               )}
-              {t('orders.activate')}
+              {t('orders.open') || 'Open'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1277,7 +1329,7 @@ export default function OrderTab() {
                     <Input
                       value={newBadgeName}
                       onChange={(e) => setNewBadgeName(e.target.value)}
-                      placeholder="Badge name"
+                      placeholder={t('orders.badgeName')}
                       className="h-8 w-28 text-xs"
                       onKeyDown={(e) => e.key === 'Enter' && handleAddCustomBadge()}
                     />

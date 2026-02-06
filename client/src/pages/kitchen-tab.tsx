@@ -223,7 +223,7 @@ const MergedOrderItemRow = ({
             {/* Progress indicator for partially completed */}
             {item.completedCount > 0 && !item.allCompleted && (
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-300">
-                {item.completedCount}/{quantity} ready
+                {item.completedCount}/{quantity} {t('kitchen.ready')}
               </Badge>
             )}
           </div>
@@ -273,7 +273,7 @@ const MergedOrderItemRow = ({
           disabled={isPending || item.allCompleted}
         >
           <Check className="h-4 w-4 mr-1" />
-          {item.allCompleted ? 'Ready' : `Ready${quantity > 1 ? ' All' : ''}`}
+          {item.allCompleted ? t('kitchen.ready') : (quantity > 1 ? t('kitchen.readyAll') : t('kitchen.ready'))}
         </Button>
       </motion.div>
 
@@ -323,12 +323,12 @@ const MergedOrderItemRow = ({
                     {order.completed ? (
                       <>
                         <RotateCcw className="h-3 w-3 mr-1" />
-                        Undo
+                        {t('kitchen.undo')}
                       </>
                     ) : (
                       <>
                         <Check className="h-3 w-3 mr-1" />
-                        Ready
+                        {t('kitchen.ready')}
                       </>
                     )}
                   </Button>
@@ -358,6 +358,7 @@ const KitchenHistorySheet = ({
   onRevoke: (orderIds: number[]) => void;
   isPending: boolean;
 }) => {
+  const { t } = useLanguage();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [selectedForRevoke, setSelectedForRevoke] = useState<Set<number>>(new Set());
 
@@ -400,19 +401,19 @@ const KitchenHistorySheet = ({
           className="h-9 px-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-lg"
         >
           <History className="h-4 w-4 mr-2 text-orange-500" />
-          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">History</span>
+          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">{t('kitchen.history')}</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:max-w-lg p-0">
         <SheetHeader className="p-4 border-b bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent">
-          <SheetTitle>Kitchen History</SheetTitle>
+          <SheetTitle>{t('kitchen.kitchenHistory')}</SheetTitle>
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-120px)]">
           {historyTables.length === 0 ? (
             <div className="p-8 text-center">
               <History className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">No completed orders yet</p>
+              <p className="text-muted-foreground">{t('kitchen.noCompletedOrders')}</p>
             </div>
           ) : (
             <div className="p-4 space-y-4">
@@ -428,7 +429,7 @@ const KitchenHistorySheet = ({
                         : 'bg-green-500/10'
                     }`}>
                       <div>
-                        <span className="font-semibold">Table {table.tableNumber}</span>
+                        <span className="font-semibold">{t('kitchen.table')} {table.tableNumber}</span>
                         {table.tableLabel && (
                           <span className="ml-2 text-muted-foreground">{table.tableLabel}</span>
                         )}
@@ -436,18 +437,18 @@ const KitchenHistorySheet = ({
                       <div className="flex items-center gap-2">
                         {table.hasCanceledOrders && (
                           <Badge variant="outline" className="bg-red-500/20 text-red-600 border-red-300">
-                            Canceled
+                            {t('kitchen.canceled')}
                           </Badge>
                         )}
                         <Badge variant="outline" className={
-                          table.isTableClosed 
-                            ? "bg-muted text-muted-foreground border-muted-foreground/30" 
+                          table.isTableClosed
+                            ? "bg-muted text-muted-foreground border-muted-foreground/30"
                             : "bg-green-500/20 text-green-600 border-green-300"
                         }>
                           {table.isTableClosed ? (
-                            <>Closed</>
+                            <>{t('kitchen.closed')}</>
                           ) : (
-                            <><Check className="h-3 w-3 mr-1" />Completed</>
+                            <><Check className="h-3 w-3 mr-1" />{t('kitchen.completed')}</>
                           )}
                         </Badge>
                       </div>
@@ -486,12 +487,12 @@ const KitchenHistorySheet = ({
                               </span>
                               {canceledCount > 0 && canceledCount < quantity && (
                                 <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-300">
-                                  {canceledCount} canceled
+                                  {canceledCount} {t('kitchen.canceled').toLowerCase()}
                                 </Badge>
                               )}
                               {canceledCount === quantity && (
                                 <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-300">
-                                  Canceled
+                                  {t('kitchen.canceled')}
                                 </Badge>
                               )}
                               {item.badges.map((badge, idx) => (
@@ -531,14 +532,14 @@ const KitchenHistorySheet = ({
                                   onChange={() => toggleSelectForRevoke(item.orders[0].id)}
                                   className="rounded"
                                 />
-                                <span className="text-xs text-muted-foreground">Select to revoke</span>
+                                <span className="text-xs text-muted-foreground">{t('kitchen.selectToRevoke')}</span>
                               </label>
                             )}
 
                             {/* Show message for closed tables */}
                             {!canRevoke && (
                               <p className="text-xs text-muted-foreground mt-2 pl-8 italic">
-                                Table closed - revoke not available
+                                {t('kitchen.tableClosedRevoke')}
                               </p>
                             )}
                           </div>
@@ -561,13 +562,37 @@ const KitchenHistorySheet = ({
               disabled={isPending}
             >
               <RotateCcw className="h-4 w-4 mr-2" />
-              Revoke {selectedForRevoke.size} item{selectedForRevoke.size > 1 ? 's' : ''}
+              {t('kitchen.revokeItems')} ({selectedForRevoke.size})
             </Button>
           </div>
         )}
       </SheetContent>
     </Sheet>
   );
+};
+
+// Play a bell chime using Web Audio API
+const playOrderBell = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const playTone = (freq: number, startTime: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.3, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+    const now = ctx.currentTime;
+    playTone(830, now, 0.15);
+    playTone(1100, now + 0.15, 0.2);
+  } catch (e) {
+    // Audio not supported, silently fail
+  }
 };
 
 export default function KitchenTab() {
@@ -610,6 +635,14 @@ export default function KitchenTab() {
       if (['NEW_ORDER', 'COMPLETE_ORDER', 'UNCOMPLETE_ORDER', 'ACTIVATE_TABLE', 'DEACTIVATE_TABLE', 'KITCHEN_NOTIFICATION'].includes(message.type)) {
         queryClient.invalidateQueries({ queryKey: ['orders'] });
         queryClient.invalidateQueries({ queryKey: ['active-tables'] });
+
+        // Play bell sound for new orders if sounds are enabled
+        if (message.type === 'NEW_ORDER') {
+          const soundsEnabled = localStorage.getItem('kitchenSoundsEnabled') !== 'false';
+          if (soundsEnabled) {
+            playOrderBell();
+          }
+        }
 
         if (message.type === 'KITCHEN_NOTIFICATION') {
           addNotification(`Table ${(message.payload as any)?.tableNumber} needs attention!`);
@@ -824,10 +857,10 @@ export default function KitchenTab() {
           <div className="p-4 bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold">Kitchen</h2>
+                <h2 className="text-lg font-bold">{t('kitchen.title')}</h2>
                 {tablesWithPendingOrders.length > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {tablesWithPendingOrders.length} table{tablesWithPendingOrders.length > 1 ? 's' : ''} waiting
+                    {tablesWithPendingOrders.length} {t('kitchen.waiting')}
                   </p>
                 )}
               </div>
@@ -836,7 +869,7 @@ export default function KitchenTab() {
                 {tablesWithPendingOrders.length > 0 && (
                   <Badge className="bg-amber-500 text-white animate-pulse">
                     <Flame className="h-3 w-3 mr-1" />
-                    {tablesWithPendingOrders.reduce((acc, t) => acc + t.orders.filter(o => !o.completed).length, 0)} pending
+                    {tablesWithPendingOrders.reduce((acc, tbl) => acc + tbl.orders.filter(o => !o.completed).length, 0)} {t('kitchen.pending')}
                   </Badge>
                 )}
                 <KitchenHistorySheet
@@ -862,13 +895,13 @@ export default function KitchenTab() {
             <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center">
               <Check className="h-10 w-10 text-white" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">All Caught Up!</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('kitchen.allCaughtUp')}</h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              No pending orders right now. New orders will appear here automatically.
+              {t('kitchen.noPendingOrders')}
             </p>
             {historyTables.length > 0 && (
               <p className="text-sm text-muted-foreground mt-4">
-                {historyTables.length} table{historyTables.length > 1 ? 's' : ''} in history
+                {historyTables.length} {t('kitchen.tablesInHistory')}
               </p>
             )}
           </CardContent>
@@ -900,7 +933,7 @@ export default function KitchenTab() {
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="text-xl font-bold">
-                            Table {table.tableNumber}
+                            {t('kitchen.table')} {table.tableNumber}
                             {table.tableLabel && (
                               <span className="ml-2 text-sm font-normal opacity-70">
                                 {table.tableLabel}
@@ -920,7 +953,7 @@ export default function KitchenTab() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge className="bg-amber-500/90 text-white font-semibold px-3 py-1">
-                            {pendingCount} pending
+                            {pendingCount} {t('kitchen.pending')}
                           </Badge>
                         </div>
                       </div>

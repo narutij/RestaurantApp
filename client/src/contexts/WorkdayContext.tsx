@@ -55,6 +55,20 @@ export function WorkdayProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent('restaurantSelected', { detail: restaurant }));
   }, []);
 
+  // Validate cached restaurant still exists in the database
+  useEffect(() => {
+    if (!selectedRestaurant) return;
+    fetch('/api/restaurants')
+      .then(res => res.json())
+      .then((restaurants: Restaurant[]) => {
+        const stillExists = restaurants.some(r => r.id === selectedRestaurant.id);
+        if (!stillExists) {
+          setSelectedRestaurant(restaurants[0] || null);
+        }
+      })
+      .catch(() => {});
+  }, []); // Run once on mount
+
   // Fetch active workday for selected restaurant
   const { data: activeWorkday, isLoading, refetch } = useQuery({
     queryKey: ['activeWorkday', selectedRestaurant?.id],

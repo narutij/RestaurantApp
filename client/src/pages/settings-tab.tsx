@@ -331,9 +331,9 @@ export default function SettingsTab() {
               {isUpdatingProfile ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t('settings.saving')}
                 </>
-              ) : 'Save Changes'}
+              ) : t('settings.saveChanges')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,17 +4,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocketContext, type ConnectedUserInfo } from '@/contexts/WebSocketContext';
 
-// Mock online users for UI/UX demonstration
-const MOCK_ONLINE_USERS: ConnectedUserInfo[] = [
-  {
-    name: 'Jonas Kazlauskas',
-    connectedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 min ago
-  },
-  {
-    name: 'Eglė Petrauskienė',
-    connectedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(), // 45 min ago
-  },
-];
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import {
@@ -73,12 +62,11 @@ export default function TopBar({
   const { t } = useLanguage();
   const { isAdmin, appUser } = useAuth();
 
-  // Combine real connected users with mock users
   const allConnectedUsers = useMemo(() => {
-    return [...(connectedUsersList || []), ...MOCK_ONLINE_USERS];
+    return connectedUsersList || [];
   }, [connectedUsersList]);
 
-  const totalConnectedUsers = connectedUsers + MOCK_ONLINE_USERS.length;
+  const totalConnectedUsers = connectedUsers;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

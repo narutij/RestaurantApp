@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import {
   Building2,
   DollarSign,
+  Euro,
   Users,
   MenuSquare,
   Grid2X2,
@@ -47,7 +48,7 @@ type StaffTimeframe = 'day' | 'week' | 'month';
 export default function RestaurantInfoTab() {
   const { isAdmin } = useAuth();
   const { selectedRestaurant } = useWorkday();
-  const { t } = useLanguage();
+  const { t, formatPrice, language } = useLanguage();
 
   // Modal states
   const [workersModalOpen, setWorkersModalOpen] = useState(false);
@@ -107,15 +108,6 @@ export default function RestaurantInfoTab() {
     },
     enabled: !!selectedRestaurant?.id && !isAdmin,
   });
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('lt-LT', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
 
   const timeframeLabels: Record<Timeframe, string> = {
     week: t('timeframe.week') || 'Week',
@@ -274,7 +266,7 @@ export default function RestaurantInfoTab() {
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="p-2 bg-green-500/20 rounded-xl">
-                  <DollarSign className="h-4 w-4 text-green-500" />
+                  {language === 'lt' ? <Euro className="h-4 w-4 text-green-500" /> : <DollarSign className="h-4 w-4 text-green-500" />}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

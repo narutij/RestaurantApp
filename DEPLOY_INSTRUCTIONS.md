@@ -25,10 +25,6 @@ npm run firebase:deploy
 ## Your app will be live at:
 https://vilko-puota.web.app
 
-## Test credentials:
-- Email: admin@vilko.com
-- Password: admin123
-
 ## What's included:
 ✅ PWA with offline support
 ✅ Firebase Authentication

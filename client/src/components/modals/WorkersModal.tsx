@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { accountRequestService, userService, type AppUser, type AccountRequest } from "@/lib/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -29,58 +30,10 @@ import {
   Ban,
   Footprints,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Trash2
 } from 'lucide-react';
 
-// Mock workers for UI/UX demonstration
-const MOCK_WORKERS: AppUser[] = [
-  {
-    id: 'mock-1',
-    name: 'Jonas Kazlauskas',
-    email: 'jonas@example.com',
-    role: 'floor',
-    status: 'active',
-    isOnline: true,
-  },
-  {
-    id: 'mock-2',
-    name: 'Eglė Petrauskienė',
-    email: 'egle@example.com',
-    role: 'floor',
-    status: 'active',
-    isOnline: true,
-  },
-  {
-    id: 'mock-3',
-    name: 'Tomas Jonaitis',
-    email: 'tomas@example.com',
-    role: 'kitchen',
-    status: 'active',
-    isOnline: false,
-  },
-];
-
-// Mock pending account requests for UI/UX demonstration
-const MOCK_PENDING_REQUESTS: AccountRequest[] = [
-  {
-    id: 'mock-request-1',
-    email: 'laura.vilkaite@example.com',
-    name: 'Laura Vilkaitė',
-    password: 'mock-password',
-    status: 'pending',
-    role: 'user',
-    requestedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'mock-request-2',
-    email: 'marius.sakalauskas@example.com',
-    name: 'Marius Sakalauskas',
-    password: 'mock-password',
-    status: 'pending',
-    role: 'user',
-    requestedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-  },
-];
 
 type WorkerRole = 'admin' | 'kitchen' | 'floor';
 
@@ -92,6 +45,7 @@ interface WorkersModalProps {
 export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [activeUsers, setActiveUsers] = useState<AppUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccountRequest[]>([]);
@@ -110,8 +64,10 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
   const [roleChangeConfirm, setRoleChangeConfirm] = useState<{
     user: AppUser;
     newRole: WorkerRole;
-    isMock: boolean;
   } | null>(null);
+
+  // Delete user confirmation state
+  const [deleteUserConfirm, setDeleteUserConfirm] = useState<AppUser | null>(null);
 
   // Fetch all restaurants for assignment
   const { data: allRestaurants = [] } = useQuery<Restaurant[]>({
@@ -170,12 +126,18 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
       const realUsers = usersResult.status === 'fulfilled' ? usersResult.value : [];
       const realRequests = requestsResult.status === 'fulfilled' ? requestsResult.value : [];
 
-      setActiveUsers([...realUsers, ...MOCK_WORKERS]);
-      setPendingRequests([...realRequests, ...MOCK_PENDING_REQUESTS]);
+      // Filter: only active users, hide developer account
+      const HIDDEN_EMAILS = ['narutisjustinas@gmail.com'];
+      const filteredUsers = realUsers.filter(u =>
+        u.status === 'active' && !HIDDEN_EMAILS.includes(u.email?.toLowerCase())
+      );
+
+      setActiveUsers(filteredUsers);
+      setPendingRequests(realRequests);
     } catch (error) {
       console.error('Error loading workers data:', error);
-      setActiveUsers([...MOCK_WORKERS]);
-      setPendingRequests([...MOCK_PENDING_REQUESTS]);
+      setActiveUsers([]);
+      setPendingRequests([]);
     } finally {
       setLoading(false);
     }
@@ -186,41 +148,23 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
     try {
       setProcessingRequest(request.id);
       
-      // Check if it's a mock request
-      const isMockRequest = request.id.startsWith('mock-');
-      
-      if (isMockRequest) {
-        // Handle mock request locally
-        const newUser: AppUser = {
-          id: `approved-${request.id}`,
-          name: request.name,
-          email: request.email,
-          role: role,
-          status: 'active',
-          isOnline: false,
-        };
-        setActiveUsers(prev => [...prev, newUser]);
-        setPendingRequests(prev => prev.filter(r => r.id !== request.id));
-      } else {
-        // Handle real request with Firebase
-        const userCredential = await createUserWithEmailAndPassword(auth, request.email, request.password);
-        await userService.add({
-          uid: userCredential.user.uid,
-          email: request.email,
-          name: request.name,
-          role: role,
-          status: 'active',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          approvedAt: new Date()
-        });
-        await accountRequestService.update(request.id, {
-          status: 'approved',
-          role: role,
-          approvedAt: new Date()
-        });
-        await loadData();
-      }
+      const userCredential = await createUserWithEmailAndPassword(auth, request.email, request.password);
+      await userService.add({
+        uid: userCredential.user.uid,
+        email: request.email,
+        name: request.name,
+        role: role,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        approvedAt: new Date()
+      });
+      await accountRequestService.update(request.id, {
+        status: 'approved',
+        role: role,
+        approvedAt: new Date()
+      });
+      await loadData();
       
       toast({
         title: "Request Approved",
@@ -242,21 +186,12 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
     try {
       setProcessingRequest(request.id);
       
-      // Check if it's a mock request
-      const isMockRequest = request.id.startsWith('mock-');
-      
-      if (isMockRequest) {
-        // Handle mock request locally - just remove from pending
-        setPendingRequests(prev => prev.filter(r => r.id !== request.id));
-      } else {
-        // Handle real request with Firebase
-        await accountRequestService.update(request.id, {
-          status: 'rejected',
-          rejectedAt: new Date(),
-          rejectionReason: 'Rejected by admin'
-        });
-        await loadData();
-      }
+      await accountRequestService.update(request.id, {
+        status: 'rejected',
+        rejectedAt: new Date(),
+        rejectionReason: 'Rejected by admin'
+      });
+      await loadData();
       
       toast({
         title: "Request Declined",
@@ -303,23 +238,29 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
 
   const handleConfirmRoleChange = () => {
     if (!roleChangeConfirm) return;
-    
-    const { user, newRole, isMock } = roleChangeConfirm;
-    
-    if (isMock) {
-      // Update mock user role locally
-      setActiveUsers(prev => prev.map(u => 
-        u.id === user.id ? { ...u, role: newRole } : u
-      ));
-      toast({
-        title: "Role Updated",
-        description: `${user.name}'s role has been changed to ${getRoleLabel(newRole)}`,
-      });
-    } else {
-      handleUpdateUserRole(user.id, newRole);
-    }
-    
+
+    const { user, newRole } = roleChangeConfirm;
+    handleUpdateUserRole(user.id, newRole);
     setRoleChangeConfirm(null);
+  };
+
+  const handleDeleteUser = async (user: AppUser) => {
+    try {
+      await userService.delete(user.id);
+      toast({
+        title: "User Removed",
+        description: `${user.name} has been removed from staff`,
+      });
+      await loadData();
+    } catch (error: any) {
+      toast({
+        title: "Remove Failed",
+        description: error.message || "Failed to remove user",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleteUserConfirm(null);
+    }
   };
 
 
@@ -339,8 +280,8 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                       <Users className="h-5 w-5 text-purple-400" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold">Staff</h2>
-                      <p className="text-xs text-muted-foreground">{activeUsers.length} team member{activeUsers.length !== 1 ? 's' : ''}</p>
+                      <h2 className="text-lg font-semibold">{t('staff.title')}</h2>
+                      <p className="text-xs text-muted-foreground">{activeUsers.length} {t('staff.teamMembers')}</p>
                     </div>
                   </div>
                   <button
@@ -363,7 +304,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                   {activeUsers.length === 0 ? (
                     <div className="text-center py-8">
                       <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">No staff members found</p>
+                      <p className="text-sm text-muted-foreground">{t('staff.noStaffFound')}</p>
                     </div>
                   ) : (
                     activeUsers.map((user) => (
@@ -436,8 +377,8 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                   <Users className="h-5 w-5 text-purple-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold">Staff Management</h2>
-                  <p className="text-xs text-muted-foreground">{activeUsers.length} Approved member{activeUsers.length !== 1 ? 's' : ''}</p>
+                  <h2 className="text-lg font-semibold">{t('staff.management')}</h2>
+                  <p className="text-xs text-muted-foreground">{activeUsers.length} {t('staff.approvedMembers')}</p>
                 </div>
               </div>
               <button
@@ -464,7 +405,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                     <div className="p-1.5 bg-amber-500/20 rounded-lg">
                       <Clock className="h-4 w-4 text-amber-400" />
                     </div>
-                    <h3 className="text-sm font-medium">Pending Requests</h3>
+                    <h3 className="text-sm font-medium">{t('staff.pendingRequests')}</h3>
                   </div>
                   <div className="space-y-2">
                     {pendingRequests.map((request) => (
@@ -485,7 +426,15 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                             <p className="font-medium text-sm">{request.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{request.email}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {new Date(request.requestedAt).toLocaleDateString()}
+                              Requested {(() => {
+                                const date = request.requestedAt;
+                                if (!date) return 'recently';
+                                // Handle Firestore Timestamp objects
+                                const d = typeof (date as any)?.toDate === 'function'
+                                  ? (date as any).toDate()
+                                  : new Date(date);
+                                return isNaN(d.getTime()) ? 'recently' : d.toLocaleDateString();
+                              })()}
                             </p>
                             
                             {/* Actions - Stacked Layout */}
@@ -504,7 +453,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                   ) : (
                                     <>
                                       <Check className="h-4 w-4 mr-1" />
-                                      Approve
+                                      {t('staff.approve')}
                                     </>
                                   )}
                                 </Button>
@@ -516,7 +465,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                   disabled={processingRequest === request.id}
                                 >
                                   <Ban className="h-4 w-4 mr-1" />
-                                  Decline
+                                  {t('staff.decline')}
                                 </Button>
                               </div>
                               
@@ -535,19 +484,19 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                   <SelectItem value="admin">
                                     <div className="flex items-center gap-2">
                                       <Shield className="h-4 w-4 flex-shrink-0 text-purple-400" />
-                                      Admin
+                                      {t('staff.roleAdmin')}
                                     </div>
                                   </SelectItem>
                                   <SelectItem value="kitchen">
                                     <div className="flex items-center gap-2">
                                       <ChefHat className="h-4 w-4 flex-shrink-0 text-orange-400" style={{ minWidth: '16px', minHeight: '16px' }} />
-                                      Kitchen
+                                      {t('staff.roleKitchen')}
                                     </div>
                                   </SelectItem>
                                   <SelectItem value="floor">
                                     <div className="flex items-center gap-2">
                                       <Footprints className="h-4 w-4 flex-shrink-0 text-blue-400" />
-                                      Floor
+                                      {t('staff.roleFloor')}
                                     </div>
                                   </SelectItem>
                                 </SelectContent>
@@ -567,16 +516,15 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                   <div className="p-1.5 bg-green-500/20 rounded-lg">
                     <UserCheck className="h-4 w-4 text-green-400" />
                   </div>
-                  <h3 className="text-sm font-medium">Approved Staff</h3>
+                  <h3 className="text-sm font-medium">{t('staff.approvedStaff')}</h3>
                 </div>
                 <div className="space-y-2">
                   {activeUsers.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">No approved staff found</p>
+                      <p className="text-sm text-muted-foreground">{t('staff.noApprovedStaff')}</p>
                     </div>
                   ) : (
                     activeUsers.map((user) => {
-                      const isMockUser = user.id.startsWith('mock-') || user.id.startsWith('approved-');
                       const assignedRestaurants = user.assignedRestaurants || [];
 
                       return (
@@ -626,7 +574,6 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                   setRoleChangeConfirm({
                                     user,
                                     newRole: role,
-                                    isMock: isMockUser
                                   });
                                 }
                               }}
@@ -638,19 +585,19 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 <SelectItem value="admin">
                                   <div className="flex items-center gap-2">
                                     <Shield className="h-4 w-4 flex-shrink-0 text-purple-400" />
-                                    Admin
+                                    {t('staff.roleAdmin')}
                                   </div>
                                 </SelectItem>
                                 <SelectItem value="kitchen">
                                   <div className="flex items-center gap-2">
                                     <ChefHat className="h-4 w-4 flex-shrink-0 text-orange-400" style={{ minWidth: '16px', minHeight: '16px' }} />
-                                    Kitchen
+                                    {t('staff.roleKitchen')}
                                   </div>
                                 </SelectItem>
                                 <SelectItem value="floor">
                                   <div className="flex items-center gap-2">
                                     <Footprints className="h-4 w-4 flex-shrink-0 text-blue-400" />
-                                    Floor
+                                    {t('staff.roleFloor')}
                                   </div>
                                 </SelectItem>
                               </SelectContent>
@@ -672,8 +619,8 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                       <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                                       <span className="truncate">
                                         {assignedRestaurants.length === 0
-                                          ? 'All restaurants'
-                                          : `${assignedRestaurants.length} restaurant${assignedRestaurants.length > 1 ? 's' : ''}`
+                                          ? t('staff.allRestaurants')
+                                          : `${assignedRestaurants.length} ${t('staff.restaurants')}`
                                         }
                                       </span>
                                     </div>
@@ -683,7 +630,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 <PopoverContent className="w-[220px] p-2" align="start">
                                   <div className="space-y-1">
                                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">
-                                      Assign to restaurants
+                                      {t('staff.assignToRestaurants')}
                                     </p>
                                     {allRestaurants.map((restaurant) => {
                                       const isAssigned = assignedRestaurants.includes(restaurant.id);
@@ -696,23 +643,10 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                               ? assignedRestaurants.filter(id => id !== restaurant.id)
                                               : [...assignedRestaurants, restaurant.id];
 
-                                            if (!isMockUser) {
-                                              updateAssignmentMutation.mutate({
-                                                userId: user.id,
-                                                restaurantIds: newAssignments
-                                              });
-                                            } else {
-                                              // Update mock user locally
-                                              setActiveUsers(prev => prev.map(u =>
-                                                u.id === user.id
-                                                  ? { ...u, assignedRestaurants: newAssignments }
-                                                  : u
-                                              ));
-                                              toast({
-                                                title: "Restaurants Updated",
-                                                description: `${user.name}'s restaurant access has been updated`,
-                                              });
-                                            }
+                                            updateAssignmentMutation.mutate({
+                                              userId: user.id,
+                                              restaurantIds: newAssignments
+                                            });
                                           }}
                                         >
                                           <Checkbox
@@ -725,14 +659,14 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                     })}
                                     {allRestaurants.length === 0 && (
                                       <p className="text-xs text-muted-foreground text-center py-2">
-                                        No restaurants available
+                                        {t('staff.noRestaurantsAvailable')}
                                       </p>
                                     )}
                                     <div className="border-t border-gray-200 dark:border-white/5 mt-2 pt-2">
                                       <p className="text-[10px] text-muted-foreground px-2">
                                         {assignedRestaurants.length === 0
-                                          ? 'Access to all restaurants'
-                                          : 'Only selected restaurants'
+                                          ? t('staff.accessToAll')
+                                          : t('staff.onlySelected')
                                         }
                                       </p>
                                     </div>
@@ -740,6 +674,16 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 </PopoverContent>
                               </Popover>
                             )}
+
+                            {/* Remove User */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 flex-shrink-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              onClick={() => setDeleteUserConfirm(user)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </div>
                       );
@@ -756,7 +700,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
       <AlertDialog open={!!roleChangeConfirm} onOpenChange={(open) => !open && setRoleChangeConfirm(null)}>
         <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Role Change</AlertDialogTitle>
+            <AlertDialogTitle>{t('staff.confirmRoleChange')}</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to change {roleChangeConfirm?.user.name}'s role from{' '}
               <span className="font-medium text-foreground">{getRoleLabel(roleChangeConfirm?.user.role || 'floor')}</span> to{' '}
@@ -764,12 +708,33 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmRoleChange}
               className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border-0"
             >
-              Confirm Change
+              {t('staff.confirmChange')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={!!deleteUserConfirm} onOpenChange={(open) => !open && setDeleteUserConfirm(null)}>
+        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('staff.removeStaffMember')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <span className="font-medium text-foreground">{deleteUserConfirm?.name}</span> ({deleteUserConfirm?.email}) from the staff list? They will lose access to the app immediately. To also remove their login credentials, delete them from the Firebase Console.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteUserConfirm && handleDeleteUser(deleteUserConfirm)}
+              className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
+            >
+              {t('staff.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

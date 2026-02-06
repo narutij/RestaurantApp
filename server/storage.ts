@@ -2511,18 +2511,30 @@ export class MemStorage implements IStorage {
     let startDate: Date;
 
     switch (timeframe) {
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case 'week': {
+        // Current week: Monday to Sunday
+        const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
         break;
-      case 'month':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      case 'month': {
+        // Current calendar month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
-      case 'quarter':
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      }
+      case 'quarter': {
+        // 4-month periods: Jan-Apr, May-Aug, Sep-Dec
+        const month = now.getMonth(); // 0-11
+        const quarterStart = month < 4 ? 0 : month < 8 ? 4 : 8;
+        startDate = new Date(now.getFullYear(), quarterStart, 1);
         break;
-      case 'year':
-        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      }
+      case 'year': {
+        // Current calendar year
+        startDate = new Date(now.getFullYear(), 0, 1);
         break;
+      }
     }
 
     try {
@@ -2545,23 +2557,58 @@ export class MemStorage implements IStorage {
       const allOrders = await db.select().from(orders)
         .where(inArray(orders.workdayId, workdayIds));
 
-      // Calculate revenue
-      const revenue = allOrders.reduce((sum, order) => sum + order.price, 0);
+      // Split workdays into ended (historical) vs active (current)
+      const filteredWorkdays = relevantWorkdays.filter(w => {
+        const workdayDate = new Date(w.date);
+        return workdayDate >= startDate && workdayDate <= now;
+      });
+      const endedWorkdayIds = new Set(filteredWorkdays.filter(w => !w.isActive).map(w => w.id));
+      const activeWorkday = filteredWorkdays.find(w => w.isActive);
 
-      // Sum people count from unique tables that had orders
-      const uniqueTableIds = new Set(allOrders.map(order => order.tableId));
-      let peopleCount = 0;
-      for (const tableId of uniqueTableIds) {
-        const table = await this.getTable(tableId);
-        if (table?.peopleCount) {
-          peopleCount += table.peopleCount;
+      // For ended workdays: include ALL orders (historical, already finalized)
+      // For active workday: only include orders from tables that are currently CLOSED
+      const closedTableOrders: typeof allOrders = [];
+
+      // All orders from ended workdays are included
+      for (const order of allOrders) {
+        if (endedWorkdayIds.has(order.workdayId!)) {
+          closedTableOrders.push(order);
         }
       }
 
-      // Calculate top items
+      // For active workday, only include orders from currently-closed tables
+      if (activeWorkday) {
+        const activeWorkdayOrders = allOrders.filter(o => o.workdayId === activeWorkday.id);
+        const activeWorkdayTableIds = new Set(activeWorkdayOrders.map(o => o.tableId));
+        for (const tableId of activeWorkdayTableIds) {
+          const table = await this.getTable(tableId);
+          if (table && !table.isActive) {
+            // Table is closed — include its orders from this workday
+            closedTableOrders.push(...activeWorkdayOrders.filter(o => o.tableId === tableId));
+          }
+        }
+      }
+
+      // Calculate revenue from closed tables only
+      const revenue = closedTableOrders.reduce((sum, order) => sum + order.price, 0);
+
+      // Sum people count from unique tables in active workday that are closed
+      let peopleCount = 0;
+      const countedTableIds = new Set<number>();
+      for (const order of closedTableOrders) {
+        if (!countedTableIds.has(order.tableId)) {
+          countedTableIds.add(order.tableId);
+          const table = await this.getTable(order.tableId);
+          if (table?.peopleCount) {
+            peopleCount += table.peopleCount;
+          }
+        }
+      }
+
+      // Calculate top items from closed tables only
       const itemCounts = new Map<string, { count: number; revenue: number }>();
 
-      for (const order of allOrders) {
+      for (const order of closedTableOrders) {
         let itemName: string;
         if (order.isSpecialItem && order.specialItemName) {
           itemName = order.specialItemName;

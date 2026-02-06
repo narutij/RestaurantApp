@@ -1312,7 +1312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "restaurantId is required" });
       }
 
-      // Calculate date range based on timeframe
+      // Calculate date range based on timeframe (calendar boundaries)
       const now = new Date();
       let startDate: Date;
 
@@ -1320,14 +1320,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'day':
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           break;
-        case 'week':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        case 'week': {
+          // Current week: Monday to Sunday
+          const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+          const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
           break;
+        }
         case 'month':
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          // Current calendar month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           break;
-        default:
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        default: {
+          // Default to current week
+          const dow = now.getDay();
+          const diff = dow === 0 ? 6 : dow - 1;
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
+        }
       }
 
       const topWorkers = await storage.getTopWorkersByTime(restaurantId, startDate, now);
@@ -1619,10 +1628,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Collect top items across all days and staff data
+      const globalItemCounts = new Map<string, { count: number; revenue: number }>();
+      const staffMap = new Map<string, {
+        name: string;
+        daysWorked: number;
+        totalShifts: number;
+        dates: string[];
+      }>();
+
+      // Aggregate item and staff data from all days
+      for (const date of dates) {
+        try {
+          const history = await storage.getDetailedHistory(restaurantId, date);
+          // Aggregate items
+          for (const shift of history.shifts) {
+            for (const order of shift.orders) {
+              const itemName = order.isSpecialItem && order.specialItemName
+                ? order.specialItemName
+                : (order.menuItemName || 'Unknown Item');
+              const existing = globalItemCounts.get(itemName) || { count: 0, revenue: 0 };
+              globalItemCounts.set(itemName, {
+                count: existing.count + 1,
+                revenue: existing.revenue + order.price,
+              });
+            }
+            // Aggregate staff
+            for (const worker of shift.workers) {
+              const existing = staffMap.get(worker.workerId);
+              if (existing) {
+                existing.totalShifts++;
+                if (!existing.dates.includes(date)) {
+                  existing.dates.push(date);
+                  existing.daysWorked++;
+                }
+              } else {
+                staffMap.set(worker.workerId, {
+                  name: worker.workerId,
+                  daysWorked: 1,
+                  totalShifts: 1,
+                  dates: [date],
+                });
+              }
+            }
+          }
+        } catch (e) {
+          // skip
+        }
+      }
+
+      const topItems = Array.from(globalItemCounts.entries())
+        .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
       // Create workbook
       const workbook = XLSX.utils.book_new();
 
-      // Summary Sheet
+      // Helper to add borders to a sheet
+      const addBordersToSheet = (sheet: XLSX.WorkSheet, rows: number, cols: number, startRow = 0) => {
+        const border = {
+          top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+          bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
+          left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+          right: { style: 'thin', color: { rgb: 'CCCCCC' } },
+        };
+        for (let r = startRow; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const cellRef = XLSX.utils.encode_cell({ r, c });
+            if (!sheet[cellRef]) sheet[cellRef] = { t: 's', v: '' };
+            if (!sheet[cellRef].s) sheet[cellRef].s = {};
+            sheet[cellRef].s.border = border;
+          }
+        }
+      };
+
+      // ─── Summary Sheet ───
       const summaryData = [
         ['Restaurant Report'],
         [''],
@@ -1632,24 +1713,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [''],
         ['PERIOD TOTALS'],
         [''],
-        ['Total Revenue', `$${(totalRevenue / 100).toFixed(2)}`],
+        ['Total Revenue', `€${totalRevenue.toFixed(2)}`],
         ['Total Orders', totalOrders],
         ['Tables Served', totalTables],
         ['Guests Served', totalPeople],
         ['Total Shifts', totalShifts],
         [''],
-        ['Average Revenue/Day', `$${dates.length > 0 ? ((totalRevenue / 100) / dates.length).toFixed(2) : '0.00'}`],
+        ['Average Revenue/Day', `€${dates.length > 0 ? (totalRevenue / dates.length).toFixed(2) : '0.00'}`],
         ['Average Orders/Day', dates.length > 0 ? (totalOrders / dates.length).toFixed(1) : '0'],
+        [''],
+        [''],
+        ['TOP 10 MOST POPULAR DISHES'],
+        [''],
+        ['Rank', 'Dish Name', 'Times Ordered', 'Revenue'],
       ];
+      topItems.forEach((item, idx) => {
+        summaryData.push([
+          `${idx + 1}` as any,
+          item.name,
+          item.count as any,
+          `€${item.revenue.toFixed(2)}`,
+        ]);
+      });
       const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-      summarySheet['!cols'] = [{ wch: 20 }, { wch: 25 }];
+      summarySheet['!cols'] = [{ wch: 22 }, { wch: 30 }, { wch: 16 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-      // Daily Details Sheet
-      const dailyHeaders = ['Date', 'Revenue', 'Orders', 'Tables', 'Guests', 'Shifts'];
+      // ─── Daily Details Sheet (auto-filter enabled) ───
+      const dailyHeaders = ['Date', 'Revenue (€)', 'Orders', 'Tables', 'Guests', 'Shifts'];
       const dailyRows = dailyData.map(d => [
         d.date,
-        `$${(d.revenue / 100).toFixed(2)}`,
+        parseFloat(d.revenue.toFixed(2)),
         d.orderCount,
         d.tablesServed,
         d.peopleServed,
@@ -1658,10 +1752,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dailySheetData = [dailyHeaders, ...dailyRows];
       const dailySheet = XLSX.utils.aoa_to_sheet(dailySheetData);
       dailySheet['!cols'] = [
-        { wch: 12 }, { wch: 12 }, { wch: 10 }, 
+        { wch: 14 }, { wch: 14 }, { wch: 10 },
         { wch: 10 }, { wch: 10 }, { wch: 10 }
       ];
+      // Enable auto-filter for sorting/filtering
+      dailySheet['!autofilter'] = { ref: `A1:F${dailyRows.length + 1}` };
       XLSX.utils.book_append_sheet(workbook, dailySheet, 'Daily Details');
+
+      // ─── Staff Sheet ───
+      const staffHeaders = ['Staff Member', 'Days Worked', 'Total Shifts', 'Dates Active'];
+      const staffRows = Array.from(staffMap.values())
+        .sort((a, b) => b.daysWorked - a.daysWorked)
+        .map(s => [
+          s.name,
+          s.daysWorked,
+          s.totalShifts,
+          s.dates.join(', '),
+        ]);
+      const staffSheetData = [staffHeaders, ...staffRows];
+      const staffSheet = XLSX.utils.aoa_to_sheet(staffSheetData);
+      staffSheet['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 50 }];
+      staffSheet['!autofilter'] = { ref: `A1:D${staffRows.length + 1}` };
+      XLSX.utils.book_append_sheet(workbook, staffSheet, 'Staff');
 
       // Generate buffer
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,10 +12,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
   const { login, signInWithGoogle } = useAuth();
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
@@ -26,6 +29,15 @@ export default function Login() {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isSignup && password !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords don't match",
         variant: "destructive"
       });
       return;
@@ -55,6 +67,7 @@ export default function Login() {
         setName('');
         setEmail('');
         setPassword('');
+        setConfirmPassword('');
       } else {
         await login(email, password);
         toast({
@@ -106,7 +119,7 @@ export default function Login() {
           className="w-full max-w-md"
         >
           {/* Logo & Branding */}
-          <div className="text-center mb-8 -mt-12">
+          <div className="text-center mb-8 -mt-1">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -146,6 +159,7 @@ export default function Login() {
                   setIsSignup(false);
                   setEmail('');
                   setPassword('');
+                  setConfirmPassword('');
                   setName('');
                 }}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-full transition-all ${
@@ -154,7 +168,7 @@ export default function Login() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Sign In
+                {t('login.signIn')}
               </button>
               <button
                 type="button"
@@ -162,6 +176,7 @@ export default function Login() {
                   setIsSignup(true);
                   setEmail('');
                   setPassword('');
+                  setConfirmPassword('');
                   setName('');
                 }}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-full transition-all ${
@@ -170,7 +185,7 @@ export default function Login() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Request Access
+                {t('login.requestAccess')}
               </button>
             </div>
 
@@ -204,7 +219,7 @@ export default function Login() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  Continue with Google
+                  {t('login.continueWithGoogle')}
                 </>
               )}
             </Button>
@@ -213,7 +228,7 @@ export default function Login() {
             <div className="flex items-center gap-4 my-6">
               <div className="flex-1 h-px bg-white/10" />
               <span className="text-xs text-slate-500 whitespace-nowrap">
-                or continue with email
+                {t('login.orContinueWithEmail')}
               </span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
@@ -231,7 +246,7 @@ export default function Login() {
                     className="space-y-2"
                   >
                     <Label htmlFor="name" className="text-slate-400 text-sm">
-                      Full Name
+                      {t('login.fullName')}
                     </Label>
                     <div className="relative">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -240,7 +255,7 @@ export default function Login() {
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Enter your full name"
+                        placeholder={t('login.enterFullName')}
                         disabled={loading}
                         className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
                       />
@@ -251,7 +266,7 @@ export default function Login() {
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-slate-400 text-sm">
-                  Email Address
+                  {t('login.emailAddress')}
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -260,7 +275,7 @@ export default function Login() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder={t('login.enterEmail')}
                     disabled={loading}
                     className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
                   />
@@ -269,7 +284,7 @@ export default function Login() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-slate-400 text-sm">
-                  Password
+                  {t('login.password')}
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -278,12 +293,41 @@ export default function Login() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={t('login.enterPassword')}
                     disabled={loading}
                     className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
                   />
                 </div>
               </div>
+
+              <AnimatePresence mode="wait">
+                {isSignup && (
+                  <motion.div
+                    key="confirm-password-field"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-2"
+                  >
+                    <Label htmlFor="confirmPassword" className="text-slate-400 text-sm">
+                      {t('login.confirmPassword')}
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder={t('login.confirmYourPassword')}
+                        disabled={loading}
+                        className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <Button
                 type="submit"
@@ -294,7 +338,7 @@ export default function Login() {
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>
-                    {isSignup ? 'Request Access' : 'Sign In'}
+                    {isSignup ? t('login.requestAccess') : t('login.signIn')}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </>
                 )}
@@ -308,8 +352,7 @@ export default function Login() {
                 animate={{ opacity: 1 }}
                 className="text-xs text-slate-500 text-center mt-4"
               >
-                Your request will be reviewed by an administrator.
-                You'll be notified once approved.
+                {t('login.requestReview')}
               </motion.p>
             )}
           </motion.div>

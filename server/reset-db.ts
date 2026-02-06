@@ -31,14 +31,6 @@ async function resetDatabase() {
 
     console.log('All tables dropped successfully');
 
-    // Create a default user profile
-    console.log('Creating default user profile...');
-    await db.insert(userProfiles).values({
-      name: 'Justin Naruti',
-      role: 'CEO',
-      avatarUrl: null
-    });
-
     console.log('Database reset complete!');
   } catch (error) {
     console.error('Error resetting database:', error);
