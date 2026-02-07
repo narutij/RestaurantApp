@@ -108,6 +108,7 @@ export interface IStorage {
   getWorkdayWorkers(workdayId: number): Promise<WorkdayWorker[]>;
   addWorkdayWorker(worker: InsertWorkdayWorker): Promise<WorkdayWorker>;
   removeWorkdayWorker(workdayId: number, workerId: string): Promise<boolean>;
+  updateWorkdayWorkerStatus(workdayId: number, workerId: string, status: string, totalWorkedMs: number, totalRestedMs: number): Promise<WorkdayWorker | undefined>;
 
   // Restaurant Workers
   getRestaurantWorkers(restaurantId: number): Promise<RestaurantWorker[]>;
@@ -174,6 +175,8 @@ export interface IStorage {
     averageShiftLength: number;
     restaurants: Array<{ id: number; name: string; hours: number }>;
   }>;
+
+  getWorkerShiftDates(workerId: string, year: number, month: number): Promise<string[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1940,6 +1943,25 @@ export class MemStorage implements IStorage {
     }
   }
 
+  async updateWorkdayWorkerStatus(workdayId: number, workerId: string, status: string, totalWorkedMs: number, totalRestedMs: number): Promise<WorkdayWorker | undefined> {
+    try {
+      const [result] = await db.update(workdayWorkers)
+        .set({
+          status,
+          totalWorkedMs,
+          totalRestedMs,
+          lastStatusChangeAt: new Date(),
+          ...(status === 'released' ? { releasedAt: new Date() } : {}),
+        })
+        .where(and(eq(workdayWorkers.workdayId, workdayId), eq(workdayWorkers.workerId, workerId)))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error("Error updating workday worker status:", error);
+      return undefined;
+    }
+  }
+
   // Restaurant Workers
   async getRestaurantWorkers(restaurantId: number): Promise<RestaurantWorker[]> {
     try {
@@ -2650,7 +2672,7 @@ export class MemStorage implements IStorage {
         .where(eq(workdays.restaurantId, restaurantId));
 
       const filteredWorkdays = restaurantWorkdays.filter(wd => {
-        if (!wd.startedAt) return false;
+        if (!wd.startedAt) return false; // Include both active and ended workdays
         const wdDate = new Date(wd.startedAt);
         return wdDate >= startDate && wdDate <= endDate;
       });
@@ -2672,9 +2694,19 @@ export class MemStorage implements IStorage {
         const workday = filteredWorkdays.find(wd => wd.id === ww.workdayId);
         if (!workday) continue;
 
-        const joinedAt = new Date(ww.joinedAt!);
-        const endTime = workday.endedAt ? new Date(workday.endedAt) : new Date();
-        const minutesWorked = Math.max(0, (endTime.getTime() - joinedAt.getTime()) / (1000 * 60));
+        let minutesWorked = 0;
+
+        // Use totalWorkedMs if available (from worker status tracking)
+        if (ww.totalWorkedMs && ww.totalWorkedMs > 0) {
+          minutesWorked = ww.totalWorkedMs / (1000 * 60);
+        } else if (workday.endedAt) {
+          // Fallback: calculate from joinedAt to workday end for older data
+          const joinedAt = new Date(ww.joinedAt!);
+          const endTime = new Date(workday.endedAt);
+          minutesWorked = Math.max(0, (endTime.getTime() - joinedAt.getTime()) / (1000 * 60));
+        }
+
+        if (minutesWorked <= 0) continue;
 
         const existing = workerTimeMap.get(ww.workerId) || { totalMinutes: 0, name: ww.workerId };
         workerTimeMap.set(ww.workerId, {
@@ -2785,6 +2817,37 @@ export class MemStorage implements IStorage {
     } catch (error) {
       console.error("Error getting worker statistics:", error);
       return { totalHours: 0, shiftsCount: 0, averageShiftLength: 0, restaurants: [] };
+    }
+  }
+
+  // Get dates a worker had shifts in a given month (for mini calendar)
+  async getWorkerShiftDates(workerId: string, year: number, month: number): Promise<string[]> {
+    try {
+      const allWorkdayWorkers = await db.select().from(workdayWorkers)
+        .where(eq(workdayWorkers.workerId, workerId));
+
+      if (allWorkdayWorkers.length === 0) return [];
+
+      const workdayIds = allWorkdayWorkers.map(ww => ww.workdayId);
+      const workerWorkdays = await db.select().from(workdays)
+        .where(inArray(workdays.id, workdayIds));
+
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+
+      const dates = new Set<string>();
+      for (const wd of workerWorkdays) {
+        if (!wd.startedAt) continue;
+        const wdDate = new Date(wd.startedAt);
+        if (wdDate >= startOfMonth && wdDate <= endOfMonth) {
+          dates.add(wdDate.toISOString().split('T')[0]);
+        }
+      }
+
+      return Array.from(dates).sort();
+    } catch (error) {
+      console.error("Error getting worker shift dates:", error);
+      return [];
     }
   }
 }

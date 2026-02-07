@@ -7,6 +7,7 @@ export const menus = pgTable("menus", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   restaurantId: integer("restaurant_id").notNull(),
+  createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -14,6 +15,7 @@ export const menus = pgTable("menus", {
 export const insertMenuSchema = createInsertSchema(menus).pick({
   name: true,
   restaurantId: true,
+  createdBy: true,
 });
 
 export type InsertMenu = z.infer<typeof insertMenuSchema>;
@@ -67,6 +69,7 @@ export const tableLayouts = pgTable("table_layouts", {
   name: text("name").notNull(),
   restaurantId: integer("restaurant_id").notNull(),
   description: text("description"),
+  createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -75,6 +78,7 @@ export const insertTableLayoutSchema = createInsertSchema(tableLayouts).pick({
   name: true,
   restaurantId: true,
   description: true,
+  createdBy: true,
 });
 
 export type InsertTableLayout = z.infer<typeof insertTableLayoutSchema>;
@@ -190,6 +194,11 @@ export const workdayWorkers = pgTable("workday_workers", {
   workdayId: integer("workday_id").notNull(),
   workerId: text("worker_id").notNull(),
   joinedAt: timestamp("joined_at").defaultNow(),
+  status: text("status").default("working"),
+  totalWorkedMs: integer("total_worked_ms").default(0),
+  totalRestedMs: integer("total_rested_ms").default(0),
+  lastStatusChangeAt: timestamp("last_status_change_at").defaultNow(),
+  releasedAt: timestamp("released_at"),
 });
 
 export const insertWorkdayWorkerSchema = createInsertSchema(workdayWorkers).pick({
@@ -311,6 +320,7 @@ export type WebSocketMessage = {
     | "WORKDAY_ENDED"
     | "WORKER_JOINED"
     | "WORKER_LEFT"
+    | "WORKER_STATUS_CHANGED"
     | "KITCHEN_NOTIFICATION";
   payload: unknown;
 };

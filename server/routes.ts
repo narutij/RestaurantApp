@@ -55,6 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws: WebSocket;
     name: string;
     connectedAt: Date;
+    photoUrl?: string;
   }
   const connectedUsers = new Map<WebSocket, ConnectedUser>();
 
@@ -82,7 +83,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (message.payload && typeof message.payload === 'object' && 'name' in message.payload) {
               const existing = connectedUsers.get(ws);
               if (existing) {
-                connectedUsers.set(ws, { ...existing, name: (message.payload as any).name });
+                const payload = message.payload as any;
+                connectedUsers.set(ws, { ...existing, name: payload.name, photoUrl: payload.photoUrl || undefined });
                 broadcastConnectedUsers();
               }
             }
@@ -119,7 +121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function broadcastConnectedUsers() {
     const usersList = Array.from(connectedUsers.values()).map(u => ({
       name: u.name,
-      connectedAt: u.connectedAt.toISOString()
+      connectedAt: u.connectedAt.toISOString(),
+      photoUrl: u.photoUrl || null
     }));
     console.log('[WS] Broadcasting users:', usersList.length, 'users');
     broadcastToAll({
@@ -1210,6 +1213,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update worker status in workday
+  app.put('/api/workdays/:id/workers/:workerId/status', async (req: Request, res: Response) => {
+    try {
+      const workdayId = parseInt(req.params.id, 10);
+      const { workerId } = req.params;
+      const { status, totalWorkedMs, totalRestedMs } = req.body;
+
+      if (!status || !['working', 'resting', 'released'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const updated = await storage.updateWorkdayWorkerStatus(
+        workdayId, workerId, status,
+        totalWorkedMs || 0, totalRestedMs || 0
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: "Worker not found in workday" });
+      }
+
+      // Broadcast to all clients so other users see the change
+      broadcastToAll({
+        type: "WORKER_STATUS_CHANGED",
+        payload: { workdayId, workerId, status, totalWorkedMs: totalWorkedMs || 0, totalRestedMs: totalRestedMs || 0 }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating worker status:', error);
+      res.status(500).json({ error: "Failed to update worker status" });
+    }
+  });
+
   // Remove worker from workday
   app.delete('/api/workdays/:id/workers/:workerId', async (req: Request, res: Response) => {
     try {
@@ -1331,6 +1367,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Current calendar month
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           break;
+        case 'year':
+          // Current calendar year
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
         default: {
           // Default to current week
           const dow = now.getDay();
@@ -1386,6 +1426,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error getting worker statistics:', error);
       res.status(500).json({ error: "Failed to get worker statistics" });
+    }
+  });
+
+  // Get shift dates for a worker in a given month (for mini calendar)
+  app.get('/api/workers/:workerId/shift-dates', async (req: Request, res: Response) => {
+    try {
+      const workerId = req.params.workerId;
+      const year = parseInt(req.query.year as string, 10);
+      const month = parseInt(req.query.month as string, 10);
+
+      if (!workerId || isNaN(year) || isNaN(month)) {
+        return res.status(400).json({ error: "workerId, year, and month are required" });
+      }
+
+      const dates = await storage.getWorkerShiftDates(workerId, year, month);
+      res.json({ dates });
+    } catch (error) {
+      console.error('Error getting worker shift dates:', error);
+      res.status(500).json({ error: "Failed to get worker shift dates" });
     }
   });
 

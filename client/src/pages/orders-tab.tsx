@@ -773,7 +773,7 @@ export default function OrderTab() {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground mt-1">{t('orders.tapToOpen') || 'Tap to open'}</div>
+                      <div className="text-xs text-muted-foreground mt-1 truncate">{table.description || t('orders.tapToOpen') || 'Tap to open'}</div>
                     )}
                   </button>
                 );

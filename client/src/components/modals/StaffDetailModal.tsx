@@ -33,9 +33,10 @@ interface StaffDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: AppUser | null;
+  isOnline?: boolean;
 }
 
-export function StaffDetailModal({ open, onOpenChange, user }: StaffDetailModalProps) {
+export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDetailModalProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('week');
 
   // Fetch worker statistics
@@ -130,7 +131,7 @@ export function StaffDetailModal({ open, onOpenChange, user }: StaffDetailModalP
                     </div>
                   )}
                   <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-[#1E2429] ${
-                    user.isOnline ? 'bg-green-500' : 'bg-gray-500'
+                    isOnline ? 'bg-green-500' : 'bg-gray-500'
                   }`} />
                 </div>
 
@@ -143,7 +144,7 @@ export function StaffDetailModal({ open, onOpenChange, user }: StaffDetailModalP
                       <span className="ml-1.5">{getRoleLabel(user.role || 'floor')}</span>
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {user.isOnline ? 'Online' : 'Offline'}
+                      {isOnline ? 'Online' : 'Offline'}
                     </span>
                   </div>
                 </div>

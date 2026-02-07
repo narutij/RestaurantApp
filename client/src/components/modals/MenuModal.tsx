@@ -12,15 +12,17 @@ import { apiRequest } from '@/lib/queryClient';
 import { Menu, Restaurant } from '@shared/schema';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 type MenuModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   restaurant: Restaurant | null;
-  canDelete?: boolean;
+  currentUserId?: string;
 };
 
-export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: MenuModalProps) {
+export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: MenuModalProps) {
+  const { isAdmin } = useAuth();
   const { formatPrice, t } = useLanguage();
   // Menu states
   const [showMenuForm, setShowMenuForm] = useState(false);
@@ -52,7 +54,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
 
   // Menu mutations
   const createMenuMutation = useMutation({
-    mutationFn: (data: { name: string, restaurantId: number }) => 
+    mutationFn: (data: { name: string, restaurantId: number, createdBy?: string }) =>
       apiRequest('/api/menus', { method: 'POST', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menus', restaurant?.id] });
@@ -99,7 +101,18 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
 
   const handleCreateMenu = () => {
     if (!menuName.trim() || !restaurant?.id) return;
-    createMenuMutation.mutate({ name: menuName.trim(), restaurantId: restaurant.id });
+    createMenuMutation.mutate({
+      name: menuName.trim(),
+      restaurantId: restaurant.id,
+      ...(currentUserId ? { createdBy: currentUserId } : {}),
+    });
+  };
+
+  // Admins can edit/delete any menu; others only their own
+  const canModifyMenu = (menu: Menu) => {
+    if (isAdmin) return true;
+    if (!currentUserId || !menu.createdBy) return false;
+    return menu.createdBy === currentUserId;
   };
 
   const handleUpdateMenu = () => {
@@ -170,7 +183,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
             </div>
           ) : selectedMenu ? (
             /* Menu Detail View - Categories */
-            <CategoryList menuId={selectedMenu.id} canDelete={canDelete} />
+            <CategoryList menuId={selectedMenu.id} canModify={canModifyMenu(selectedMenu)} />
           ) : (
             /* Menu List View */
             <ScrollArea className="max-h-[calc(85vh-120px)]">
@@ -255,22 +268,22 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                               <p className="text-xs text-muted-foreground">{t('menu.clickToManage')}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 hover:bg-white/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuToEdit(menu);
-                                setMenuName(menu.name);
-                                setIsEditingMenu(true);
-                                setShowMenuForm(true);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4 text-amber-400" />
-                            </Button>
-                            {canDelete && (
+                          {canModifyMenu(menu) && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-white/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuToEdit(menu);
+                                  setMenuName(menu.name);
+                                  setIsEditingMenu(true);
+                                  setShowMenuForm(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4 text-amber-400" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -283,8 +296,8 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
                               >
                                 <Trash2 className="h-4 w-4 text-red-400" />
                               </Button>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -320,7 +333,7 @@ export function MenuModal({ open, onOpenChange, restaurant, canDelete = true }: 
   );
 }
 
-function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?: boolean }) {
+function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?: boolean }) {
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
   
   // Category form states
@@ -602,7 +615,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : canModify ? (
             <Button
               variant="outline"
               className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
@@ -615,7 +628,7 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
               <Plus className="h-4 w-4 mr-2" />
               {t('menu.addCategory')}
             </Button>
-          )}
+          ) : null}
 
           {categories.length === 0 && !showCategoryForm ? (
             <div className="text-center py-8">
@@ -640,38 +653,38 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                       <span className="font-medium text-sm">{category.name}</span>
                       <CategoryItemCount categoryId={category.id} />
                     </div>
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 hover:bg-green-500/20"
-                        onClick={() => {
-                          setItemCategoryId(category.id);
-                          setItemName("");
-                          setItemPrice("");
-                          setItemDescription("");
-                          setIsEditingItem(false);
-                          setShowItemForm(true);
-                          setShowCategoryForm(false);
-                        }}
-                      >
-                        <PlusCircle className="h-4 w-4 text-green-400" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 hover:bg-white/10"
-                        onClick={() => {
-                          setCategoryToEdit(category);
-                          setCategoryName(category.name);
-                          setIsEditingCategory(true);
-                          setShowCategoryForm(true);
-                          setShowItemForm(false);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5 text-amber-400" />
-                      </Button>
-                      {canDelete && (
+                    {canModify && (
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 hover:bg-green-500/20"
+                          onClick={() => {
+                            setItemCategoryId(category.id);
+                            setItemName("");
+                            setItemPrice("");
+                            setItemDescription("");
+                            setIsEditingItem(false);
+                            setShowItemForm(true);
+                            setShowCategoryForm(false);
+                          }}
+                        >
+                          <PlusCircle className="h-4 w-4 text-green-400" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 hover:bg-white/10"
+                          onClick={() => {
+                            setCategoryToEdit(category);
+                            setCategoryName(category.name);
+                            setIsEditingCategory(true);
+                            setShowCategoryForm(true);
+                            setShowItemForm(false);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-amber-400" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -684,15 +697,15 @@ function CategoryList({ menuId, canDelete = true }: { menuId: number; canDelete?
                         >
                           <Trash2 className="h-3.5 w-3.5 text-red-400" />
                         </Button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Category Items */}
                   {expandedCategories[category.id] && (
                     <CategoryItems
                       categoryId={category.id}
-                      canDelete={canDelete}
+                      canModify={canModify}
                       onEditItem={(item) => {
                         setItemToEdit(item);
                         setItemCategoryId(category.id);
@@ -772,9 +785,9 @@ function CategoryItemCount({ categoryId }: { categoryId: number }) {
   );
 }
 
-function CategoryItems({ categoryId, canDelete = true, onEditItem, onDeleteItem }: {
+function CategoryItems({ categoryId, canModify = true, onEditItem, onDeleteItem }: {
   categoryId: number,
-  canDelete?: boolean,
+  canModify?: boolean,
   onEditItem: (item: any) => void,
   onDeleteItem: (itemId: number, itemName: string) => void
 }) {
@@ -811,16 +824,16 @@ function CategoryItems({ categoryId, canDelete = true, onEditItem, onDeleteItem 
             )}
             <p className="text-xs font-medium text-green-400 mt-0.5">{formatPrice(item.price)}</p>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 hover:bg-white/10"
-              onClick={() => onEditItem(item)}
-            >
-              <Pencil className="h-3.5 w-3.5 text-amber-400" />
-            </Button>
-            {canDelete && (
+          {canModify && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 hover:bg-white/10"
+                onClick={() => onEditItem(item)}
+              >
+                <Pencil className="h-3.5 w-3.5 text-amber-400" />
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -829,8 +842,8 @@ function CategoryItems({ categoryId, canDelete = true, onEditItem, onDeleteItem 
               >
                 <Trash2 className="h-3.5 w-3.5 text-red-400" />
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       ))}
     </div>

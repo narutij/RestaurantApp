@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, Users, Clock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-type StaffTimeframe = 'day' | 'week' | 'month';
+type StaffTimeframe = 'day' | 'week' | 'month' | 'year';
 
 interface TopWorker {
   workerId: string;
   name: string;
   totalMinutes: number;
+  avatarUrl?: string | null;
 }
 
 interface TopStaffWidgetProps {
@@ -45,6 +46,7 @@ export function TopStaffWidget({
     day: t('timeframe.day') || 'Today',
     week: t('timeframe.week') || 'Week',
     month: t('timeframe.month') || 'Month',
+    year: t('timeframe.year') || 'Year',
   };
 
   // Reorder for podium: 2nd, 1st, 3rd
@@ -78,14 +80,14 @@ export function TopStaffWidget({
   };
 
   return (
-    <Card className="overflow-hidden border-cyan-500/20">
+    <Card className="overflow-hidden border-purple-500/20">
       <CardContent className="p-4 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-transparent" />
         <div className="relative">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-cyan-500/20">
-                <Users className="h-4 w-4 text-cyan-500" />
+              <div className="p-2 rounded-xl bg-purple-500/20">
+                <Users className="h-4 w-4 text-purple-500" />
               </div>
               <p className="text-xs text-muted-foreground font-medium">
                 {t('restaurant.topStaff') || 'Top Staff'}
@@ -109,6 +111,9 @@ export function TopStaffWidget({
                 <DropdownMenuItem onClick={() => onTimeframeChange('month')}>
                   {timeframeLabels.month}
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onTimeframeChange('year')}>
+                  {timeframeLabels.year}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -130,15 +135,23 @@ export function TopStaffWidget({
                     key={worker.workerId}
                     className="flex flex-col items-center flex-1 max-w-[90px]"
                   >
-                    {/* Avatar with initials */}
+                    {/* Avatar */}
                     <div className="relative mb-1">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                        index === 1
-                          ? 'bg-cyan-500/30 text-cyan-600 dark:text-cyan-400'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                      }`}>
-                        {getInitials(worker.name)}
-                      </div>
+                      {worker.avatarUrl ? (
+                        <img
+                          src={worker.avatarUrl}
+                          alt={worker.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                          index === 1
+                            ? 'bg-purple-500/30 text-purple-600 dark:text-purple-400'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        }`}>
+                          {getInitials(worker.name)}
+                        </div>
+                      )}
                       <span className="absolute -top-1 -right-1 text-sm">{emoji}</span>
                     </div>
 
@@ -151,10 +164,10 @@ export function TopStaffWidget({
                     <div
                       className={`w-full ${height} rounded-t-lg flex flex-col items-center justify-end pb-1 ${
                         index === 1
-                          ? 'bg-gradient-to-t from-cyan-500/30 to-cyan-500/10'
+                          ? 'bg-gradient-to-t from-purple-500/30 to-purple-500/10'
                           : index === 0
                           ? 'bg-gradient-to-t from-gray-400/30 to-gray-400/10'
-                          : 'bg-gradient-to-t from-blue-700/30 to-blue-700/10'
+                          : 'bg-gradient-to-t from-violet-700/30 to-violet-700/10'
                       }`}
                     >
                       <div className="flex items-center gap-0.5">

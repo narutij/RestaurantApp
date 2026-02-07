@@ -38,6 +38,10 @@ enableIndexedDbPersistence(db).catch((err) => {
 // Initialize Auth
 export const auth = getAuth(app);
 
+// Secondary app instance for creating user accounts without affecting the current session
+const secondaryApp = initializeApp(firebaseConfig, 'secondary');
+export const secondaryAuth = getAuth(secondaryApp);
+
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
 

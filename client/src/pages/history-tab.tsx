@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { userService, type AppUser } from '@/lib/firestore';
 import { formatTime } from '@/lib/utils';
 import { type OrderWithDetails, type WebSocketMessage } from '@shared/schema';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -204,10 +205,12 @@ const ShiftCard = ({
   shift,
   shiftNumber,
   totalShifts,
+  resolveWorkerName,
 }: {
   shift: Shift;
   shiftNumber: number;
   totalShifts: number;
+  resolveWorkerName: (id: string) => string;
 }) => {
   const { t, formatPrice } = useLanguage();
   const [isTableBreakdownOpen, setIsTableBreakdownOpen] = useState(false);
@@ -409,7 +412,7 @@ const ShiftCard = ({
                         <Users className="h-4 w-4 text-blue-500" />
                       </div>
                       <div>
-                        <div className="font-medium">{worker.workerId}</div>
+                        <div className="font-medium">{resolveWorkerName(worker.workerId)}</div>
                         <div className="text-xs text-muted-foreground">
                           {t('history.started')} {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
@@ -553,6 +556,19 @@ export default function HistoryTab() {
   const { addMessageListener } = useWebSocketContext();
   const { addNotification } = useNotifications();
   const { isAdmin } = useAuth();
+
+  // Fetch all Firestore users for name resolution
+  const { data: allUsers = [] } = useQuery<AppUser[]>({
+    queryKey: ['all-workers'],
+    queryFn: () => userService.getAll(),
+  });
+
+  const resolveWorkerName = useMemo(() => {
+    return (workerId: string) => {
+      const user = allUsers.find(u => u.id === workerId);
+      return user?.name || workerId;
+    };
+  }, [allUsers]);
 
   // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -942,7 +958,7 @@ export default function HistoryTab() {
                               key={workerId}
                               className="flex items-center justify-between py-1 px-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
                             >
-                              <span className="text-sm font-medium truncate">{workerId}</span>
+                              <span className="text-sm font-medium truncate">{resolveWorkerName(workerId)}</span>
                               <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                                 {data.shiftNumbers.map(s => (
                                   <Badge
@@ -1007,6 +1023,7 @@ export default function HistoryTab() {
                   shift={shift}
                   shiftNumber={arr.length - idx}
                   totalShifts={arr.length}
+                  resolveWorkerName={resolveWorkerName}
                 />
               ))}
             </div>

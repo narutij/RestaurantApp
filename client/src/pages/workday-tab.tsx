@@ -18,6 +18,8 @@ import {
 import { useWorkday } from '@/contexts/WorkdayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { apiRequest } from '@/lib/queryClient';
 import { userService, type AppUser } from '@/lib/firestore';
 import { type Menu, type TableLayout } from '@shared/schema';
@@ -54,6 +56,7 @@ interface WorkdayWorkerState {
   totalWorkedMs: number;
   totalRestedMs: number;
   shiftStartTime: Date;
+  releasedAt?: Date;
 }
 
 // Worker data stored in ended shift for display
@@ -80,6 +83,8 @@ export default function WorkdayTab() {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
+  const { isAdmin, appUser } = useAuth();
+  const { addMessageListener } = useWebSocketContext();
   const {
     selectedRestaurant,
     activeWorkday,
@@ -100,6 +105,7 @@ export default function WorkdayTab() {
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [addWorkerOpen, setAddWorkerOpen] = useState(false);
+  const [releaseWorkerConfirmId, setReleaseWorkerConfirmId] = useState<string | null>(null);
   const [dismissShiftsConfirmOpen, setDismissShiftsConfirmOpen] = useState(false);
   const [menuExpanded, setMenuExpanded] = useState(false);
   const [layoutExpanded, setLayoutExpanded] = useState(false);
@@ -262,6 +268,23 @@ export default function WorkdayTab() {
   // Filter out the main admin account from worker selection
   const allWorkers = realWorkers.filter(w => w.email !== 'narutisjustinas@gmail.com');
 
+  // Fetch workers assigned to the active workday from the server
+  // This ensures workers persist across tab switches
+  const { data: serverWorkdayWorkers = [] } = useQuery<Array<{
+    id: number; workdayId: number; workerId: string; joinedAt: string | null;
+    status: string | null; totalWorkedMs: number | null; totalRestedMs: number | null;
+    lastStatusChangeAt: string | null; releasedAt: string | null;
+  }>>({
+    queryKey: ['workday-workers', activeWorkday?.id],
+    queryFn: async () => {
+      if (!activeWorkday?.id) return [];
+      const res = await fetch(`/api/workdays/${activeWorkday.id}/workers`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeWorkday?.id && isWorkdayActive,
+  });
+
   // Create workday mutation
   const createWorkdayMutation = useMutation({
     mutationFn: async (data: {
@@ -280,25 +303,56 @@ export default function WorkdayTab() {
     }
   });
 
-  // Initialize workday workers when workday becomes active
+  // Restore workday workers from server when returning to this tab (or on first load)
   useEffect(() => {
-    if (isWorkdayActive && selectedWorkerIds.length > 0 && workdayWorkers.length === 0) {
-      const now = new Date();
-      const initialWorkers = selectedWorkerIds.map(id => {
-        const worker = allWorkers.find(w => w.id === id);
+    if (isWorkdayActive && serverWorkdayWorkers.length > 0 && workdayWorkers.length === 0 && allWorkers.length > 0) {
+      const restoredWorkers = serverWorkdayWorkers.map(sw => {
+        const worker = allWorkers.find(w => w.id === sw.workerId);
+        const joinedAt = sw.joinedAt ? new Date(sw.joinedAt) : new Date();
+        const serverStatus = (sw.status as WorkerShiftStatus) || 'working';
+        const lastChange = sw.lastStatusChangeAt ? new Date(sw.lastStatusChangeAt) : joinedAt;
         return {
-          id,
+          id: sw.workerId,
           name: worker?.name || 'Unknown',
-          status: 'working' as WorkerShiftStatus,
-          startedAt: now,
-          totalWorkedMs: 0,
-          totalRestedMs: 0,
-          shiftStartTime: now,
+          status: serverStatus,
+          startedAt: serverStatus === 'working' ? lastChange : undefined,
+          restStartedAt: serverStatus === 'resting' ? lastChange : undefined,
+          totalWorkedMs: sw.totalWorkedMs || 0,
+          totalRestedMs: sw.totalRestedMs || 0,
+          shiftStartTime: joinedAt,
+          releasedAt: sw.releasedAt ? new Date(sw.releasedAt) : undefined,
         };
       });
-      setWorkdayWorkers(initialWorkers);
+      setWorkdayWorkers(restoredWorkers);
     }
-  }, [isWorkdayActive, selectedWorkerIds, allWorkers]);
+  }, [isWorkdayActive, serverWorkdayWorkers, allWorkers, workdayWorkers.length]);
+
+  // Listen for WebSocket worker status changes from other users
+  useEffect(() => {
+    const removeListener = addMessageListener((message) => {
+      if (message.type === 'WORKER_STATUS_CHANGED') {
+        const { workdayId, workerId, status, totalWorkedMs, totalRestedMs } = message.payload as {
+          workdayId: number; workerId: string; status: string; totalWorkedMs: number; totalRestedMs: number;
+        };
+        if (activeWorkday?.id === workdayId) {
+          setWorkdayWorkers(prev => prev.map(w => {
+            if (w.id !== workerId) return w;
+            const now = new Date();
+            return {
+              ...w,
+              status: status as WorkerShiftStatus,
+              startedAt: status === 'working' ? now : undefined,
+              restStartedAt: status === 'resting' ? now : undefined,
+              totalWorkedMs,
+              totalRestedMs,
+              releasedAt: status === 'released' ? now : w.releasedAt,
+            };
+          }));
+        }
+      }
+    });
+    return removeListener;
+  }, [addMessageListener, activeWorkday?.id]);
 
   // Handle start workday
   const handleStartWorkday = async () => {
@@ -426,55 +480,70 @@ export default function WorkdayTab() {
 
   // Worker shift controls
   const handleWorkerAction = (workerId: string, action: 'start' | 'rest' | 'release') => {
-    setWorkdayWorkers(prev => prev.map(w => {
-      if (w.id !== workerId) return w;
+    setWorkdayWorkers(prev => {
+      const updated = prev.map(w => {
+        if (w.id !== workerId) return w;
 
-      const now = new Date();
-      let newTotalWorked = w.totalWorkedMs;
-      let newTotalRested = w.totalRestedMs;
+        const now = new Date();
+        let newTotalWorked = w.totalWorkedMs;
+        let newTotalRested = w.totalRestedMs;
 
-      // Calculate worked time if transitioning from working
-      if (w.status === 'working' && w.startedAt) {
-        newTotalWorked += now.getTime() - w.startedAt.getTime();
-      }
+        // Calculate worked time if transitioning from working
+        if (w.status === 'working' && w.startedAt) {
+          newTotalWorked += now.getTime() - w.startedAt.getTime();
+        }
 
-      // Calculate rested time if transitioning from resting
-      if (w.status === 'resting' && w.restStartedAt) {
-        newTotalRested += now.getTime() - w.restStartedAt.getTime();
-      }
+        // Calculate rested time if transitioning from resting
+        if (w.status === 'resting' && w.restStartedAt) {
+          newTotalRested += now.getTime() - w.restStartedAt.getTime();
+        }
 
-      switch (action) {
-        case 'start':
-          return {
-            ...w,
-            status: 'working' as WorkerShiftStatus,
-            startedAt: now,
-            restStartedAt: undefined,
-            totalWorkedMs: newTotalWorked,
-            totalRestedMs: newTotalRested,
-          };
-        case 'rest':
-          return {
-            ...w,
-            status: 'resting' as WorkerShiftStatus,
-            startedAt: undefined,
-            restStartedAt: now,
-            totalWorkedMs: newTotalWorked,
-            totalRestedMs: newTotalRested,
-          };
-        case 'release':
-          return {
-            ...w,
-            status: 'released' as WorkerShiftStatus,
-            startedAt: undefined,
-            restStartedAt: undefined,
-            totalWorkedMs: newTotalWorked,
-            totalRestedMs: newTotalRested,
-          };
-        default:
-          return w;
-      }
-    }));
+        const newStatus: WorkerShiftStatus = action === 'start' ? 'working' : action === 'rest' ? 'resting' : 'released';
+
+        // Persist status change to server
+        if (activeWorkday?.id) {
+          fetch(`/api/workdays/${activeWorkday.id}/workers/${workerId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus, totalWorkedMs: newTotalWorked, totalRestedMs: newTotalRested }),
+          }).catch(e => console.error('Failed to persist worker status:', e));
+        }
+
+        switch (action) {
+          case 'start':
+            return {
+              ...w,
+              status: 'working' as WorkerShiftStatus,
+              startedAt: now,
+              restStartedAt: undefined,
+              totalWorkedMs: newTotalWorked,
+              totalRestedMs: newTotalRested,
+            };
+          case 'rest':
+            return {
+              ...w,
+              status: 'resting' as WorkerShiftStatus,
+              startedAt: undefined,
+              restStartedAt: now,
+              totalWorkedMs: newTotalWorked,
+              totalRestedMs: newTotalRested,
+            };
+          case 'release':
+            return {
+              ...w,
+              status: 'released' as WorkerShiftStatus,
+              startedAt: undefined,
+              restStartedAt: undefined,
+              totalWorkedMs: newTotalWorked,
+              totalRestedMs: newTotalRested,
+              releasedAt: now,
+            };
+          default:
+            return w;
+        }
+      });
+      return updated;
+    });
   };
 
   // Add worker during active workday
@@ -512,8 +581,9 @@ export default function WorkdayTab() {
 
   // Format duration
   const formatDuration = (ms: number) => {
-    const hours = Math.floor(ms / 3600000);
-    const minutes = Math.floor((ms % 3600000) / 60000);
+    const abs = Math.max(0, ms);
+    const hours = Math.floor(abs / 3600000);
+    const minutes = Math.floor((abs % 3600000) / 60000);
     return `${hours}h ${minutes}m`;
   };
 
@@ -753,66 +823,84 @@ export default function WorkdayTab() {
                           }`} />
                           <div className="min-w-0">
                             <p className="font-medium truncate">{worker.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {worker.status === 'working' && (
-                                <>
-                                  {t('workday.working') || 'Working'}
-                                  {worker.totalRestedMs > 0 && ` · ${formatDuration(worker.totalRestedMs)} ${t('workday.rested')?.toLowerCase() || 'rested'}`}
-                                </>
-                              )}
-                              {worker.status === 'resting' && (
-                                <>
-                                  {t('workday.onBreak') || 'On break'}
-                                  {worker.totalRestedMs > 0 && ` · ${formatDuration(worker.totalRestedMs)}`}
-                                </>
-                              )}
-                              {worker.status === 'released' && (
-                                <>
-                                  {t('workday.shiftEnded') || 'Shift ended'}
-                                  {worker.totalWorkedMs > 0 && ` · ${formatDuration(worker.totalWorkedMs)}`}
-                                </>
-                              )}
-                            </p>
+                            {worker.status === 'released' ? (
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <p>
+                                  {formatTime(worker.shiftStartTime)} - {worker.releasedAt ? formatTime(worker.releasedAt) : '--:--'}
+                                </p>
+                                <p>
+                                  <span className="text-green-600 dark:text-green-400">{t('workday.worked') || 'Worked'}: {formatDuration(worker.totalWorkedMs)}</span>
+                                  {worker.totalRestedMs > 0 && (
+                                    <span className="text-amber-600 dark:text-amber-400"> · {t('workday.rested') || 'Rested'}: {formatDuration(worker.totalRestedMs)}</span>
+                                  )}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                {worker.status === 'working' && (
+                                  <>
+                                    {t('workday.working') || 'Working'}
+                                    {worker.totalRestedMs > 0 && ` · ${formatDuration(worker.totalRestedMs)} ${t('workday.rested')?.toLowerCase() || 'rested'}`}
+                                  </>
+                                )}
+                                {worker.status === 'resting' && (
+                                  <>
+                                    {t('workday.onBreak') || 'On break'}
+                                    {worker.totalRestedMs > 0 && ` · ${formatDuration(worker.totalRestedMs)}`}
+                                  </>
+                                )}
+                              </p>
+                            )}
                           </div>
                         </div>
 
                         <div className="flex gap-1 flex-shrink-0">
-                          {worker.status === 'resting' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2"
-                              onClick={() => handleWorkerAction(worker.id, 'start')}
-                            >
-                              <Play className="h-3.5 w-3.5 mr-1" />
-                              {t('workday.start') || 'Start'}
-                            </Button>
-                          )}
-                          {worker.status === 'working' && (
+                          {(isAdmin || worker.id === appUser?.id) ? (
                             <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2"
-                                onClick={() => handleWorkerAction(worker.id, 'rest')}
-                              >
-                                <Coffee className="h-3.5 w-3.5 mr-1" />
-                                {t('workday.rest') || 'Rest'}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2 text-red-500 hover:text-red-600"
-                                onClick={() => handleWorkerAction(worker.id, 'release')}
-                              >
-                                <UserMinus className="h-3.5 w-3.5" />
-                              </Button>
+                              {worker.status === 'resting' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2"
+                                  onClick={() => handleWorkerAction(worker.id, 'start')}
+                                >
+                                  <Play className="h-3.5 w-3.5 mr-1" />
+                                  {t('workday.start') || 'Start'}
+                                </Button>
+                              )}
+                              {worker.status === 'working' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-2"
+                                    onClick={() => handleWorkerAction(worker.id, 'rest')}
+                                  >
+                                    <Coffee className="h-3.5 w-3.5 mr-1" />
+                                    {t('workday.rest') || 'Rest'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-2 text-red-500 hover:text-red-600"
+                                    onClick={() => setReleaseWorkerConfirmId(worker.id)}
+                                  >
+                                    <UserMinus className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                              {worker.status === 'released' && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {t('workday.done') || 'Done'}
+                                </Badge>
+                              )}
                             </>
-                          )}
-                          {worker.status === 'released' && (
-                            <Badge variant="secondary" className="text-xs">
-                              {t('workday.done') || 'Done'}
-                            </Badge>
+                          ) : (
+                            worker.status === 'released' ? (
+                              <Badge variant="secondary" className="text-xs">
+                                {t('workday.done') || 'Done'}
+                              </Badge>
+                            ) : null
                           )}
                         </div>
                       </div>
@@ -1189,6 +1277,32 @@ export default function WorkdayTab() {
               ) : (
                 t('workday.endWorkday') || 'End Workday'
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Release Worker Confirmation Dialog */}
+      <AlertDialog open={!!releaseWorkerConfirmId} onOpenChange={(open) => { if (!open) setReleaseWorkerConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('workday.endShiftConfirmTitle') || 'End Shift?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('workday.endShiftConfirmDescription') || 'Are you sure you want to end this worker\'s shift? This will release them from the current workday.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (releaseWorkerConfirmId) {
+                  handleWorkerAction(releaseWorkerConfirmId, 'release');
+                }
+                setReleaseWorkerConfirmId(null);
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {t('workday.endShift') || 'End Shift'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

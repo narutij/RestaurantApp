@@ -27,7 +27,7 @@ import {
 
 export default function SettingsTab() {
   const { toast } = useToast();
-  const { logout, appUser } = useAuth();
+  const { logout, appUser, currentUser } = useAuth();
   const { selectedRestaurant } = useWorkday();
   const { language, setLanguage, t } = useLanguage();
 
@@ -344,6 +344,7 @@ export default function SettingsTab() {
         open={menuModalOpen}
         onOpenChange={setMenuModalOpen}
         restaurant={selectedRestaurant}
+        currentUserId={currentUser?.uid || appUser?.uid}
       />
 
       {/* Table Layout Modal */}
@@ -351,6 +352,7 @@ export default function SettingsTab() {
         open={tableLayoutModalOpen}
         onOpenChange={setTableLayoutModalOpen}
         restaurant={selectedRestaurant}
+        currentUserId={currentUser?.uid || appUser?.uid}
       />
     </div>
   );

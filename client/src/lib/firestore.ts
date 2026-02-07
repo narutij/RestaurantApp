@@ -23,7 +23,7 @@ const collections = {
 } as const;
 
 // User roles
-export type UserRole = "admin" | "user" | "worker" | "kitchen" | "manager" | "floor";
+export type UserRole = "admin" | "kitchen" | "floor";
 
 // User types
 export type AppUser = {

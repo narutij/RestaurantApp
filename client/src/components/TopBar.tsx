@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, Clock, Building2, Menu, Bell, Trash2, Upload, Image as ImageIcon, Plus, Pencil, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,7 +60,7 @@ export default function TopBar({
 }: TopBarProps) {
   const { connectedUsers, connectedUsersList } = useWebSocketContext();
   const { t } = useLanguage();
-  const { isAdmin, appUser } = useAuth();
+  const { isAdmin, isFloorOrKitchen, appUser } = useAuth();
 
   const allConnectedUsers = useMemo(() => {
     return connectedUsersList || [];
@@ -89,18 +89,33 @@ export default function TopBar({
   const { data: allRestaurants = [], isLoading: restaurantsLoading } = useQuery({
     queryKey: ['/api/restaurants'],
     queryFn: () => apiRequest('/api/restaurants'),
+    refetchInterval: 30000, // Refresh every 30s so new restaurants appear for all users
   });
 
-  // Filter restaurants based on user's assigned restaurants (non-admins only see assigned)
+  // Filter restaurants based on user role and assignments
+  // Kitchen/Floor: only see assigned restaurants (no fallback)
+  // Admin/Manager: see all restaurants
   const restaurants = useMemo(() => {
     if (isAdmin) return allRestaurants;
-    if (!appUser?.assignedRestaurants || appUser.assignedRestaurants.length === 0) {
-      return allRestaurants; // If no assignments, show all (fallback)
+    if (isFloorOrKitchen) {
+      if (!appUser?.assignedRestaurants || appUser.assignedRestaurants.length === 0) {
+        return []; // No assignments = no restaurants visible
+      }
+      return allRestaurants.filter((r: Restaurant) =>
+        appUser.assignedRestaurants!.includes(r.id)
+      );
     }
-    return allRestaurants.filter((r: Restaurant) =>
-      appUser.assignedRestaurants!.includes(r.id)
-    );
-  }, [allRestaurants, isAdmin, appUser?.assignedRestaurants]);
+    // For other roles, show all
+    return allRestaurants;
+  }, [allRestaurants, isAdmin, isFloorOrKitchen, appUser?.assignedRestaurants]);
+
+  // Auto-select first assigned restaurant if current selection isn't in the filtered list
+  useEffect(() => {
+    if (restaurants.length === 0) return;
+    if (selectedRestaurant && restaurants.some((r: Restaurant) => r.id === selectedRestaurant.id)) return;
+    // Current selection is not in the visible list — select the first one
+    onSelectRestaurant(restaurants[0]);
+  }, [restaurants, selectedRestaurant]);
 
   // Create restaurant mutation
   const createRestaurantMutation = useMutation({
@@ -296,7 +311,7 @@ export default function TopBar({
                           <Building2 className="h-3.5 w-3.5 text-primary" />
                         </div>
                       )}
-                      <span className="font-semibold text-sm">{selectedRestaurant.name}</span>
+                      <span className="font-semibold text-sm truncate max-w-[100px]">{selectedRestaurant.name.length > 15 ? selectedRestaurant.name.slice(0, 15) + '...' : selectedRestaurant.name}</span>
                       <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                     </>
                   ) : (
@@ -428,41 +443,47 @@ export default function TopBar({
                               <p className="font-medium text-sm truncate">{restaurant.name}</p>
                               <p className="text-xs text-muted-foreground truncate">{restaurant.address}</p>
                             </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={(e) => handleEditClick(e, restaurant)}
-                              >
-                                <Pencil className="h-3.5 w-3.5 text-amber-500" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={(e) => handleDeleteClick(e, restaurant)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                              </Button>
-                            </div>
+                            {isAdmin && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => handleEditClick(e, restaurant)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5 text-amber-500" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => handleDeleteClick(e, restaurant)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                </Button>
+                              </div>
+                            )}
                           </button>
                         ))}
                       </div>
                     )}
                   </ScrollArea>
-                  <Separator />
-                  <div className="p-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start gap-2 h-9"
-                      onClick={() => setCreateMode(true)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t('modal.createRestaurant') || 'Create New Restaurant'}
-                    </Button>
-                  </div>
+                  {isAdmin && (
+                    <>
+                      <Separator />
+                      <div className="p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start gap-2 h-9"
+                          onClick={() => setCreateMode(true)}
+                        >
+                          <Plus className="h-4 w-4" />
+                          {t('modal.createRestaurant') || 'Create New Restaurant'}
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </PopoverContent>
@@ -494,11 +515,19 @@ export default function TopBar({
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="relative">
-                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                <span className="text-xs font-medium">
-                                  {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                                </span>
-                              </div>
+                              {user.photoUrl ? (
+                                <img
+                                  src={user.photoUrl}
+                                  alt={user.name}
+                                  className="h-8 w-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                  <span className="text-xs font-medium">
+                                    {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  </span>
+                                </div>
+                              )}
                               <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
                             </div>
                             <span className="text-sm font-medium truncate">{user.name}</span>

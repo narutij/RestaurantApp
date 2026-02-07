@@ -37,7 +37,7 @@ export default function AppLayout() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'restaurant':
-        return isAdmin ? <RestaurantInfoTab /> : <WorkdayTab />;
+        return <RestaurantInfoTab />;
       case 'workday':
         return <WorkdayTab />;
       case 'orders':

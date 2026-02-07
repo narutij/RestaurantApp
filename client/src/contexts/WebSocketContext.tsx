@@ -7,6 +7,7 @@ type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error';
 export interface ConnectedUserInfo {
   name: string;
   connectedAt: string;
+  photoUrl?: string;
 }
 
 interface WebSocketContextType {
@@ -68,7 +69,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       if (appUserRef.current?.name) {
         socket.send(JSON.stringify({
           type: 'USER_CONNECT',
-          payload: { name: appUserRef.current.name }
+          payload: { name: appUserRef.current.name, photoUrl: appUserRef.current.photoUrl || null }
         }));
         userNameSentRef.current = true;
       }
@@ -121,7 +122,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     ) {
       socketRef.current.send(JSON.stringify({
         type: 'USER_CONNECT',
-        payload: { name: appUser.name }
+        payload: { name: appUser.name, photoUrl: appUser.photoUrl || null }
       }));
       userNameSentRef.current = true;
     }

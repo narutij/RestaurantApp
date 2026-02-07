@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -11,9 +11,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { accountRequestService, userService, type AppUser, type AccountRequest } from "@/lib/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { secondaryAuth } from "@/lib/firebase";
 import { StaffDetailModal } from './StaffDetailModal';
 import { apiRequest } from '@/lib/queryClient';
 import type { Restaurant } from '@shared/schema';
@@ -40,18 +41,28 @@ type WorkerRole = 'admin' | 'kitchen' | 'floor';
 interface WorkersModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  viewOnly?: boolean;
 }
 
-export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
+export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersModalProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const { t } = useLanguage();
+  const { connectedUsersList } = useWebSocketContext();
   const queryClient = useQueryClient();
+
+  // Derive online status from WebSocket connected users
+  const onlineNames = useMemo(() => {
+    return new Set(connectedUsersList.map(u => u.name));
+  }, [connectedUsersList]);
+
+  const isUserOnline = (name: string) => onlineNames.has(name);
   const [activeUsers, setActiveUsers] = useState<AppUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccountRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, WorkerRole>>({});
+  const [selectedRestaurantsForRequest, setSelectedRestaurantsForRequest] = useState<Record<string, number[]>>({});
 
   // Staff detail modal state
   const [selectedStaff, setSelectedStaff] = useState<AppUser | null>(null);
@@ -98,10 +109,10 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
   });
 
   useEffect(() => {
-    if (open && isAdmin) {
+    if (open) {
       loadData();
     }
-  }, [open, isAdmin]);
+  }, [open]);
 
   useEffect(() => {
     const roles: Record<string, WorkerRole> = {};
@@ -145,10 +156,12 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
 
   const handleApproveRequest = async (request: AccountRequest) => {
     const role = selectedRoles[request.id] || 'floor';
+    const assignedRestaurants = selectedRestaurantsForRequest[request.id] || [];
     try {
       setProcessingRequest(request.id);
-      
-      const userCredential = await createUserWithEmailAndPassword(auth, request.email, request.password);
+
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, request.email, request.password);
+      await signOut(secondaryAuth);
       await userService.add({
         uid: userCredential.user.uid,
         email: request.email,
@@ -157,7 +170,8 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
         status: 'active',
         createdAt: new Date(),
         updatedAt: new Date(),
-        approvedAt: new Date()
+        approvedAt: new Date(),
+        ...(role !== 'admin' && assignedRestaurants.length > 0 ? { assignedRestaurants } : {})
       });
       await accountRequestService.update(request.id, {
         status: 'approved',
@@ -264,8 +278,8 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
   };
 
 
-  // View-only staff list for non-admins
-  if (!isAdmin) {
+  // View-only staff list for non-admins or when viewOnly is set
+  if (!isAdmin || viewOnly) {
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -332,7 +346,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                               </div>
                             )}
                             <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
-                              user.isOnline ? 'bg-green-500' : 'bg-gray-500'
+                              isUserOnline(user.name) ? 'bg-green-500' : 'bg-gray-500'
                             }`} />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -359,6 +373,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
           open={staffDetailOpen}
           onOpenChange={setStaffDetailOpen}
           user={selectedStaff}
+          isOnline={selectedStaff ? isUserOnline(selectedStaff.name) : false}
         />
       </>
     );
@@ -437,38 +452,8 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                               })()}
                             </p>
                             
-                            {/* Actions - Stacked Layout */}
-                            <div className="mt-3 space-y-2">
-                              {/* Approve/Reject buttons */}
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="flex-1 h-8 bg-green-500/10 hover:bg-green-500/20 text-green-400"
-                                  onClick={() => handleApproveRequest(request)}
-                                  disabled={processingRequest === request.id}
-                                >
-                                  {processingRequest === request.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <Check className="h-4 w-4 mr-1" />
-                                      {t('staff.approve')}
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="flex-1 h-8 bg-red-500/10 hover:bg-red-500/20 text-red-400"
-                                  onClick={() => handleRejectRequest(request)}
-                                  disabled={processingRequest === request.id}
-                                >
-                                  <Ban className="h-4 w-4 mr-1" />
-                                  {t('staff.decline')}
-                                </Button>
-                              </div>
-                              
+                            {/* Role & Restaurant Row */}
+                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-white/5">
                               {/* Role Selection */}
                               <Select
                                 value={selectedRoles[request.id] || 'floor'}
@@ -477,7 +462,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 }}
                                 disabled={processingRequest === request.id}
                               >
-                                <SelectTrigger className="w-full h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10">
+                                <SelectTrigger className="w-[130px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 flex-shrink-0">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -501,6 +486,98 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                   </SelectItem>
                                 </SelectContent>
                               </Select>
+
+                              {/* Restaurant Assignment (for non-admin roles) */}
+                              {(selectedRoles[request.id] || 'floor') !== 'admin' && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 flex-1 justify-between text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                                      disabled={processingRequest === request.id}
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate">
+                                        <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                                        <span className="truncate">
+                                          {(selectedRestaurantsForRequest[request.id] || []).length === 0
+                                            ? t('staff.selectRestaurants') || 'Select restaurants'
+                                            : `${(selectedRestaurantsForRequest[request.id] || []).length} ${t('staff.restaurants')}`
+                                          }
+                                        </span>
+                                      </div>
+                                      <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground ml-1" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="p-2" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+                                        {t('staff.assignToRestaurants')}
+                                      </p>
+                                      {allRestaurants.map((restaurant) => {
+                                        const currentSelections = selectedRestaurantsForRequest[request.id] || [];
+                                        const isSelected = currentSelections.includes(restaurant.id);
+                                        return (
+                                          <div
+                                            key={restaurant.id}
+                                            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                                            onClick={() => {
+                                              const newSelections = isSelected
+                                                ? currentSelections.filter(id => id !== restaurant.id)
+                                                : [...currentSelections, restaurant.id];
+                                              setSelectedRestaurantsForRequest(prev => ({
+                                                ...prev,
+                                                [request.id]: newSelections
+                                              }));
+                                            }}
+                                          >
+                                            <Checkbox
+                                              checked={isSelected}
+                                              className="h-4 w-4"
+                                            />
+                                            <span className="text-sm truncate">{restaurant.name}</span>
+                                          </div>
+                                        );
+                                      })}
+                                      {allRestaurants.length === 0 && (
+                                        <p className="text-xs text-muted-foreground text-center py-2">
+                                          {t('staff.noRestaurantsAvailable')}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+
+                            {/* Approve/Reject buttons */}
+                            <div className="flex gap-2 mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 h-8 bg-green-500/10 hover:bg-green-500/20 text-green-400"
+                                onClick={() => handleApproveRequest(request)}
+                                disabled={processingRequest === request.id}
+                              >
+                                {processingRequest === request.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Check className="h-4 w-4 mr-1" />
+                                    {t('staff.approve')}
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 h-8 bg-red-500/10 hover:bg-red-500/20 text-red-400"
+                                onClick={() => handleRejectRequest(request)}
+                                disabled={processingRequest === request.id}
+                              >
+                                <Ban className="h-4 w-4 mr-1" />
+                                {t('staff.decline')}
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -555,7 +632,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 </div>
                               )}
                               <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
-                                user.isOnline ? 'bg-green-500' : 'bg-gray-500'
+                                isUserOnline(user.name) ? 'bg-green-500' : 'bg-gray-500'
                               }`} />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -578,7 +655,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                 }
                               }}
                             >
-                              <SelectTrigger className="w-[100px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 flex-shrink-0">
+                              <SelectTrigger className="w-[130px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 flex-shrink-0">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -627,7 +704,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
                                     <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground ml-1" />
                                   </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[220px] p-2" align="start">
+                                <PopoverContent className="p-2" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
                                   <div className="space-y-1">
                                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">
                                       {t('staff.assignToRestaurants')}
@@ -745,6 +822,7 @@ export function WorkersModal({ open, onOpenChange }: WorkersModalProps) {
         open={staffDetailOpen}
         onOpenChange={setStaffDetailOpen}
         user={selectedStaff}
+        isOnline={selectedStaff ? isUserOnline(selectedStaff.name) : false}
       />
     </Dialog>
   );

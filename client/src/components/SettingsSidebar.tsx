@@ -94,10 +94,10 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
     switch (role) {
       case 'admin':
         return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
-      case 'manager':
-        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
       case 'kitchen':
         return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+      case 'floor':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
     }
@@ -106,10 +106,9 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
   const getTranslatedRole = (role: string | undefined) => {
     switch (role) {
       case 'admin': return t('roles.admin');
-      case 'manager': return t('roles.manager');
       case 'kitchen': return t('roles.kitchen');
-      case 'worker': return t('roles.worker');
-      default: return role || t('roles.worker');
+      case 'floor': return t('roles.floor');
+      default: return role || t('roles.floor');
     }
   };
 

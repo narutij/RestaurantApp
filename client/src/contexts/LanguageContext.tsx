@@ -95,6 +95,12 @@ const translations = {
     'restaurant.topStaff': 'Top Staff',
     'restaurant.noStaffData': 'No staff data available',
     'restaurant.viewCreateLayouts': 'View and create layouts',
+    'restaurant.workingHours': 'Working Hours',
+    'restaurant.shifts': 'Shifts',
+    'restaurant.shiftsCount': 'shifts',
+    'restaurant.perShift': 'shift',
+    'restaurant.avgPerShift': 'Avg/shift',
+    'restaurant.noShiftData': 'No shift data for this period',
 
     // Timeframes
     'timeframe.day': 'Day',
@@ -169,6 +175,9 @@ const translations = {
     'workday.offline': 'Offline',
     'workday.worked': 'Worked',
     'workday.rested': 'Rested',
+    'workday.endShiftConfirmTitle': 'End Shift?',
+    'workday.endShiftConfirmDescription': 'Are you sure you want to end this worker\'s shift?',
+    'workday.endShift': 'End Shift',
     'workday.dismissShiftsTitle': 'Dismiss Shift History?',
     'workday.dismissShiftsDescription': 'Are you sure you want to dismiss all ended shift banners? The shift data will still be saved, but the banners will be hidden until tomorrow.',
 
@@ -360,6 +369,7 @@ const translations = {
     'staff.noApprovedStaff': 'No approved staff found',
     'staff.allRestaurants': 'All restaurants',
     'staff.restaurants': 'restaurants',
+    'staff.selectRestaurants': 'Select restaurants',
     'staff.assignToRestaurants': 'Assign to restaurants',
     'staff.noRestaurantsAvailable': 'No restaurants available',
     'staff.accessToAll': 'Access to all restaurants',
@@ -383,6 +393,14 @@ const translations = {
     'login.confirmPassword': 'Confirm Password',
     'login.confirmYourPassword': 'Confirm your password',
     'login.requestReview': 'Your request will be reviewed by an administrator. You\'ll be notified once approved.',
+    'login.passwordsDontMatch': 'Passwords do not match',
+    'login.fillAllFields': 'Please fill in all fields',
+    'login.incorrectPassword': 'Incorrect email or password',
+    'login.requestSent': 'Request sent! An admin will review your access request.',
+    'login.requestFailed': 'Failed to submit request. Please try again.',
+    'login.userNotFound': 'No account found with this email',
+    'login.tooManyAttempts': 'Too many attempts. Please try again later.',
+    'login.weakPassword': 'Password must be at least 6 characters',
 
     // Common
     'common.loading': 'Loading...',
@@ -412,19 +430,17 @@ const translations = {
 
     // Roles
     'role.admin': 'admin',
-    'role.manager': 'manager',
-    'role.worker': 'worker',
     'role.kitchen': 'kitchen',
+    'role.floor': 'floor',
     'roles.admin': 'Admin',
-    'roles.manager': 'Manager',
-    'roles.worker': 'Worker',
     'roles.kitchen': 'Kitchen',
+    'roles.floor': 'Floor',
 
     // Restaurant modal
     'modal.selectRestaurant': 'Select Restaurant',
     'modal.chooseRestaurant': 'Choose a restaurant to manage',
     'modal.noRestaurants': 'No restaurants available',
-    'modal.createRestaurant': 'Create a new restaurant to get started',
+    'modal.createRestaurant': 'Create a new restaurant',
 
     // Restaurant Board
     'board.title': 'Restaurant Board',
@@ -651,6 +667,12 @@ const translations = {
     'restaurant.topStaff': 'Geriausi darbuotojai',
     'restaurant.noStaffData': 'Darbuotojų duomenų nėra',
     'restaurant.viewCreateLayouts': 'Peržiūrėti ir kurti išdėstymus',
+    'restaurant.workingHours': 'Darbo valandos',
+    'restaurant.shifts': 'Pamainos',
+    'restaurant.shiftsCount': 'pamainų',
+    'restaurant.perShift': 'pamainą',
+    'restaurant.avgPerShift': 'Vid./pamainą',
+    'restaurant.noShiftData': 'Nėra pamainų duomenų šiam laikotarpiui',
 
     // Timeframes
     'timeframe.day': 'Diena',
@@ -725,6 +747,9 @@ const translations = {
     'workday.offline': 'Neprisijungęs',
     'workday.worked': 'Dirbo',
     'workday.rested': 'Ilsėjosi',
+    'workday.endShiftConfirmTitle': 'Baigti pamainą?',
+    'workday.endShiftConfirmDescription': 'Ar tikrai norite baigti šio darbuotojo pamainą?',
+    'workday.endShift': 'Baigti pamainą',
     'workday.dismissShiftsTitle': 'Paslėpti pamainų istoriją?',
     'workday.dismissShiftsDescription': 'Ar tikrai norite paslėpti visas baigtas pamainas? Pamainų duomenys bus išsaugoti, bet pranešimai bus paslėpti iki rytojaus.',
 
@@ -916,6 +941,7 @@ const translations = {
     'staff.noApprovedStaff': 'Patvirtintų darbuotojų nerasta',
     'staff.allRestaurants': 'Visi restoranai',
     'staff.restaurants': 'restoranai',
+    'staff.selectRestaurants': 'Pasirinkti restoranus',
     'staff.assignToRestaurants': 'Priskirti restoranams',
     'staff.noRestaurantsAvailable': 'Restoranų nėra',
     'staff.accessToAll': 'Prieiga prie visų restoranų',
@@ -939,6 +965,14 @@ const translations = {
     'login.confirmPassword': 'Patvirtinti slaptažodį',
     'login.confirmYourPassword': 'Patvirtinkite slaptažodį',
     'login.requestReview': 'Jūsų užklausa bus peržiūrėta administratoriaus. Būsite informuoti, kai bus patvirtinta.',
+    'login.passwordsDontMatch': 'Slaptažodžiai nesutampa',
+    'login.fillAllFields': 'Prašome užpildyti visus laukus',
+    'login.incorrectPassword': 'Neteisingas el. paštas arba slaptažodis',
+    'login.requestSent': 'Užklausa išsiųsta! Administratorius peržiūrės jūsų prašymą.',
+    'login.requestFailed': 'Nepavyko pateikti užklausos. Bandykite dar kartą.',
+    'login.userNotFound': 'Paskyra su šiuo el. paštu nerasta',
+    'login.tooManyAttempts': 'Per daug bandymų. Bandykite vėliau.',
+    'login.weakPassword': 'Slaptažodis turi būti bent 6 simbolių',
 
     // Common
     'common.loading': 'Kraunama...',
@@ -968,19 +1002,17 @@ const translations = {
 
     // Roles
     'role.admin': 'administratorius',
-    'role.manager': 'vadybininkas',
-    'role.worker': 'darbuotojas',
     'role.kitchen': 'virtuvė',
+    'role.floor': 'salė',
     'roles.admin': 'Administratorius',
-    'roles.manager': 'Vadybininkas',
-    'roles.worker': 'Darbuotojas',
     'roles.kitchen': 'Virtuvė',
+    'roles.floor': 'Salė',
 
     // Restaurant modal
     'modal.selectRestaurant': 'Pasirinkti restoraną',
     'modal.chooseRestaurant': 'Pasirinkite restoraną valdymui',
     'modal.noRestaurants': 'Restoranų nėra',
-    'modal.createRestaurant': 'Sukurkite naują restoraną, kad pradėtumėte',
+    'modal.createRestaurant': 'Sukurti naują restoraną',
 
     // Restaurant Board
     'board.title': 'Restorano lenta',

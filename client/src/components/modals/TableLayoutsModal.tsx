@@ -12,10 +12,12 @@ import { apiRequest } from '@/lib/queryClient';
 import { Restaurant } from '@shared/schema';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Layout = {
   id: number;
   name: string;
+  createdBy?: string | null;
   tables: Table[];
 };
 
@@ -32,7 +34,7 @@ type TableLayoutsModalProps = {
   onOpenChange: (open: boolean) => void;
   restaurant: Restaurant | null;
   onSelectLayout?: (layout: Layout) => void;
-  canDelete?: boolean;
+  currentUserId?: string;
 };
 
 export function TableLayoutsModal({
@@ -40,8 +42,9 @@ export function TableLayoutsModal({
   onOpenChange,
   restaurant,
   onSelectLayout,
-  canDelete = true,
+  currentUserId,
 }: TableLayoutsModalProps) {
+  const { isAdmin } = useAuth();
   const [selectedLayout, setSelectedLayout] = useState<Layout | null>(null);
   const [showLayoutForm, setShowLayoutForm] = useState(false);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
@@ -169,7 +172,7 @@ export function TableLayoutsModal({
   });
 
   const createLayoutMutation = useMutation({
-    mutationFn: (data: { name: string; restaurantId: number }) =>
+    mutationFn: (data: { name: string; restaurantId: number; createdBy?: string }) =>
       apiRequest('/api/table-layouts', { method: 'POST', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/table-layouts', restaurant?.id] });
@@ -215,10 +218,21 @@ export function TableLayoutsModal({
     },
   });
 
+  // Admins can edit/delete any layout; others only their own
+  const canModifyLayout = (layout: Layout) => {
+    if (isAdmin) return true;
+    if (!currentUserId || !layout.createdBy) return false;
+    return layout.createdBy === currentUserId;
+  };
+
   // Handlers
   const handleCreateLayout = () => {
     if (!layoutName.trim() || !restaurant) return;
-    createLayoutMutation.mutate({ name: layoutName.trim(), restaurantId: restaurant.id });
+    createLayoutMutation.mutate({
+      name: layoutName.trim(),
+      restaurantId: restaurant.id,
+      ...(currentUserId ? { createdBy: currentUserId } : {}),
+    });
   };
 
   const handleUpdateLayout = () => {
@@ -302,7 +316,7 @@ export function TableLayoutsModal({
             <ScrollArea className="max-h-[calc(85vh-120px)]">
               <div className="p-6 pt-2 space-y-4">
                 {/* Add Table Form */}
-                {showTableForm ? (
+                {canModifyLayout(selectedLayout) && (showTableForm ? (
                   <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
                       {isEditingTable ? t('layout.editTable') : t('layout.addNewTable')}
@@ -367,7 +381,7 @@ export function TableLayoutsModal({
                     <Plus className="h-4 w-4 mr-2" />
                     {t('layout.addTable')}
                   </Button>
-                )}
+                ))}
 
                 {/* Tables List */}
                 {(selectedLayout?.tables?.length || 0) === 0 ? (
@@ -393,22 +407,22 @@ export function TableLayoutsModal({
                             <p className="text-xs text-muted-foreground">{table.label}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-white/10"
-                            onClick={() => {
-                              setTableToEdit(table);
-                              setTableNumber(table.number);
-                              setTableLabel(table.label);
-                              setIsEditingTable(true);
-                              setShowTableForm(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4 text-amber-400" />
-                          </Button>
-                          {canDelete && (
+                        {canModifyLayout(selectedLayout) && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-white/10"
+                              onClick={() => {
+                                setTableToEdit(table);
+                                setTableNumber(table.number);
+                                setTableLabel(table.label);
+                                setIsEditingTable(true);
+                                setShowTableForm(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 text-amber-400" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -420,8 +434,8 @@ export function TableLayoutsModal({
                             >
                               <Trash2 className="h-4 w-4 text-red-400" />
                             </Button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -519,7 +533,7 @@ export function TableLayoutsModal({
                               </p>
                             </div>
                           </div>
-                          {!isSelectionMode && (
+                          {!isSelectionMode && canModifyLayout(layout) && (
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -535,20 +549,18 @@ export function TableLayoutsModal({
                               >
                                 <Pencil className="h-4 w-4 text-amber-400" />
                               </Button>
-                              {canDelete && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 hover:bg-red-500/20"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLayoutToDelete(layout);
-                                    setDeleteLayoutDialog(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-400" />
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-red-500/20"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLayoutToDelete(layout);
+                                  setDeleteLayoutDialog(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-400" />
+                              </Button>
                             </div>
                           )}
                         </div>

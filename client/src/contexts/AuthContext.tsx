@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     updateProfile,
     isAdmin: appUser?.role === 'admin',
-    isFloorOrKitchen: appUser?.role === 'worker' || appUser?.role === 'kitchen'
+    isFloorOrKitchen: appUser?.role === 'floor' || appUser?.role === 'kitchen'
   };
 
   return (

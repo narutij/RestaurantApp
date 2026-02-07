@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Loader2, Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
@@ -21,25 +21,30 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+
+  // Derive inline validation hints
+  const passwordMismatch = isSignup && confirmPassword.length > 0 && password !== confirmPassword;
+  const passwordTooShort = isSignup && password.length > 0 && password.length < 6;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
 
     if (!email || !password || (isSignup && !name)) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive"
-      });
+      setFormError(t('login.fillAllFields'));
+      return;
+    }
+
+    if (isSignup && password.length < 6) {
+      setFormError(t('login.weakPassword'));
       return;
     }
 
     if (isSignup && password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords don't match",
-        variant: "destructive"
-      });
+      setFormError(t('login.passwordsDontMatch'));
       return;
     }
 
@@ -58,10 +63,8 @@ export default function Login() {
           approvedBy: null
         });
 
-        toast({
-          title: "Request Submitted",
-          description: "Your account request has been sent to admin for approval",
-        });
+        setFormSuccess(t('login.requestSent'));
+        setFormError(null);
 
         setIsSignup(false);
         setName('');
@@ -76,11 +79,18 @@ export default function Login() {
         });
       }
     } catch (error: any) {
-      toast({
-        title: isSignup ? "Request Failed" : "Login Failed",
-        description: error.message || `Failed to ${isSignup ? 'submit request' : 'log in'}`,
-        variant: "destructive"
-      });
+      const code = error?.code || '';
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setFormError(t('login.incorrectPassword'));
+      } else if (code === 'auth/user-not-found') {
+        setFormError(t('login.userNotFound'));
+      } else if (code === 'auth/too-many-requests') {
+        setFormError(t('login.tooManyAttempts'));
+      } else if (isSignup) {
+        setFormError(t('login.requestFailed'));
+      } else {
+        setFormError(error.message || t('login.incorrectPassword'));
+      }
     } finally {
       setLoading(false);
     }
@@ -88,6 +98,8 @@ export default function Login() {
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
+    setFormError(null);
+    setFormSuccess(null);
     try {
       await signInWithGoogle();
       toast({
@@ -106,12 +118,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #18191B 0%, #1D1F21 40%, #242628 100%)' }}>
+    <div className="min-h-screen flex flex-col overflow-y-auto" style={{ background: 'linear-gradient(135deg, #18191B 0%, #1D1F21 40%, #242628 100%)' }}>
       {/* Full-screen gradient overlay for depth */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top left, rgba(0,0,0,0.5) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(255,255,255,0.02) 0%, transparent 50%)' }} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-6 relative z-10">
+      {/* Main Content - scrollable, shifted 10px up */}
+      <div className="flex-1 flex items-center justify-center p-6 relative z-10" style={{ marginTop: '-10px' }}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -161,6 +173,8 @@ export default function Login() {
                   setPassword('');
                   setConfirmPassword('');
                   setName('');
+                  setFormError(null);
+                  setFormSuccess(null);
                 }}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-full transition-all ${
                   !isSignup
@@ -178,6 +192,8 @@ export default function Login() {
                   setPassword('');
                   setConfirmPassword('');
                   setName('');
+                  setFormError(null);
+                  setFormSuccess(null);
                 }}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-full transition-all ${
                   isSignup
@@ -188,6 +204,34 @@ export default function Login() {
                 {t('login.requestAccess')}
               </button>
             </div>
+
+            {/* Status Messages */}
+            <AnimatePresence mode="wait">
+              {formError && (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="flex items-center gap-2 px-4 py-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20"
+                >
+                  <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
+                  <p className="text-sm text-red-400">{formError}</p>
+                </motion.div>
+              )}
+              {formSuccess && (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="flex items-center gap-2 px-4 py-3 mb-4 rounded-xl bg-green-500/10 border border-green-500/20"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
+                  <p className="text-sm text-green-400">{formSuccess}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Google Sign In */}
             <Button
@@ -224,7 +268,7 @@ export default function Login() {
               )}
             </Button>
 
-            {/* Divider - Fixed to not cross through text */}
+            {/* Divider */}
             <div className="flex items-center gap-4 my-6">
               <div className="flex-1 h-px bg-white/10" />
               <span className="text-xs text-slate-500 whitespace-nowrap">
@@ -254,7 +298,7 @@ export default function Login() {
                         id="name"
                         type="text"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => { setName(e.target.value); setFormError(null); }}
                         placeholder={t('login.enterFullName')}
                         disabled={loading}
                         className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
@@ -274,7 +318,7 @@ export default function Login() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
                     placeholder={t('login.enterEmail')}
                     disabled={loading}
                     className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
@@ -292,12 +336,17 @@ export default function Login() {
                     id="password"
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setFormError(null); }}
                     placeholder={t('login.enterPassword')}
                     disabled={loading}
-                    className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                    className={`h-12 pl-11 bg-white/[0.03] text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20 ${
+                      passwordTooShort ? 'border-amber-500/50' : 'border-white/10'
+                    }`}
                   />
                 </div>
+                {passwordTooShort && (
+                  <p className="text-xs text-amber-400">{t('login.weakPassword')}</p>
+                )}
               </div>
 
               <AnimatePresence mode="wait">
@@ -319,12 +368,17 @@ export default function Login() {
                         id="confirmPassword"
                         type="password"
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onChange={(e) => { setConfirmPassword(e.target.value); setFormError(null); }}
                         placeholder={t('login.confirmYourPassword')}
                         disabled={loading}
-                        className="h-12 pl-11 bg-white/[0.03] border-white/10 text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                        className={`h-12 pl-11 bg-white/[0.03] text-white placeholder:text-slate-500 rounded-xl focus:border-cyan-500/50 focus:ring-cyan-500/20 ${
+                          passwordMismatch ? 'border-red-500/50' : 'border-white/10'
+                        }`}
                       />
                     </div>
+                    {passwordMismatch && (
+                      <p className="text-xs text-red-400">{t('login.passwordsDontMatch')}</p>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -332,7 +386,7 @@ export default function Login() {
               <Button
                 type="submit"
                 className="w-full h-12 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white rounded-xl font-medium shadow-lg shadow-slate-700/40 mt-6"
-                disabled={loading}
+                disabled={loading || passwordMismatch}
               >
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -362,7 +416,7 @@ export default function Login() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.7 }}
-            className="text-center text-white/25 text-xs mt-4 font-light tracking-wide"
+            className="text-center text-white/25 text-xs mt-4 mb-6 font-light tracking-wide"
           >
             © 2026 Justinas Narutis. Design & Build.
           </motion.p>
