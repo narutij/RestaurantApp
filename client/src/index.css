@@ -109,14 +109,15 @@ input[type="number"] {
     @apply border-border;
   }
 
-  /* Prevent page-level scrolling on iOS Safari PWA */
+  /* Lock document viewport; app handles its own scrolling containers */
   html, body {
     @apply h-full overflow-hidden;
     position: fixed;
+    inset: 0;
     width: 100%;
+    margin: 0;
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
-    /* Prevent gestures that trigger browser chrome */
     touch-action: pan-x pan-y;
     -webkit-touch-callout: none;
   }
@@ -127,10 +128,7 @@ input[type="number"] {
 
   #root {
     @apply h-full;
-    /* Fill viewport including safe areas */
-    padding-top: env(safe-area-inset-top, 0);
-    padding-left: env(safe-area-inset-left, 0);
-    padding-right: env(safe-area-inset-right, 0);
+    overflow: hidden;
   }
 
   /* Prevent tap highlight and text selection that might trigger browser UI */

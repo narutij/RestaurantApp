@@ -118,12 +118,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col overflow-y-auto" style={{ background: 'linear-gradient(135deg, #18191B 0%, #1D1F21 40%, #242628 100%)' }}>
+    <div className="relative min-h-screen min-h-[100dvh] min-h-[100svh] flex flex-col overflow-y-auto overflow-x-hidden" style={{ background: 'linear-gradient(135deg, #18191B 0%, #1D1F21 40%, #242628 100%)' }}>
       {/* Full-screen gradient overlay for depth */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top left, rgba(0,0,0,0.5) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(255,255,255,0.02) 0%, transparent 50%)' }} />
 
-      {/* Main Content - scrollable, shifted 10px up */}
-      <div className="flex-1 flex items-center justify-center p-6 relative z-10" style={{ marginTop: '-10px' }}>
+      {/* Main Content - mobile-first scrollable layout */}
+      <div className="flex-1 flex items-start sm:items-center justify-center px-6 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:py-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -141,7 +141,7 @@ export default function Login() {
               <img
                 src="/logos/Vilko_puota_logo_white.png"
                 alt="Vilko Puota"
-                className="h-60 mx-auto drop-shadow-2xl"
+                className="h-44 sm:h-52 md:h-60 mx-auto drop-shadow-2xl"
               />
             </motion.div>
 
@@ -150,7 +150,7 @@ export default function Login() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <p className="text-white/60 -mt-14 text-sm font-light tracking-[0.2em] uppercase">
+              <p className="text-white/60 -mt-10 sm:-mt-14 text-sm font-light tracking-[0.2em] uppercase">
                 Restaurant Hub
               </p>
             </motion.div>
@@ -161,7 +161,7 @@ export default function Login() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-white/[0.03] backdrop-blur-xl rounded-3xl border border-white/[0.06] p-8 shadow-2xl"
+            className="bg-white/[0.03] backdrop-blur-xl rounded-3xl border border-white/[0.06] p-6 sm:p-8 shadow-2xl"
           >
             {/* Tab Switcher */}
             <div className="flex bg-white/[0.04] rounded-full p-1 mb-6">
