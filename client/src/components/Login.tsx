@@ -118,12 +118,13 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen min-h-[100dvh] min-h-[100svh] flex flex-col overflow-y-auto overflow-x-hidden" style={{ background: 'linear-gradient(135deg, #18191B 0%, #1D1F21 40%, #242628 100%)' }}>
+    <div className="fixed inset-0 flex flex-col" style={{ background: 'linear-gradient(135deg, #18191B 0%, #1D1F21 40%, #242628 100%)' }}>
       {/* Full-screen gradient overlay for depth */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at top left, rgba(0,0,0,0.5) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(255,255,255,0.02) 0%, transparent 50%)' }} />
 
-      {/* Main Content - mobile-first scrollable layout */}
-      <div className="flex-1 flex items-start sm:items-center justify-center px-6 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:py-6 relative z-10">
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden relative z-10">
+        <div className="flex items-start sm:items-center justify-center min-h-full px-6 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:py-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -421,6 +422,7 @@ export default function Login() {
             © 2026 Justinas Narutis. Design & Build.
           </motion.p>
         </motion.div>
+        </div>
       </div>
     </div>
   );

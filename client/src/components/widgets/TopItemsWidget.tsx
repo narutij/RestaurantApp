@@ -61,8 +61,8 @@ export function TopItemsWidget({
   };
 
   return (
-    <Card className="overflow-hidden border-purple-500/20">
-      <CardContent className="p-4 relative">
+    <Card className="overflow-hidden border-purple-500/20 h-full">
+      <CardContent className="p-4 relative h-full">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-transparent" />
         <div className="relative">
         <div className="flex items-center justify-between mb-2">

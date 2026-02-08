@@ -115,7 +115,7 @@ export default function TabNavigation() {
       className="fixed bottom-3 left-0 right-0 z-50 px-4 pointer-events-none"
       style={{ bottom: 'max(12px, env(safe-area-inset-bottom))' }}
     >
-      <div className="max-w-md mx-auto pointer-events-auto">
+      <div className="max-w-md md:max-w-lg mx-auto pointer-events-auto">
         {/* Floating Pill Container */}
         <div className="relative bg-white dark:bg-[#181E23] rounded-full shadow-lg shadow-black/10 dark:shadow-black/40 border border-gray-200 dark:border-white/5 p-1.5">
           {/* Tab Items Container */}

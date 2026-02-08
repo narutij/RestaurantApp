@@ -77,7 +77,7 @@ export default function AppLayout() {
 
       {/* Main Content - scrollable container */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden ios-scroll pt-16">
-        <div className="w-full max-w-lg mx-auto">
+        <div className="w-full max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto px-0 md:px-4">
           {renderTabContent()}
         </div>
       </main>

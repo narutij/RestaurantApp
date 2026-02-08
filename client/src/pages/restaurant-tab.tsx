@@ -306,13 +306,15 @@ export default function RestaurantInfoTab() {
   if (!isAdmin) {
     return (
       <div className="p-4 pb-24 space-y-4">
-        {/* Working Hours & Shifts - Side by Side */}
+        {/* Top Widgets — phone: stack, tablet: row with Top Staff beside */}
         <motion.div
-          className="grid grid-cols-2 gap-3"
+          className="flex flex-col lg:flex-row gap-3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0 * 0.1 }}
         >
+          {/* Working Hours & Shifts — always side-by-side, keep phone proportions */}
+          <div className="grid grid-cols-2 gap-3 lg:basis-1/2 lg:flex-shrink-0">
           {/* Working Hours Widget */}
           <Card className="overflow-hidden border-green-500/20 h-full">
             <CardContent className="p-4 relative h-full">
@@ -392,20 +394,17 @@ export default function RestaurantInfoTab() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+          </div>
 
-        {/* Top Staff Widget */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1 * 0.1 }}
-        >
-          <TopStaffWidget
-            workers={resolvedTopStaff}
-            timeframe={topStaffTimeframe}
-            onTimeframeChange={setTopStaffTimeframe}
-            isLoading={loadingTopStaff}
-          />
+          {/* Top Staff — full width on phone, fills remaining space on tablet */}
+          <div className="lg:flex-1 lg:min-w-0">
+            <TopStaffWidget
+              workers={resolvedTopStaff}
+              timeframe={topStaffTimeframe}
+              onTimeframeChange={setTopStaffTimeframe}
+              isLoading={loadingTopStaff}
+            />
+          </div>
         </motion.div>
 
         {/* Restaurant Board */}
@@ -512,106 +511,105 @@ export default function RestaurantInfoTab() {
   // Full admin view
   return (
     <div className="p-4 pb-24 space-y-4">
-      {/* Revenue & Clients - Horizontal Row */}
+      {/* Top Widgets — phone: stack, tablet: row with Top Dishes beside */}
       <motion.div
-        className="grid grid-cols-2 gap-3"
+        className="flex flex-col lg:flex-row gap-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0 * 0.1 }}
       >
-        {/* Revenue Widget */}
-        <Card className="overflow-hidden border-green-500/20">
-          <CardContent className="p-4 relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent" />
-            <div className="relative">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-green-500/20 rounded-xl">
-                  {language === 'lt' ? <Euro className="h-4 w-4 text-green-500" /> : <DollarSign className="h-4 w-4 text-green-500" />}
+        {/* Revenue & Clients — always side-by-side, keep phone proportions */}
+        <div className="grid grid-cols-2 gap-3 lg:basis-1/2 lg:flex-shrink-0">
+          {/* Revenue Widget */}
+          <Card className="overflow-hidden border-green-500/20">
+            <CardContent className="p-4 relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="p-2 bg-green-500/20 rounded-xl">
+                    {language === 'lt' ? <Euro className="h-4 w-4 text-green-500" /> : <DollarSign className="h-4 w-4 text-green-500" />}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
+                        {timeframeLabels[revenueTimeframe]}
+                        <ChevronDown className="h-2.5 w-2.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setRevenueTimeframe('week')}>
+                        {timeframeLabels.week}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRevenueTimeframe('month')}>
+                        {timeframeLabels.month}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRevenueTimeframe('quarter')}>
+                        {timeframeLabels.quarter}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRevenueTimeframe('year')}>
+                        {timeframeLabels.year}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
-                      {timeframeLabels[revenueTimeframe]}
-                      <ChevronDown className="h-2.5 w-2.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setRevenueTimeframe('week')}>
-                      {timeframeLabels.week}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setRevenueTimeframe('month')}>
-                      {timeframeLabels.month}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setRevenueTimeframe('quarter')}>
-                      {timeframeLabels.quarter}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setRevenueTimeframe('year')}>
-                      {timeframeLabels.year}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <p className="text-xs text-muted-foreground">{t('restaurant.revenue') || 'Revenue'}</p>
+                <p className="text-xl font-bold tracking-tight mt-1 text-green-600 dark:text-green-400">
+                  {formatPrice(revenueStats?.revenue || 0)}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">{t('restaurant.revenue') || 'Revenue'}</p>
-              <p className="text-xl font-bold tracking-tight mt-1 text-green-600 dark:text-green-400">
-                {formatPrice(revenueStats?.revenue || 0)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Clients Widget */}
-        <Card className="overflow-hidden border-blue-500/20">
-          <CardContent className="p-4 relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent" />
-            <div className="relative">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-blue-500/20 rounded-xl">
-                  <Users className="h-4 w-4 text-blue-500" />
+          {/* Clients Widget */}
+          <Card className="overflow-hidden border-blue-500/20">
+            <CardContent className="p-4 relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="p-2 bg-blue-500/20 rounded-xl">
+                    <Users className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
+                        {timeframeLabels[clientsTimeframe]}
+                        <ChevronDown className="h-2.5 w-2.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setClientsTimeframe('week')}>
+                        {timeframeLabels.week}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setClientsTimeframe('month')}>
+                        {timeframeLabels.month}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setClientsTimeframe('quarter')}>
+                        {timeframeLabels.quarter}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setClientsTimeframe('year')}>
+                        {timeframeLabels.year}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-[10px] px-2">
-                      {timeframeLabels[clientsTimeframe]}
-                      <ChevronDown className="h-2.5 w-2.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setClientsTimeframe('week')}>
-                      {timeframeLabels.week}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setClientsTimeframe('month')}>
-                      {timeframeLabels.month}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setClientsTimeframe('quarter')}>
-                      {timeframeLabels.quarter}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setClientsTimeframe('year')}>
-                      {timeframeLabels.year}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <p className="text-xs text-muted-foreground">{t('restaurant.clients') || 'Clients'}</p>
+                <p className="text-xl font-bold tracking-tight mt-1 text-blue-600 dark:text-blue-400">
+                  {clientsStats?.peopleCount || 0}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">{t('restaurant.clients') || 'Clients'}</p>
-              <p className="text-xl font-bold tracking-tight mt-1 text-blue-600 dark:text-blue-400">
-                {clientsStats?.peopleCount || 0}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Top Dishes Widget */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1 * 0.1 }}
-      >
-        <TopItemsWidget
-          items={topDishesStats?.topItems || []}
-          timeframe={topDishesTimeframe}
-          onTimeframeChange={setTopDishesTimeframe}
-          isLoading={loadingTopDishes}
-        />
+        {/* Top Dishes — full width on phone, fills remaining space on tablet */}
+        <div className="lg:flex-1 lg:min-w-0">
+          <TopItemsWidget
+            items={topDishesStats?.topItems || []}
+            timeframe={topDishesTimeframe}
+            onTimeframeChange={setTopDishesTimeframe}
+            isLoading={loadingTopDishes}
+          />
+        </div>
       </motion.div>
 
       {/* Restaurant Board (formerly Reminders) */}
