@@ -241,6 +241,11 @@ const translations = {
     'orders.makeItSpecial': 'Make it special',
     'orders.birthday': 'Birthday',
     'orders.child': 'Child',
+    'orders.cancelDish': 'Cancel Order',
+    'orders.cancelDishConfirm': 'Cancel this order?',
+    'orders.cancelDishMessage': 'This will cancel the order and notify the kitchen.',
+    'orders.dishCanceled': 'Order canceled',
+    'orders.canceledOrders': 'Canceled',
 
     // Kitchen page
     'kitchen.title': 'Kitchen',
@@ -262,6 +267,9 @@ const translations = {
     'kitchen.selectToRevoke': 'Select to revoke',
     'kitchen.tableClosedRevoke': 'Table closed - revoke not available',
     'kitchen.revokeItems': 'Revoke',
+    'kitchen.dismiss': 'Dismiss',
+    'kitchen.canceledItems': 'Canceled Items',
+    'kitchen.archive': 'Archive',
     'kitchen.waiting': 'waiting',
     'kitchen.pending': 'pending',
     'kitchen.allCaughtUp': 'All Caught Up!',
@@ -813,6 +821,11 @@ const translations = {
     'orders.makeItSpecial': 'Padaryti ypatingą',
     'orders.birthday': 'Gimtadienis',
     'orders.child': 'Vaikas',
+    'orders.cancelDish': 'Atšaukti užsakymą',
+    'orders.cancelDishConfirm': 'Atšaukti šį užsakymą?',
+    'orders.cancelDishMessage': 'Užsakymas bus atšauktas ir virtuvė bus informuota.',
+    'orders.dishCanceled': 'Užsakymas atšauktas',
+    'orders.canceledOrders': 'Atšaukti',
 
     // Kitchen page
     'kitchen.title': 'Virtuvė',
@@ -834,6 +847,9 @@ const translations = {
     'kitchen.selectToRevoke': 'Pasirinkite atšaukimui',
     'kitchen.tableClosedRevoke': 'Stalas uždarytas - atšaukti negalima',
     'kitchen.revokeItems': 'Atšaukti',
+    'kitchen.dismiss': 'Atmesti',
+    'kitchen.canceledItems': 'Atšaukti patiekalai',
+    'kitchen.archive': 'Archyvuoti',
     'kitchen.waiting': 'laukia',
     'kitchen.pending': 'laukiantys',
     'kitchen.allCaughtUp': 'Viskas atlikta!',

@@ -1154,6 +1154,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/workdays/:id/end', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
+
+      // Finalize all non-released workers before ending the workday
+      const workers = await storage.getWorkdayWorkers(id);
+      const endTime = new Date();
+      for (const worker of workers) {
+        const workerStatus = worker.status || 'working'; // Default to working if null
+        if (workerStatus !== 'released') {
+          let totalWorkedMs = worker.totalWorkedMs || 0;
+          if (workerStatus === 'working') {
+            // Add time since last status change (or joinedAt as fallback)
+            const sinceTime = worker.lastStatusChangeAt || worker.joinedAt;
+            if (sinceTime) {
+              totalWorkedMs += endTime.getTime() - new Date(sinceTime).getTime();
+            }
+          }
+          let totalRestedMs = worker.totalRestedMs || 0;
+          if (workerStatus === 'resting') {
+            const sinceTime = worker.lastStatusChangeAt || worker.joinedAt;
+            if (sinceTime) {
+              totalRestedMs += endTime.getTime() - new Date(sinceTime).getTime();
+            }
+          }
+          await storage.updateWorkdayWorkerStatus(
+            id, worker.workerId, 'released',
+            totalWorkedMs, totalRestedMs
+          );
+        }
+      }
+
       const workday = await storage.endWorkday(id);
       if (!workday) {
         return res.status(404).json({ error: "Workday not found" });
@@ -1632,12 +1661,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      // Generate date range
+      // Generate date range using string comparison to avoid timezone edge cases
       const dates: string[] = [];
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().split('T')[0]);
+      const current = new Date(startDate + 'T00:00:00Z');
+      while (current.toISOString().split('T')[0] <= endDate) {
+        dates.push(current.toISOString().split('T')[0]);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
 
       // Collect data for each day
@@ -1863,12 +1892,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      // Generate date range
+      // Generate date range using string comparison to avoid timezone edge cases
       const dates: string[] = [];
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().split('T')[0]);
+      const current = new Date(startDate + 'T00:00:00Z');
+      while (current.toISOString().split('T')[0] <= endDate) {
+        dates.push(current.toISOString().split('T')[0]);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
 
       // Collect data for each day

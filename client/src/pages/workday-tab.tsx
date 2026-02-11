@@ -113,7 +113,10 @@ export default function WorkdayTab() {
 
   // Persisted state for ended shifts (survives tab switches)
   // Use a helper to get today's date consistently
-  const getTodayDateString = () => new Date().toISOString().split('T')[0];
+  const getTodayDateString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
 
   const [endedShiftsDismissed, setEndedShiftsDismissed] = useState(() => {
     const today = getTodayDateString();
@@ -230,7 +233,7 @@ export default function WorkdayTab() {
     month: 'long',
     day: 'numeric',
   });
-  const dateString = today.toISOString().split('T')[0];
+  const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // Fetch menus - use same query key as MenuModal for cache consistency
   const { data: menus = [], isLoading: menusLoading } = useQuery<Menu[]>({
@@ -449,6 +452,24 @@ export default function WorkdayTab() {
           shiftEndTime: endTime,
         };
       });
+
+      // Persist final worker times to server BEFORE ending workday
+      // This ensures totalWorkedMs is saved even if server-side finalization has issues
+      for (const wd of finalWorkerData) {
+        try {
+          await fetch(`/api/workdays/${activeWorkday.id}/workers/${wd.id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'released',
+              totalWorkedMs: wd.totalWorkedMs,
+              totalRestedMs: wd.totalRestedMs,
+            }),
+          });
+        } catch (e) {
+          console.error('Failed to persist final worker time:', e);
+        }
+      }
 
       // Add to ended shifts array with worker details
       const newEndedShift: EndedShiftData = {

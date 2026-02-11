@@ -134,6 +134,9 @@ export interface IStorage {
       workers: Array<{
         workerId: string;
         joinedAt: Date;
+        totalWorkedMs: number;
+        releasedAt: Date | null;
+        status: string;
       }>;
       revenue: number;
       orderCount: number;
@@ -1058,6 +1061,7 @@ export class MemStorage implements IStorage {
           menuItemName: (isSpecial && order.specialItemName) ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
           tableNumber: table?.number || 'Unknown Table',
           tableLabel: table?.label || '',
+          canceled: order.canceled ?? false,
           peopleCount: table?.peopleCount ?? 0
         };
       }));
@@ -1083,6 +1087,7 @@ export class MemStorage implements IStorage {
           menuItemName: (isSpecial && order.specialItemName) ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
           tableNumber: table?.number || 'Unknown Table',
           tableLabel: table?.label || '',
+          canceled: order.canceled ?? false,
           peopleCount: table?.peopleCount ?? 0
         };
       }));
@@ -1134,6 +1139,7 @@ export class MemStorage implements IStorage {
         menuItemName: (isSpecial && order.specialItemName) ? order.specialItemName : (menuItem?.name || 'Unknown Item'),
         tableNumber: table?.number || 'Unknown Table',
         tableLabel: table?.label || '',
+        canceled: order.canceled ?? false,
         peopleCount: table?.peopleCount ?? 0
       };
     }));
@@ -1270,6 +1276,7 @@ export class MemStorage implements IStorage {
           notes: order.notes,
           specialItemName: order.specialItemName,
           isSpecialItem: order.isSpecialItem ?? false,
+          canceled: order.canceled ?? false,
           peopleCount: table?.peopleCount ?? 0
         };
       }));
@@ -1296,6 +1303,7 @@ export class MemStorage implements IStorage {
           notes: order.notes,
           specialItemName: order.specialItemName,
           isSpecialItem: order.isSpecialItem ?? false,
+          canceled: order.canceled ?? false,
           peopleCount: table?.peopleCount ?? 0
         };
       }));
@@ -2102,6 +2110,7 @@ export class MemStorage implements IStorage {
           notes: order.notes ?? null,
           specialItemName: order.specialItemName ?? null,
           isSpecialItem: order.isSpecialItem ?? false,
+          canceled: order.canceled ?? false,
           peopleCount: tableData?.peopleCount ?? 0
         };
       }));
@@ -2164,6 +2173,7 @@ export class MemStorage implements IStorage {
           notes: order.notes ?? null,
           specialItemName: order.specialItemName ?? null,
           isSpecialItem: order.isSpecialItem ?? false,
+          canceled: order.canceled ?? false,
           peopleCount: tableData?.peopleCount ?? 0
         };
       }));
@@ -2189,12 +2199,13 @@ export class MemStorage implements IStorage {
     orders: OrderWithDetails[];
   }> {
     const orders = await this.getOrdersByDate(restaurantId, date);
-    const totalRevenue = orders.reduce((sum, order) => sum + order.price, 0);
-    const uniqueTables = new Set(orders.map(order => order.tableId));
+    const activeOrders = orders.filter(order => !order.canceled);
+    const totalRevenue = activeOrders.reduce((sum, order) => sum + order.price, 0);
+    const uniqueTables = new Set(activeOrders.map(order => order.tableId));
 
     return {
       totalRevenue,
-      orderCount: orders.length,
+      orderCount: activeOrders.length,
       tablesServed: uniqueTables.size,
       orders
     };
@@ -2209,6 +2220,9 @@ export class MemStorage implements IStorage {
       workers: Array<{
         workerId: string;
         joinedAt: Date;
+        totalWorkedMs: number;
+        releasedAt: Date | null;
+        status: string;
       }>;
       revenue: number;
       orderCount: number;
@@ -2297,29 +2311,37 @@ export class MemStorage implements IStorage {
             notes: order.notes,
             specialItemName: order.specialItemName,
             isSpecialItem: order.isSpecialItem ?? false,
+            canceled: order.canceled ?? false,
             peopleCount: tableData?.peopleCount || 0,
           };
         }));
-        
-        // Calculate stats for this shift (only from closed tables)
-        const revenue = enrichedOrders.reduce((sum, order) => sum + order.price, 0);
-        const uniqueTables = new Set(enrichedOrders.map(order => order.tableId));
-        const uniquePeople = enrichedOrders.reduce((map, order) => {
+
+        // Calculate stats for this shift (exclude canceled orders from revenue/counts)
+        const activeOrders = enrichedOrders.filter(order => !order.canceled);
+        const revenue = activeOrders.reduce((sum, order) => sum + order.price, 0);
+        const uniqueTables = new Set(activeOrders.map(order => order.tableId));
+        const uniquePeople = activeOrders.reduce((map, order) => {
           if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
             map.set(order.tableId, order.peopleCount);
           }
           return map;
         }, new Map<number, number>());
         const peopleServed = Array.from(uniquePeople.values()).reduce((sum, count) => sum + count, 0);
-        
+
         return {
           id: workday.id,
           startedAt: workday.startedAt,
           endedAt: workday.endedAt,
           isActive: workday.isActive ?? false,
-          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt ?? new Date() })),
+          workers: workers.map(w => ({
+            workerId: w.workerId,
+            joinedAt: w.joinedAt ?? new Date(),
+            totalWorkedMs: w.totalWorkedMs ?? 0,
+            releasedAt: w.releasedAt ?? null,
+            status: w.status ?? 'working',
+          })),
           revenue,
-          orderCount: enrichedOrders.length,
+          orderCount: activeOrders.length,
           tablesServed: uniqueTables.size,
           peopleServed,
           orders: enrichedOrders,
@@ -2333,22 +2355,22 @@ export class MemStorage implements IStorage {
         return aTime - bTime;
       });
       
-      // Calculate totals across all shifts
-      const allOrders = shifts.flatMap(s => s.orders);
-      const allUniqueTables = new Set(allOrders.map(o => o.tableId));
-      const allUniquePeople = allOrders.reduce((map, order) => {
+      // Calculate totals across all shifts (exclude canceled)
+      const allActiveOrders = shifts.flatMap(s => s.orders).filter(o => !o.canceled);
+      const allUniqueTables = new Set(allActiveOrders.map(o => o.tableId));
+      const allUniquePeople = allActiveOrders.reduce((map, order) => {
         if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
           map.set(order.tableId, order.peopleCount);
         }
         return map;
       }, new Map<number, number>());
       const allUniqueWorkers = new Set(shifts.flatMap(s => s.workers.map(w => w.workerId)));
-      
+
       return {
         shifts,
         totals: {
           revenue: shifts.reduce((sum, s) => sum + s.revenue, 0),
-          orderCount: allOrders.length,
+          orderCount: allActiveOrders.length,
           tablesServed: allUniqueTables.size,
           peopleServed: Array.from(allUniquePeople.values()).reduce((sum, count) => sum + count, 0),
           workersCount: allUniqueWorkers.size,
@@ -2419,55 +2441,63 @@ export class MemStorage implements IStorage {
             notes: order.notes,
             specialItemName: order.specialItemName,
             isSpecialItem: order.isSpecialItem ?? false,
+            canceled: order.canceled ?? false,
             peopleCount: tableData?.peopleCount || 0,
           };
         }));
 
-        const revenue = enrichedOrders.reduce((sum, order) => sum + order.price, 0);
-        const uniqueTables = new Set(enrichedOrders.map(order => order.tableId));
-        const uniquePeople = enrichedOrders.reduce((map, order) => {
+        const activeOrders = enrichedOrders.filter(order => !order.canceled);
+        const revenue = activeOrders.reduce((sum, order) => sum + order.price, 0);
+        const uniqueTables = new Set(activeOrders.map(order => order.tableId));
+        const uniquePeople = activeOrders.reduce((map, order) => {
           if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
             map.set(order.tableId, order.peopleCount);
           }
           return map;
         }, new Map<number, number>());
         const peopleServed = Array.from(uniquePeople.values()).reduce((sum, count) => sum + count, 0);
-        
+
         return {
           id: workday.id,
           startedAt: workday.startedAt,
           endedAt: workday.endedAt,
           isActive: workday.isActive ?? false,
-          workers: workers.map(w => ({ workerId: w.workerId, joinedAt: w.joinedAt ?? new Date() })),
+          workers: workers.map(w => ({
+            workerId: w.workerId,
+            joinedAt: w.joinedAt ?? new Date(),
+            totalWorkedMs: w.totalWorkedMs ?? 0,
+            releasedAt: w.releasedAt ?? null,
+            status: w.status ?? 'working',
+          })),
           revenue,
-          orderCount: enrichedOrders.length,
+          orderCount: activeOrders.length,
           tablesServed: uniqueTables.size,
           peopleServed,
           orders: enrichedOrders,
         };
       }));
-      
+
       shifts.sort((a, b) => {
         const aTime = a.startedAt?.getTime() || 0;
         const bTime = b.startedAt?.getTime() || 0;
         return aTime - bTime;
       });
-      
-      const allOrders = shifts.flatMap(s => s.orders);
-      const allUniqueTables = new Set(allOrders.map(o => o.tableId));
-      const allUniquePeople = allOrders.reduce((map, order) => {
+
+      const allActiveOrders = shifts.flatMap(s => s.orders).filter(o => !o.canceled);
+      const allUniqueTables = new Set(allActiveOrders.map(o => o.tableId));
+      const allUniquePeople = allActiveOrders.reduce((map, order) => {
         if (order.tableId && order.peopleCount && !map.has(order.tableId)) {
           map.set(order.tableId, order.peopleCount);
         }
         return map;
       }, new Map<number, number>());
       const allUniqueWorkers = new Set(shifts.flatMap(s => s.workers.map(w => w.workerId)));
-      
+
       return {
         shifts,
         totals: {
           revenue: shifts.reduce((sum, s) => sum + s.revenue, 0),
-          orderCount: allOrders.length,
+          orderCount: allActiveOrders.length,
           tablesServed: allUniqueTables.size,
           peopleServed: Array.from(allUniquePeople.values()).reduce((sum, count) => sum + count, 0),
           workersCount: allUniqueWorkers.size,
@@ -2611,8 +2641,9 @@ export class MemStorage implements IStorage {
         }
       }
 
-      // Calculate revenue from closed tables only
-      const revenue = closedTableOrders.reduce((sum, order) => sum + order.price, 0);
+      // Calculate revenue from closed tables only (exclude canceled orders)
+      const activeClosedOrders = closedTableOrders.filter(order => !order.canceled);
+      const revenue = activeClosedOrders.reduce((sum, order) => sum + order.price, 0);
 
       // Sum people count from unique tables in active workday that are closed
       let peopleCount = 0;
@@ -2627,10 +2658,10 @@ export class MemStorage implements IStorage {
         }
       }
 
-      // Calculate top items from closed tables only
+      // Calculate top items from closed tables only (exclude canceled)
       const itemCounts = new Map<string, { count: number; revenue: number }>();
 
-      for (const order of closedTableOrders) {
+      for (const order of activeClosedOrders) {
         let itemName: string;
         if (order.isSpecialItem && order.specialItemName) {
           itemName = order.specialItemName;
@@ -2782,9 +2813,16 @@ export class MemStorage implements IStorage {
         const workerEntry = allWorkdayWorkers.find(ww => ww.workdayId === wd.id);
         if (!workerEntry || !workerEntry.joinedAt) continue;
 
-        const joinedAt = new Date(workerEntry.joinedAt);
-        const endTime = wd.endedAt ? new Date(wd.endedAt) : new Date();
-        const minutesWorked = Math.max(0, (endTime.getTime() - joinedAt.getTime()) / (1000 * 60));
+        let minutesWorked = 0;
+        // Use totalWorkedMs if available (from worker status tracking)
+        if (workerEntry.totalWorkedMs && workerEntry.totalWorkedMs > 0) {
+          minutesWorked = workerEntry.totalWorkedMs / (1000 * 60);
+        } else {
+          // Fallback: calculate from joinedAt to releasedAt or workday end
+          const joinedAt = new Date(workerEntry.joinedAt);
+          const endTime = workerEntry.releasedAt ? new Date(workerEntry.releasedAt) : (wd.endedAt ? new Date(wd.endedAt) : new Date());
+          minutesWorked = Math.max(0, (endTime.getTime() - joinedAt.getTime()) / (1000 * 60));
+        }
 
         totalMinutes += minutesWorked;
 

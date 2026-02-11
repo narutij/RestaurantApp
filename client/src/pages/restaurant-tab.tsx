@@ -73,7 +73,7 @@ function MiniCalendar({ workedDates, year, month, onMonthChange }: {
   const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   const workedSet = useMemo(() => new Set(workedDates), [workedDates]);
 

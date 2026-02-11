@@ -17,10 +17,21 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useWorkday } from '@/contexts/WorkdayContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/lib/queryClient';
 // formatPrice from useLanguage() context
 import { WebSocketMessage, type MenuItem, type Table, type OrderWithDetails, type MenuCategory } from '@shared/schema';
@@ -40,6 +51,7 @@ import {
   Trash2,
   Check,
   Tag,
+  Ban,
 } from 'lucide-react';
 
 // Pre-order item type with quantity and badges
@@ -113,6 +125,10 @@ export default function OrderTab() {
   const { addMessageListener } = useWebSocketContext();
   const { activeWorkday, isWorkdayActive } = useWorkday();
   const { t, formatPrice } = useLanguage();
+  const { userRole } = useAuth();
+
+  // Kitchen role = view-only in Orders tab (no opening/closing tables, no ordering, no canceling)
+  const isReadOnly = userRole === 'kitchen';
 
   // Use context for persistent state across tab switches
   const { 
@@ -138,6 +154,10 @@ export default function OrderTab() {
   // Close table confirmation dialog state
   const [closeTableDialogOpen, setCloseTableDialogOpen] = useState(false);
   const [tableToClose, setTableToClose] = useState<{ id: number; number: string; total: number; hasUnfinishedOrders: boolean } | null>(null);
+
+  // Cancel order dialog state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<{ ids: number[]; name: string } | null>(null);
   
   // Persist seen ready orders
   useEffect(() => {
@@ -316,7 +336,7 @@ export default function OrderTab() {
       // 3. Not already seen by the user
       if (tableActivatedAt !== undefined) {
         const orderTime = new Date(order.timestamp).getTime();
-        if (order.completed && !seenReadyOrders.has(order.id) && orderTime >= tableActivatedAt) {
+        if (order.completed && !order.canceled && !seenReadyOrders.has(order.id) && orderTime >= tableActivatedAt) {
           result[order.tableId] = (result[order.tableId] || 0) + 1;
         }
       }
@@ -324,11 +344,11 @@ export default function OrderTab() {
     return result;
   }, [allOrders, seenReadyOrders, tables]);
 
-  // Group confirmed orders for display (merge identical items)
+  // Group confirmed orders for display (merge identical items, excluding canceled)
   const groupedTableOrders = useMemo((): GroupedOrder[] => {
     const groups: Record<string, GroupedOrder> = {};
-    
-    tableOrders.forEach(order => {
+
+    tableOrders.filter(o => !o.canceled).forEach(order => {
       const { badges, text: noteText } = parseNotesWithBadges(order.notes);
       const name = order.isSpecialItem && order.specialItemName 
         ? order.specialItemName 
@@ -384,6 +404,8 @@ export default function OrderTab() {
         });
       }
     } else {
+      // Kitchen role cannot activate tables
+      if (isReadOnly) return;
       handleActivateTable(table);
     }
   };
@@ -391,7 +413,7 @@ export default function OrderTab() {
   // Listen for WebSocket updates
   useEffect(() => {
     const removeListener = addMessageListener((message: WebSocketMessage) => {
-      if (['NEW_ORDER', 'ACTIVATE_TABLE', 'DEACTIVATE_TABLE'].includes(message.type)) {
+      if (['NEW_ORDER', 'ACTIVATE_TABLE', 'DEACTIVATE_TABLE', 'CANCEL_ORDER'].includes(message.type)) {
         queryClient.invalidateQueries({ queryKey: ['tables'] });
         queryClient.invalidateQueries({ queryKey: ['table-orders'] });
       }
@@ -469,12 +491,29 @@ export default function OrderTab() {
       addNotification(t('orders.tableClosed'));
     }
   });
-  
+
+  // Cancel order mutation
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (orderIds: number[]) => {
+      for (const id of orderIds) {
+        await apiRequest(`/api/orders/${id}/cancel`, { method: 'POST' });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['table-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['all-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      addNotification(t('orders.dishCanceled'));
+      setCancelDialogOpen(false);
+      setOrderToCancel(null);
+    }
+  });
+
   // Handle close table button click - open confirmation dialog
   const handleCloseTableClick = () => {
     if (!activeTable) return;
     // Check for unfinished orders
-    const unfinishedOrders = tableOrders.filter(o => !o.completed);
+    const unfinishedOrders = tableOrders.filter(o => !o.completed && !o.canceled);
     setTableToClose({
       id: activeTable.id,
       number: activeTable.number,
@@ -688,8 +727,8 @@ export default function OrderTab() {
   // Calculate pre-order total
   const preOrderTotal = preOrderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  // Calculate confirmed orders total
-  const confirmedTotal = tableOrders.reduce((sum, order) => sum + order.price, 0);
+  // Calculate confirmed orders total (excluding canceled)
+  const confirmedTotal = tableOrders.filter(o => !o.canceled).reduce((sum, order) => sum + order.price, 0);
 
   const toggleCategory = (id: string) => {
     setExpandedCategories(prev => ({ ...prev, [id]: !prev[id] }));
@@ -745,9 +784,11 @@ export default function OrderTab() {
                     key={table.id}
                     className={`relative p-3 rounded-xl border-2 transition-all ${
                       activeTableId === table.id
-                        ? 'border-primary bg-primary/10 shadow-md'
+                        ? 'border-primary border-dashed bg-primary/15 shadow-lg ring-2 ring-primary/30 scale-[1.02]'
                         : table.isActive
                         ? 'border-green-500 bg-green-500/10'
+                        : isReadOnly
+                        ? 'border-border bg-muted/30 opacity-50 cursor-not-allowed'
                         : 'border-border bg-muted/30 hover:border-muted-foreground hover:bg-muted/50'
                     }`}
                     onClick={() => handleTableClick(table)}
@@ -773,7 +814,7 @@ export default function OrderTab() {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground mt-1 truncate">{table.description || t('orders.tapToOpen') || 'Tap to open'}</div>
+                      <div className="text-xs text-muted-foreground mt-1 truncate">{table.label || ''}</div>
                     )}
                   </button>
                 );
@@ -811,16 +852,18 @@ export default function OrderTab() {
                     </span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
-                  onClick={handleCloseTableClick}
-                  disabled={deactivateTableMutation.isPending}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  {t('orders.close')}
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
+                    onClick={handleCloseTableClick}
+                    disabled={deactivateTableMutation.isPending}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    {t('orders.close')}
+                  </Button>
+                )}
               </div>
 
               {/* Confirmed Orders Section (extension of table card) */}
@@ -829,11 +872,11 @@ export default function OrderTab() {
                   <div className="flex items-center gap-2 mb-3">
                     <Check className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium">{t('orders.confirmedOrders') || 'Confirmed Orders'}</span>
-                    <Badge variant="secondary" className="ml-auto text-xs">{tableOrders.length}</Badge>
+                    <Badge variant="secondary" className="ml-auto text-xs">{tableOrders.filter(o => !o.canceled).length}</Badge>
                   </div>
                   <div className="divide-y divide-border/50 max-h-[200px] overflow-y-auto">
                     {groupedTableOrders.map(group => (
-                      <div key={group.key} className="py-2 flex items-start justify-between">
+                      <div key={group.key} className="py-2 flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold bg-muted px-1.5 py-0.5 rounded">
@@ -845,7 +888,7 @@ export default function OrderTab() {
                             )}
                             {group.hasReady && (
                               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-500">
-                                {group.readyCount === group.quantity 
+                                {group.readyCount === group.quantity
                                   ? (t('orders.ready') || 'Ready')
                                   : `${group.readyCount}/${group.quantity} ${t('orders.ready') || 'Ready'}`
                                 }
@@ -856,9 +899,9 @@ export default function OrderTab() {
                           {group.badges.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {group.badges.map((badge, idx) => (
-                                <Badge 
-                                  key={idx} 
-                                  variant="outline" 
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
                                   className={`text-[10px] px-1.5 py-0 ${getBadgeStyle(badge)}`}
                                 >
                                   {badge}
@@ -871,10 +914,55 @@ export default function OrderTab() {
                             <p className="text-xs text-muted-foreground mt-0.5">{group.noteText}</p>
                           )}
                         </div>
-                        <div className="text-sm font-medium">{formatPrice(group.price * group.quantity)}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{formatPrice(group.price * group.quantity)}</span>
+                          {!isReadOnly && (
+                            <button
+                              className="p-1 rounded-md text-red-500 hover:bg-red-500/10 transition-colors"
+                              onClick={() => {
+                                setOrderToCancel({ ids: group.orderIds, name: `${group.quantity}x ${group.name}` });
+                                setCancelDialogOpen(true);
+                              }}
+                              title={t('orders.cancelDish')}
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
+
+                  {/* Canceled Orders Section */}
+                  {tableOrders.some(o => o.canceled) && (
+                    <div className="mt-3 pt-3 border-t border-red-200/50 dark:border-red-800/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Ban className="h-3.5 w-3.5 text-red-500" />
+                        <span className="text-xs font-medium text-red-500">{t('orders.canceledOrders')}</span>
+                      </div>
+                      <div className="space-y-1">
+                        {(() => {
+                          const canceledOrders = tableOrders.filter(o => o.canceled);
+                          const canceledGroups: Record<string, { name: string; quantity: number; price: number }> = {};
+                          canceledOrders.forEach(order => {
+                            const name = order.isSpecialItem && order.specialItemName ? order.specialItemName : order.menuItemName;
+                            const key = `${name}-${order.price}`;
+                            if (!canceledGroups[key]) {
+                              canceledGroups[key] = { name: name || 'Unknown', quantity: 0, price: order.price };
+                            }
+                            canceledGroups[key].quantity++;
+                          });
+                          return Object.values(canceledGroups).map((cg, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs text-red-500/70">
+                              <span className="line-through">{cg.quantity}x {cg.name}</span>
+                              <span className="line-through">{formatPrice(cg.price * cg.quantity)}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="pt-3 mt-2 border-t border-primary/20 flex items-center justify-between font-semibold">
                     <span>{t('orders.total')}</span>
                     <span className="text-lg">{formatPrice(confirmedTotal)}</span>
@@ -884,8 +972,8 @@ export default function OrderTab() {
             </CardContent>
           </Card>
 
-          {/* Pre-Order Cart */}
-          {preOrderItems.length > 0 && (
+          {/* Pre-Order Cart - hidden for kitchen role */}
+          {!isReadOnly && preOrderItems.length > 0 && (
             <Card className="border-amber-500/30 bg-amber-500/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -981,8 +1069,8 @@ export default function OrderTab() {
             </Card>
           )}
 
-          {/* Add Items Section */}
-          <Card>
+          {/* Add Items Section - hidden for kitchen role */}
+          {!isReadOnly && <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -1182,7 +1270,7 @@ export default function OrderTab() {
                 </div>
               </ScrollArea>
             </CardContent>
-          </Card>
+          </Card>}
         </motion.div>
       )}
 
@@ -1423,7 +1511,7 @@ export default function OrderTab() {
                 {tableToClose.hasUnfinishedOrders && (
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-amber-600">{t('orders.unfinishedOrders') || 'Unfinished Orders'}</span>
-                    <span className="font-semibold text-amber-600">{tableOrders.filter(o => !o.completed).length}</span>
+                    <span className="font-semibold text-amber-600">{tableOrders.filter(o => !o.completed && !o.canceled).length}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-2 border-t">
@@ -1462,6 +1550,46 @@ export default function OrderTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Order Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-red-500" />
+              {t('orders.cancelDishConfirm')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {orderToCancel && (
+                <span className="font-medium">{orderToCancel.name}</span>
+              )}
+              {' — '}
+              {t('orders.cancelDishMessage')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setOrderToCancel(null)}>
+              {t('common.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (orderToCancel) {
+                  cancelOrderMutation.mutate(orderToCancel.ids);
+                }
+              }}
+              disabled={cancelOrderMutation.isPending}
+            >
+              {cancelOrderMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              {t('orders.cancelDish')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

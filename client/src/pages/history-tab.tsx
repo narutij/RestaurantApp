@@ -67,6 +67,9 @@ import {
 interface ShiftWorker {
   workerId: string;
   joinedAt: Date;
+  totalWorkedMs?: number;
+  releasedAt?: Date | null;
+  status?: string;
 }
 
 interface Shift {
@@ -134,7 +137,7 @@ const formatShiftDuration = (startedAt: Date | null, endedAt: Date | null): stri
   if (!startedAt) return '-';
   const start = new Date(startedAt);
   const end = endedAt ? new Date(endedAt) : new Date();
-  const diffMs = end.getTime() - start.getTime();
+  const diffMs = Math.max(0, end.getTime() - start.getTime());
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
   return `${hours}h ${minutes}m`;
@@ -196,8 +199,10 @@ const StatCard = ({
 interface WorkerStats {
   workerId: string;
   joinedAt: Date;
+  endedAt: Date | null;
   workingTime: string;
   tablesServed: number;
+  status: string;
 }
 
 // Shift Card Component
@@ -249,7 +254,7 @@ const ShiftCard = ({
           tableNumber: order.tableNumber,
           peopleCount: order.peopleCount || 0,
           orders: [order],
-          subtotal: order.price,
+          subtotal: order.canceled ? 0 : order.price,
           sessionKey: `${order.tableId}-${sessionIndex}`,
           sessionStart,
           sessionEnd: sessionStart,
@@ -260,7 +265,7 @@ const ShiftCard = ({
         // Add to existing session
         const session = sessions[existingSession.sessionIndex];
         session.orders.push(order);
-        session.subtotal += order.price;
+        session.subtotal += order.canceled ? 0 : order.price;
         session.sessionEnd = new Date(order.timestamp);
         tableSessionMap[tableId].lastOrderTime = orderTime;
         
@@ -282,19 +287,30 @@ const ShiftCard = ({
   const workerStats = useMemo<WorkerStats[]>(() => {
     return shift.workers.map(worker => {
       const joinedAt = new Date(worker.joinedAt);
-      const endTime = shift.endedAt ? new Date(shift.endedAt) : new Date();
-      const diffMs = endTime.getTime() - joinedAt.getTime();
+      const workerEndTime = worker.releasedAt ? new Date(worker.releasedAt) : (shift.endedAt ? new Date(shift.endedAt) : null);
+
+      // Use totalWorkedMs if available, otherwise calculate from joinedAt to end
+      let diffMs: number;
+      if (worker.totalWorkedMs && worker.totalWorkedMs > 0) {
+        diffMs = worker.totalWorkedMs;
+      } else {
+        const endTime = workerEndTime || new Date();
+        diffMs = Math.max(0, endTime.getTime() - joinedAt.getTime());
+      }
+      diffMs = Math.max(0, diffMs); // Never display negative hours
       const hours = Math.floor(diffMs / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      
+
       // Count unique tables this worker could have served (simplified - all tables in shift)
       const tablesServed = tableGroups.length;
-      
+
       return {
         workerId: worker.workerId,
         joinedAt: joinedAt,
+        endedAt: workerEndTime,
         workingTime: `${hours}h ${minutes}m`,
         tablesServed,
+        status: worker.status || 'working',
       };
     });
   }, [shift.workers, shift.endedAt, tableGroups.length]);
@@ -403,7 +419,7 @@ const ShiftCard = ({
             <CollapsibleContent>
               <div className="p-4 pt-2 space-y-2">
                 {workerStats.map((worker, idx) => (
-                  <div 
+                  <div
                     key={`${worker.workerId}-${idx}`}
                     className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
                   >
@@ -414,7 +430,12 @@ const ShiftCard = ({
                       <div>
                         <div className="font-medium">{resolveWorkerName(worker.workerId)}</div>
                         <div className="text-xs text-muted-foreground">
-                          {t('history.started')} {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {' → '}
+                          {worker.endedAt
+                            ? worker.endedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : t('history.ongoing')
+                          }
                         </div>
                       </div>
                     </div>
@@ -494,17 +515,22 @@ const ShiftCard = ({
                           </div>
                           <div className="space-y-2">
                             {table.orders.map(order => (
-                              <div 
-                                key={order.id} 
-                                className="flex items-center justify-between py-2 border-b last:border-0"
+                              <div
+                                key={order.id}
+                                className={`flex items-center justify-between py-2 border-b last:border-0 ${order.canceled ? 'opacity-50' : ''}`}
                               >
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-medium text-sm">
+                                    <span className={`font-medium text-sm ${order.canceled ? 'line-through' : ''}`}>
                                       {order.isSpecialItem && order.specialItemName
                                         ? order.specialItemName
                                         : order.menuItemName}
                                     </span>
+                                    {order.canceled && (
+                                      <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-300">
+                                        {t('orders.canceledOrders')}
+                                      </Badge>
+                                    )}
                                     {order.isSpecialItem && (
                                       <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600">
                                         {t('history.special')}
@@ -513,14 +539,14 @@ const ShiftCard = ({
                                   </div>
                                   {order.notes && (
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                      📝 {order.notes}
+                                      {order.notes}
                                     </p>
                                   )}
                                   <p className="text-xs text-muted-foreground">
                                     {formatTime(order.timestamp)}
                                   </p>
                                 </div>
-                                <span className="text-sm font-medium">
+                                <span className={`text-sm font-medium ${order.canceled ? 'line-through text-red-500' : ''}`}>
                                   {formatPrice(order.price)}
                                 </span>
                               </div>
@@ -586,7 +612,9 @@ export default function HistoryTab() {
     month: 'long',
     day: 'numeric'
   });
-  const dateString = selectedDate.toISOString().split('T')[0];
+  // Use local date parts to avoid UTC timezone shift
+  // (toISOString() converts to UTC which can shift the date back for UTC+ timezones)
+  const dateString = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
   // Check if today
   const isToday = useMemo(() => {
@@ -641,8 +669,9 @@ export default function HistoryTab() {
     setIsExporting(true);
     
     try {
-      const startDate = exportDateRange.from.toISOString().split('T')[0];
-      const endDate = (exportDateRange.to || exportDateRange.from).toISOString().split('T')[0];
+      const formatLocalDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const startDate = formatLocalDate(exportDateRange.from);
+      const endDate = formatLocalDate(exportDateRange.to || exportDateRange.from);
       
       const response = await fetch(`/api/reports/download?restaurantId=${selectedRestaurant.id}&startDate=${startDate}&endDate=${endDate}`);
       

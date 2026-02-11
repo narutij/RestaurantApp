@@ -312,6 +312,7 @@ export type WebSocketMessage = {
     | "NEW_ORDER"
     | "COMPLETE_ORDER"
     | "UNCOMPLETE_ORDER"
+    | "CANCEL_ORDER"
     | "ACTIVATE_TABLE"
     | "DEACTIVATE_TABLE"
     | "CONNECTED_USERS"
@@ -342,6 +343,7 @@ export type OrderWithDetails = {
   menuItemName: string;
   timestamp: Date;
   completed: boolean;
+  canceled: boolean;
   price: number;
   tableNumber: string;
   tableLabel: string;
