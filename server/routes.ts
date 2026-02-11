@@ -1722,6 +1722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: string;
         daysWorked: number;
         totalShifts: number;
+        totalWorkedMs: number;
         dates: string[];
       }>();
 
@@ -1746,6 +1747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const existing = staffMap.get(worker.workerId);
               if (existing) {
                 existing.totalShifts++;
+                existing.totalWorkedMs += worker.totalWorkedMs || 0;
                 if (!existing.dates.includes(date)) {
                   existing.dates.push(date);
                   existing.daysWorked++;
@@ -1755,6 +1757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   name: worker.workerId,
                   daysWorked: 1,
                   totalShifts: 1,
+                  totalWorkedMs: worker.totalWorkedMs || 0,
                   dates: [date],
                 });
               }
@@ -1763,6 +1766,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (e) {
           // skip
         }
+      }
+
+      // Resolve worker names from restaurant_workers table
+      const restaurantWorkersList = await storage.getRestaurantWorkers(restaurantId);
+      const workerNameMap = new Map<string, string>();
+      for (const rw of restaurantWorkersList) {
+        workerNameMap.set(rw.workerId, rw.name);
+      }
+      for (const [workerId, data] of staffMap) {
+        data.name = workerNameMap.get(workerId) || workerId;
       }
 
       const topItems = Array.from(globalItemCounts.entries())
@@ -1848,19 +1861,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       XLSX.utils.book_append_sheet(workbook, dailySheet, 'Daily Details');
 
       // ─── Staff Sheet ───
-      const staffHeaders = ['Staff Member', 'Days Worked', 'Total Shifts', 'Dates Active'];
+      const staffHeaders = ['Staff Member', 'Days Worked', 'Total Shifts', 'Hours Worked', 'Dates Active'];
       const staffRows = Array.from(staffMap.values())
         .sort((a, b) => b.daysWorked - a.daysWorked)
-        .map(s => [
-          s.name,
-          s.daysWorked,
-          s.totalShifts,
-          s.dates.join(', '),
-        ]);
+        .map(s => {
+          const totalHours = Math.max(0, s.totalWorkedMs) / (1000 * 60 * 60);
+          const h = Math.floor(totalHours);
+          const m = Math.round((totalHours - h) * 60);
+          return [
+            s.name,
+            s.daysWorked,
+            s.totalShifts,
+            `${h}h ${m}m`,
+            s.dates.join(', '),
+          ];
+        });
       const staffSheetData = [staffHeaders, ...staffRows];
       const staffSheet = XLSX.utils.aoa_to_sheet(staffSheetData);
-      staffSheet['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 50 }];
-      staffSheet['!autofilter'] = { ref: `A1:D${staffRows.length + 1}` };
+      staffSheet['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 50 }];
+      staffSheet['!autofilter'] = { ref: `A1:E${staffRows.length + 1}` };
       XLSX.utils.book_append_sheet(workbook, staffSheet, 'Staff');
 
       // Generate buffer

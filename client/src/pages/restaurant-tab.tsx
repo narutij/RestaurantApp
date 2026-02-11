@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +10,7 @@ import { TopItemsWidget } from "@/components/widgets/TopItemsWidget";
 import { TopStaffWidget } from "@/components/widgets/TopStaffWidget";
 import { RemindersSection } from "@/components/RemindersSection";
 import { userService, type AppUser } from "@/lib/firestore";
+import useEmblaCarousel from 'embla-carousel-react';
 import { MenuModal } from "@/components/modals/MenuModal";
 import { TableLayoutsModal } from "@/components/modals/TableLayoutsModal";
 import { WorkersModal } from "@/components/modals/WorkersModal";
@@ -169,6 +170,21 @@ export default function RestaurantInfoTab() {
   const [topDishesTimeframe, setTopDishesTimeframe] = useState<Timeframe>('week');
   const [topStaffTimeframe, setTopStaffTimeframe] = useState<StaffTimeframe>('week');
 
+  // Admin carousel for Top Dishes / Top Staff
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  const onEmblaSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setActiveSlide(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.on('select', onEmblaSelect);
+    return () => { emblaApi.off('select', onEmblaSelect); };
+  }, [emblaApi, onEmblaSelect]);
+
   // Non-admin specific states
   const [hoursTimeframe, setHoursTimeframe] = useState<StaffTimeframe>('week');
   const now = new Date();
@@ -215,10 +231,9 @@ export default function RestaurantInfoTab() {
   const { data: allUsers = [] } = useQuery<AppUser[]>({
     queryKey: ['all-workers'],
     queryFn: () => userService.getAll(),
-    enabled: !isAdmin,
   });
 
-  // Fetch top staff statistics (non-admin only)
+  // Fetch top staff statistics
   const { data: topStaffData, isLoading: loadingTopStaff } = useQuery<{ workers: TopWorker[] }>({
     queryKey: ['top-staff', selectedRestaurant?.id, topStaffTimeframe],
     queryFn: async () => {
@@ -227,7 +242,7 @@ export default function RestaurantInfoTab() {
       if (!res.ok) throw new Error('Failed to fetch top staff');
       return res.json();
     },
-    enabled: !!selectedRestaurant?.id && !isAdmin,
+    enabled: !!selectedRestaurant?.id,
   });
 
   // Resolve worker names and avatars from Firestore users
@@ -601,14 +616,42 @@ export default function RestaurantInfoTab() {
           </Card>
         </div>
 
-        {/* Top Dishes — full width on phone, fills remaining space on tablet */}
+        {/* Top Dishes & Top Staff — swipable carousel */}
         <div className="lg:flex-1 lg:min-w-0">
-          <TopItemsWidget
-            items={topDishesStats?.topItems || []}
-            timeframe={topDishesTimeframe}
-            onTimeframeChange={setTopDishesTimeframe}
-            isLoading={loadingTopDishes}
-          />
+          <div ref={emblaRef} className="overflow-hidden">
+            <div className="flex">
+              <div className="min-w-0 shrink-0 grow-0 basis-full">
+                <TopItemsWidget
+                  items={topDishesStats?.topItems || []}
+                  timeframe={topDishesTimeframe}
+                  onTimeframeChange={setTopDishesTimeframe}
+                  isLoading={loadingTopDishes}
+                />
+              </div>
+              <div className="min-w-0 shrink-0 grow-0 basis-full">
+                <TopStaffWidget
+                  workers={resolvedTopStaff}
+                  timeframe={topStaffTimeframe}
+                  onTimeframeChange={setTopStaffTimeframe}
+                  isLoading={loadingTopStaff}
+                />
+              </div>
+            </div>
+          </div>
+          {/* Dot indicators */}
+          <div className="flex justify-center gap-1.5 mt-2">
+            {[0, 1].map(i => (
+              <button
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                  activeSlide === i
+                    ? 'bg-foreground/60 w-3'
+                    : 'bg-foreground/20'
+                }`}
+                onClick={() => emblaApi?.scrollTo(i)}
+              />
+            ))}
+          </div>
         </div>
       </motion.div>
 
