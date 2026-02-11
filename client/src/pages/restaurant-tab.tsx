@@ -619,7 +619,7 @@ export default function RestaurantInfoTab() {
         {/* Top Dishes & Top Staff — swipable carousel */}
         <div className="lg:flex-1 lg:min-w-0">
           <div ref={emblaRef} className="overflow-hidden">
-            <div className="flex">
+            <div className="flex gap-4">
               <div className="min-w-0 shrink-0 grow-0 basis-full">
                 <TopItemsWidget
                   items={topDishesStats?.topItems || []}
