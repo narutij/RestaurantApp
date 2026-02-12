@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { Workday, Restaurant } from '@shared/schema';
 
 interface WorkdayContextType {
   activeWorkday: Workday | null;
   isWorkdayActive: boolean;
+  isWorkdayParticipant: boolean;
+  isOrWasWorkdayParticipant: boolean;
+  workdayWorkerIds: string[];
   elapsedTime: string;
   elapsedSeconds: number;
   selectedRestaurant: Restaurant | null;
@@ -35,6 +40,8 @@ function formatElapsedTime(seconds: number): string {
 
 export function WorkdayProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
+  const { appUser, isAdmin } = useAuth();
+  const { addMessageListener } = useWebSocketContext();
   const [selectedRestaurant, setSelectedRestaurantState] = useState<Restaurant | null>(() => {
     const saved = localStorage.getItem('selectedRestaurant');
     return saved ? JSON.parse(saved) : null;
@@ -55,15 +62,19 @@ export function WorkdayProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent('restaurantSelected', { detail: restaurant }));
   }, []);
 
-  // Validate cached restaurant still exists in the database
+  // Validate cached restaurant still exists and sync with latest data
   useEffect(() => {
     if (!selectedRestaurant) return;
     fetch('/api/restaurants')
       .then(res => res.json())
       .then((restaurants: Restaurant[]) => {
-        const stillExists = restaurants.some(r => r.id === selectedRestaurant.id);
-        if (!stillExists) {
+        const fresh = restaurants.find(r => r.id === selectedRestaurant.id);
+        if (!fresh) {
           setSelectedRestaurant(restaurants[0] || null);
+        } else if (fresh.name !== selectedRestaurant.name ||
+                   fresh.address !== selectedRestaurant.address ||
+                   fresh.imageUrl !== selectedRestaurant.imageUrl) {
+          setSelectedRestaurant(fresh);
         }
       })
       .catch(() => {});
@@ -84,6 +95,42 @@ export function WorkdayProvider({ children }: { children: React.ReactNode }) {
     enabled: !!selectedRestaurant?.id,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Fetch workday workers to determine participant status
+  const { data: workdayWorkersData = [] } = useQuery({
+    queryKey: ['workday-workers-ctx', activeWorkday?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/workdays/${activeWorkday!.id}/workers`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeWorkday?.id,
+    refetchInterval: 10000,
+  });
+
+  const workdayWorkerIds = workdayWorkersData.map((w: any) => w.workerId as string);
+  const activeWorkerIds = workdayWorkersData
+    .filter((w: any) => w.status !== 'released')
+    .map((w: any) => w.workerId as string);
+  const isWorkdayActive = activeWorkday?.isActive || false;
+  // Active participant: admin or currently working/resting (not released)
+  const isWorkdayParticipant = isAdmin || (isWorkdayActive && activeWorkerIds.includes(appUser?.id || ''));
+  // Was ever in this workday (includes released workers) - for history access
+  const isOrWasWorkdayParticipant = isAdmin || (isWorkdayActive && workdayWorkerIds.includes(appUser?.id || ''));
+
+  // Invalidate workday query when workday starts/ends via WebSocket (cross-user sync)
+  useEffect(() => {
+    const removeListener = addMessageListener((message) => {
+      if (message.type === 'WORKDAY_STARTED' || message.type === 'WORKDAY_ENDED') {
+        queryClient.invalidateQueries({ queryKey: ['activeWorkday'] });
+        queryClient.invalidateQueries({ queryKey: ['workday-workers-ctx'] });
+      }
+      if (message.type === 'WORKER_JOINED' || message.type === 'WORKER_LEFT' || message.type === 'WORKER_STATUS_CHANGED') {
+        queryClient.invalidateQueries({ queryKey: ['workday-workers-ctx'] });
+      }
+    });
+    return removeListener;
+  }, [addMessageListener, queryClient]);
 
   // Start workday mutation
   const startMutation = useMutation({
@@ -154,7 +201,10 @@ export function WorkdayProvider({ children }: { children: React.ReactNode }) {
 
   const value: WorkdayContextType = {
     activeWorkday: activeWorkday || null,
-    isWorkdayActive: activeWorkday?.isActive || false,
+    isWorkdayActive,
+    isWorkdayParticipant,
+    isOrWasWorkdayParticipant,
+    workdayWorkerIds,
     elapsedTime: formatElapsedTime(elapsedSeconds),
     elapsedSeconds,
     selectedRestaurant,

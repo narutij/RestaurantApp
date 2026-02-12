@@ -322,7 +322,8 @@ export type WebSocketMessage = {
     | "WORKER_JOINED"
     | "WORKER_LEFT"
     | "WORKER_STATUS_CHANGED"
-    | "KITCHEN_NOTIFICATION";
+    | "KITCHEN_NOTIFICATION"
+    | "RESTAURANT_UPDATED";
   payload: unknown;
 };
 

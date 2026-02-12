@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +36,7 @@ import {
   Ban,
   X,
   Archive,
+  CheckCheck,
 } from 'lucide-react';
 
 // Helper to parse badges from notes
@@ -611,7 +612,7 @@ export default function KitchenTab() {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
   const { addMessageListener } = useWebSocketContext();
-  const { activeWorkday, isWorkdayActive } = useWorkday();
+  const { activeWorkday, isWorkdayActive, isWorkdayParticipant } = useWorkday();
   const { t } = useLanguage();
   const { userRole } = useAuth();
 
@@ -621,6 +622,9 @@ export default function KitchenTab() {
   // Expanded items state
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Collapsed table cards (header-only view)
+  const [collapsedTables, setCollapsedTables] = useState<Set<number>>(new Set());
+
   // Dismissed canceled order IDs (client-side only)
   const [dismissedCancelIds, setDismissedCancelIds] = useState<Set<number>>(new Set());
   // Track when canceled orders first appeared (for auto-dismiss)
@@ -628,6 +632,10 @@ export default function KitchenTab() {
 
   // Archived table IDs - tables manually or auto-archived to history
   const [archivedTableIds, setArchivedTableIds] = useState<Set<number>>(new Set());
+
+  // "Ready all" confirmation state: tableId → true means awaiting second tap
+  const [readyAllConfirm, setReadyAllConfirm] = useState<number | null>(null);
+  const readyAllTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track when canceled-only tables first appeared (for auto-archive after 3min)
   const [canceledTableAppearTimes, setCanceledTableAppearTimes] = useState<Map<number, number>>(new Map());
 
@@ -639,7 +647,7 @@ export default function KitchenTab() {
       if (!res.ok) throw new Error('Failed to fetch tables');
       return res.json();
     },
-    enabled: isWorkdayActive,
+    enabled: isWorkdayActive && isWorkdayParticipant,
     refetchInterval: 5000,
   });
 
@@ -651,9 +659,17 @@ export default function KitchenTab() {
       if (!res.ok) throw new Error('Failed to fetch orders');
       return res.json();
     },
-    enabled: isWorkdayActive,
+    enabled: isWorkdayActive && isWorkdayParticipant,
     refetchInterval: 3000,
   });
+
+  // Force-refresh all data when worker becomes a participant (added to shift mid-workday)
+  useEffect(() => {
+    if (isWorkdayParticipant) {
+      queryClient.invalidateQueries({ queryKey: ['active-tables'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    }
+  }, [isWorkdayParticipant, queryClient]);
 
   // Listen for WebSocket updates
   useEffect(() => {
@@ -963,6 +979,21 @@ export default function KitchenTab() {
     );
   }
 
+  // Not a participant
+  if (!isWorkdayParticipant) {
+    return (
+      <div className="p-4 pb-24 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="p-4 bg-blue-500/10 rounded-full mb-4">
+          <AlertCircle className="h-12 w-12 text-blue-500" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">{t('workday.notParticipant') || 'Not Added to Shift'}</h2>
+        <p className="text-muted-foreground text-center max-w-sm">
+          {t('workday.notParticipantDescription') || 'A workday is ongoing, but you are not added to this shift. Ask an admin to add you.'}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 pb-24 space-y-4">
       {/* Header */}
@@ -1050,37 +1081,86 @@ export default function KitchenTab() {
                 >
                   <Card className="overflow-hidden border-l-4 border-l-amber-500 shadow-md">
                     {/* Table Header */}
-                    <div className="p-4 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-700 text-white">
+                    <div
+                      className="p-4 bg-gradient-to-r from-slate-700 to-slate-600 dark:from-slate-800 dark:to-slate-700 text-white cursor-pointer select-none"
+                      onClick={() => {
+                        setCollapsedTables(prev => {
+                          const next = new Set(prev);
+                          if (next.has(table.tableId)) next.delete(table.tableId);
+                          else next.add(table.tableId);
+                          return next;
+                        });
+                      }}
+                    >
                       <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold">
-                            {t('kitchen.table')} {table.tableNumber}
-                            {table.tableLabel && (
-                              <span className="ml-2 text-sm font-normal opacity-70">
-                                {table.tableLabel}
+                        <div className="flex items-center gap-3">
+                          {collapsedTables.has(table.tableId) ? (
+                            <ChevronRight className="h-5 w-5 opacity-70" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5 opacity-70" />
+                          )}
+                          <div>
+                            <h3 className="text-xl font-bold">
+                              {t('kitchen.table')} {table.tableNumber}
+                            </h3>
+                            <div className="flex items-center gap-4 mt-1 text-sm opacity-80">
+                              <span className="flex items-center gap-1.5">
+                                <Users className="h-4 w-4" />
+                                {table.peopleCount}
                               </span>
-                            )}
-                          </h3>
-                          <div className="flex items-center gap-4 mt-1 text-sm opacity-80">
-                            <span className="flex items-center gap-1.5">
-                              <Users className="h-4 w-4" />
-                              {table.peopleCount}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <Clock className="h-4 w-4" />
-                              <RunningTime startTime={table.oldestPendingTime || table.activeSince} />
-                            </span>
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="h-4 w-4" />
+                                <RunningTime startTime={table.oldestPendingTime || table.activeSince} />
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-amber-500/90 text-white font-semibold px-3 py-1">
-                            {pendingCount} {t('kitchen.pending')}
-                          </Badge>
+                          {!isReadOnly && pendingCount > 0 ? (
+                            <button
+                              className={`px-4 py-2 rounded-lg font-semibold text-sm text-white transition-all ${
+                                readyAllConfirm === table.tableId
+                                  ? 'bg-green-500 hover:bg-green-600 scale-105'
+                                  : 'bg-amber-500/90 hover:bg-amber-500'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (readyAllConfirm === table.tableId) {
+                                  // Second tap — mark all ready
+                                  if (readyAllTimerRef.current) clearTimeout(readyAllTimerRef.current);
+                                  setReadyAllConfirm(null);
+                                  const allPendingIds = nonCanceledOrders.filter(o => !o.completed).map(o => o.id);
+                                  handleMarkReady(allPendingIds);
+                                } else {
+                                  // First tap — enter confirm state
+                                  if (readyAllTimerRef.current) clearTimeout(readyAllTimerRef.current);
+                                  setReadyAllConfirm(table.tableId);
+                                  readyAllTimerRef.current = setTimeout(() => {
+                                    setReadyAllConfirm(prev => prev === table.tableId ? null : prev);
+                                  }, 3000);
+                                }
+                              }}
+                            >
+                              {readyAllConfirm === table.tableId ? (
+                                <span className="flex items-center gap-1.5">
+                                  <CheckCheck className="h-4 w-4" />
+                                  {t('kitchen.readyAll')}
+                                </span>
+                              ) : (
+                                <span>{pendingCount} {t('kitchen.pending')}</span>
+                              )}
+                            </button>
+                          ) : (
+                            <Badge className="bg-amber-500/90 text-white font-semibold px-3 py-1">
+                              {pendingCount} {t('kitchen.pending')}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {/* Orders List */}
+                    {!collapsedTables.has(table.tableId) && (
                     <div className="divide-y divide-border">
                       {mergedItems.filter(item => !item.allCompleted).map(item => (
                         <MergedOrderItemRow
@@ -1166,6 +1246,7 @@ export default function KitchenTab() {
                         );
                       })()}
                     </div>
+                    )}
                   </Card>
                 </motion.div>
               );
@@ -1206,11 +1287,6 @@ export default function KitchenTab() {
                         <div>
                           <h3 className="text-xl font-bold">
                             {t('kitchen.table')} {table.tableNumber}
-                            {table.tableLabel && (
-                              <span className="ml-2 text-sm font-normal opacity-70">
-                                {table.tableLabel}
-                              </span>
-                            )}
                           </h3>
                           <div className="flex items-center gap-2 mt-1 text-sm opacity-80">
                             <Ban className="h-4 w-4" />

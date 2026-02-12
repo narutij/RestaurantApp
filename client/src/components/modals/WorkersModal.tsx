@@ -94,15 +94,15 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
     },
     onSuccess: () => {
       toast({
-        title: "Restaurants Updated",
-        description: "Staff restaurant assignments have been updated",
+        title: t('staff.restaurantsUpdated'),
+        description: t('staff.restaurantsUpdatedDesc'),
       });
       loadData();
     },
     onError: (error: any) => {
       toast({
-        title: "Update Failed",
-        description: error.message || "Failed to update restaurant assignments",
+        title: t('staff.updateFailed'),
+        description: error.message || t('staff.failedToUpdateRestaurants'),
         variant: "destructive"
       });
     },
@@ -181,14 +181,14 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
       await loadData();
       
       toast({
-        title: "Request Approved",
-        description: `${request.name} has been approved as ${getRoleLabel(role)}`,
+        title: t('staff.requestApproved'),
+        description: `${request.name} ${t('staff.approvedAs')} ${getRoleLabel(role)}`,
       });
     } catch (error: any) {
       console.error('Error approving request:', error);
       toast({
-        title: "Approval Failed",
-        description: error.message || "Failed to approve the request",
+        title: t('staff.approvalFailed'),
+        description: error.message || t('staff.failedToApprove'),
         variant: "destructive"
       });
     } finally {
@@ -208,14 +208,14 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
       await loadData();
       
       toast({
-        title: "Request Declined",
-        description: `${request.name}'s request has been declined`,
+        title: t('staff.requestDeclined'),
+        description: `${request.name} ${t('staff.requestDeclinedDesc')}`,
       });
     } catch (error: any) {
       console.error('Error rejecting request:', error);
       toast({
-        title: "Decline Failed",
-        description: error.message || "Failed to decline the request",
+        title: t('staff.declineFailed'),
+        description: error.message || t('staff.failedToDecline'),
         variant: "destructive"
       });
     } finally {
@@ -227,15 +227,15 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
     try {
       await userService.update(userId, { role: newRole });
       toast({
-        title: "Role Updated",
-        description: `User role has been updated to ${getRoleLabel(newRole)}`,
+        title: t('staff.roleUpdated'),
+        description: `${t('staff.roleUpdatedTo')} ${getRoleLabel(newRole)}`,
       });
       await loadData();
     } catch (error: any) {
       console.error('Error updating user role:', error);
       toast({
-        title: "Update Failed",
-        description: error.message || "Failed to update user role",
+        title: t('staff.updateFailed'),
+        description: error.message || t('staff.failedToUpdateRole'),
         variant: "destructive"
       });
     }
@@ -243,10 +243,10 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
 
   const getRoleLabel = (role: string): string => {
     switch (role) {
-      case 'admin': return 'Admin';
-      case 'kitchen': return 'Kitchen';
-      case 'floor': return 'Floor';
-      default: return 'Floor';
+      case 'admin': return t('staff.roleAdmin');
+      case 'kitchen': return t('staff.roleKitchen');
+      case 'floor': return t('staff.roleFloor');
+      default: return t('staff.roleFloor');
     }
   };
 
@@ -262,14 +262,14 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
     try {
       await userService.delete(user.id);
       toast({
-        title: "User Removed",
-        description: `${user.name} has been removed from staff`,
+        title: t('staff.userRemoved'),
+        description: `${user.name} ${t('staff.removedFromStaff')}`,
       });
       await loadData();
     } catch (error: any) {
       toast({
-        title: "Remove Failed",
-        description: error.message || "Failed to remove user",
+        title: t('staff.removeFailed'),
+        description: error.message || t('staff.failedToRemove'),
         variant: "destructive"
       });
     } finally {
@@ -345,7 +345,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                 </span>
                               </div>
                             )}
-                            <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
+                            <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
                               isUserOnline(user.name) ? 'bg-green-500' : 'bg-gray-500'
                             }`} />
                           </div>
@@ -441,14 +441,14 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                             <p className="font-medium text-sm">{request.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{request.email}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              Requested {(() => {
+                              {t('staff.requested')} {(() => {
                                 const date = request.requestedAt;
-                                if (!date) return 'recently';
+                                if (!date) return t('staff.recently');
                                 // Handle Firestore Timestamp objects
                                 const d = typeof (date as any)?.toDate === 'function'
                                   ? (date as any).toDate()
                                   : new Date(date);
-                                return isNaN(d.getTime()) ? 'recently' : d.toLocaleDateString();
+                                return isNaN(d.getTime()) ? t('staff.recently') : d.toLocaleDateString();
                               })()}
                             </p>
                             
@@ -602,7 +602,8 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                     </div>
                   ) : (
                     activeUsers.map((user) => {
-                      const assignedRestaurants = user.assignedRestaurants || [];
+                      const allRestaurantIds = new Set(allRestaurants.map(r => r.id));
+                      const assignedRestaurants = (user.assignedRestaurants || []).filter(id => allRestaurantIds.has(id));
 
                       return (
                         <div
@@ -631,7 +632,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                   </span>
                                 </div>
                               )}
-                              <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#181818] ${
+                              <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
                                 isUserOnline(user.name) ? 'bg-green-500' : 'bg-gray-500'
                               }`} />
                             </div>
@@ -779,8 +780,8 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
           <AlertDialogHeader>
             <AlertDialogTitle>{t('staff.confirmRoleChange')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to change {roleChangeConfirm?.user.name}'s role from{' '}
-              <span className="font-medium text-foreground">{getRoleLabel(roleChangeConfirm?.user.role || 'floor')}</span> to{' '}
+              {t('staff.confirmRoleChangeDesc')} {roleChangeConfirm?.user.name} {t('staff.roleFrom')}{' '}
+              <span className="font-medium text-foreground">{getRoleLabel(roleChangeConfirm?.user.role || 'floor')}</span> {t('staff.roleTo')}{' '}
               <span className="font-medium text-foreground">{getRoleLabel(roleChangeConfirm?.newRole || 'floor')}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -802,7 +803,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
           <AlertDialogHeader>
             <AlertDialogTitle>{t('staff.removeStaffMember')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <span className="font-medium text-foreground">{deleteUserConfirm?.name}</span> ({deleteUserConfirm?.email}) from the staff list? They will lose access to the app immediately. To also remove their login credentials, delete them from the Firebase Console.
+              {t('staff.confirmRemoveDesc')} <span className="font-medium text-foreground">{deleteUserConfirm?.name}</span> ({deleteUserConfirm?.email}) {t('staff.confirmRemoveDesc2')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

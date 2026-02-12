@@ -40,7 +40,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  DollarSign,
   Euro,
   ShoppingCart,
   Users,
@@ -144,13 +143,13 @@ const formatShiftDuration = (startedAt: Date | null, endedAt: Date | null): stri
 };
 
 // Format time range
-const formatTimeRange = (startedAt: Date | null, endedAt: Date | null, t?: (key: string) => string): string => {
+const formatTimeRange = (startedAt: Date | null, endedAt: Date | null, t?: (key: any) => string): string => {
   if (!startedAt) return t ? t('history.notStarted') : 'Not started';
   const start = new Date(startedAt);
-  const startStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const startStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   if (!endedAt) return `${startStr} - ${t ? t('history.ongoing') : 'ongoing'}`;
   const end = new Date(endedAt);
-  const endStr = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const endStr = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   return `${startStr} - ${endStr}`;
 };
 
@@ -430,10 +429,10 @@ const ShiftCard = ({
                       <div>
                         <div className="font-medium">{resolveWorkerName(worker.workerId)}</div>
                         <div className="text-xs text-muted-foreground">
-                          {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {worker.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                           {' → '}
                           {worker.endedAt
-                            ? worker.endedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            ? worker.endedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
                             : t('history.ongoing')
                           }
                         </div>
@@ -509,9 +508,9 @@ const ShiftCard = ({
                         <div className="px-4 pb-3 pt-1">
                           <div className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
                             <Timer className="h-3 w-3" />
-                            {table.sessionStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {table.sessionStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                             {' → '}
-                            {table.sessionEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {table.sessionEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                           </div>
                           <div className="space-y-2">
                             {table.orders.map(order => (
@@ -576,7 +575,7 @@ const ShiftCard = ({
 
 // Main History Tab Component
 export default function HistoryTab() {
-  const { selectedRestaurant } = useWorkday();
+  const { selectedRestaurant, isWorkdayActive, isOrWasWorkdayParticipant } = useWorkday();
   const { t, formatPrice, language } = useLanguage();
   const queryClient = useQueryClient();
   const { addMessageListener } = useWebSocketContext();
@@ -606,7 +605,7 @@ export default function HistoryTab() {
   const [exportRangeCalendarOpen, setExportRangeCalendarOpen] = useState(false);
 
   // Format date for display and API
-  const formattedDate = selectedDate.toLocaleDateString('en-US', {
+  const formattedDate = selectedDate.toLocaleDateString(language === 'lt' ? 'lt-LT' : 'en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -639,25 +638,33 @@ export default function HistoryTab() {
     refetchInterval: isToday ? 5000 : false,
   });
 
+  // Force-refresh when worker becomes a participant (added to shift mid-workday)
+  useEffect(() => {
+    if (isOrWasWorkdayParticipant) {
+      queryClient.invalidateQueries({ queryKey: ['history-detailed'] });
+    }
+  }, [isOrWasWorkdayParticipant, queryClient]);
+
   // Listen for WebSocket updates for live updates
   useEffect(() => {
     const removeListener = addMessageListener((message: WebSocketMessage) => {
       if ([
         'NEW_ORDER',
-        'COMPLETE_ORDER', 
+        'COMPLETE_ORDER',
         'UNCOMPLETE_ORDER',
+        'CANCEL_ORDER',
         'ACTIVATE_TABLE',
         'DEACTIVATE_TABLE',
         'WORKDAY_STARTED',
         'WORKDAY_ENDED',
+        'WORKER_JOINED',
+        'WORKER_LEFT',
       ].includes(message.type)) {
         queryClient.invalidateQueries({ queryKey: ['history-detailed'] });
-        queryClient.invalidateQueries({ queryKey: ['history-summary'] });
-        refetch();
       }
     });
     return () => removeListener();
-  }, [addMessageListener, queryClient, refetch]);
+  }, [addMessageListener, queryClient]);
 
   // Export state
   const [isExporting, setIsExporting] = useState(false);
@@ -726,6 +733,20 @@ export default function HistoryTab() {
         <h2 className="text-xl font-semibold mb-2">{t('workday.noRestaurantSelected')}</h2>
         <p className="text-muted-foreground text-center max-w-sm">
           {t('history.selectRestaurant')}
+        </p>
+      </div>
+    );
+  }
+
+  if (isWorkdayActive && !isOrWasWorkdayParticipant) {
+    return (
+      <div className="p-4 pb-24 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="p-4 bg-blue-500/10 rounded-full mb-4">
+          <AlertCircle className="h-12 w-12 text-blue-500" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">{t('workday.notParticipant') || 'Not Added to Shift'}</h2>
+        <p className="text-muted-foreground text-center max-w-sm">
+          {t('workday.notParticipantDescription') || 'A workday is ongoing, but you are not added to this shift. Ask an admin to add you.'}
         </p>
       </div>
     );
@@ -908,7 +929,7 @@ export default function HistoryTab() {
             {/* Total Stats Grid - These are COMBINED totals from all shifts */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard
-                icon={language === 'lt' ? Euro : DollarSign}
+                icon={Euro}
                 label={t('history.totalRevenue')}
                 value={formatPrice(history?.totals.revenue || 0)}
                 color="success"

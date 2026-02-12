@@ -6,10 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatPrice(price: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(price);
+  return new Intl.NumberFormat('en-IE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price) + ' €';
 }
 
 export function formatTime(date: Date | string | null | undefined): string {
@@ -17,10 +17,10 @@ export function formatTime(date: Date | string | null | undefined): string {
     return 'just now';
   }
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleTimeString('en-US', {
+  return dateObj.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hour12: false
   });
 }
 

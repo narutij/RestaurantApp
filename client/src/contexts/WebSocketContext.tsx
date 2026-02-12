@@ -29,6 +29,9 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const messageCallbacksRef = useRef<((message: WebSocketMessage) => void)[]>([]);
   const userNameSentRef = useRef(false);
   const appUserRef = useRef(appUser);
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
 
   // Keep appUserRef in sync
   useEffect(() => {
@@ -52,63 +55,82 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Initialize WebSocket connection
+  // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    unmountedRef.current = false;
 
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
+    const connect = () => {
+      if (unmountedRef.current) return;
 
-    socket.onopen = () => {
-      setStatus('open');
-      console.log('WebSocket connection established');
-      userNameSentRef.current = false;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-      // Send user identity immediately if available
-      if (appUserRef.current?.name) {
-        socket.send(JSON.stringify({
-          type: 'USER_CONNECT',
-          payload: { name: appUserRef.current.name, photoUrl: appUserRef.current.photoUrl || null }
-        }));
-        userNameSentRef.current = true;
-      }
-    };
+      setStatus('connecting');
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
 
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as WebSocketMessage;
+      socket.onopen = () => {
+        if (unmountedRef.current) { socket.close(); return; }
+        setStatus('open');
+        reconnectAttemptRef.current = 0;
+        userNameSentRef.current = false;
 
-        // Handle connected users update
-        if (message.type === 'CONNECTED_USERS' && message.payload) {
-          const payload = message.payload as { count: number; users?: ConnectedUserInfo[] };
-          setConnectedUsers(payload.count || 0);
-          if (payload.users && Array.isArray(payload.users)) {
-            setConnectedUsersList(payload.users);
-          }
+        // Send user identity immediately if available
+        if (appUserRef.current?.name) {
+          socket.send(JSON.stringify({
+            type: 'USER_CONNECT',
+            payload: { name: appUserRef.current.name, photoUrl: appUserRef.current.photoUrl || null }
+          }));
+          userNameSentRef.current = true;
         }
+      };
 
-        // Dispatch message to all registered callbacks
-        messageCallbacksRef.current.forEach(callback => {
-          callback(message);
-        });
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data) as WebSocketMessage;
+
+          // Handle connected users update
+          if (message.type === 'CONNECTED_USERS' && message.payload) {
+            const payload = message.payload as { count: number; users?: ConnectedUserInfo[] };
+            setConnectedUsers(payload.count || 0);
+            if (payload.users && Array.isArray(payload.users)) {
+              setConnectedUsersList(payload.users);
+            }
+          }
+
+          // Dispatch message to all registered callbacks
+          messageCallbacksRef.current.forEach(callback => {
+            callback(message);
+          });
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      socket.onclose = () => {
+        if (unmountedRef.current) return;
+        setStatus('closed');
+
+        // Auto-reconnect with exponential backoff (1s, 2s, 4s, 8s, max 15s)
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 15000);
+        reconnectAttemptRef.current++;
+        reconnectTimerRef.current = setTimeout(connect, delay);
+      };
+
+      socket.onerror = () => {
+        setStatus('error');
+        // onclose will fire after onerror, triggering reconnect
+      };
     };
 
-    socket.onclose = () => {
-      setStatus('closed');
-      console.log('WebSocket connection closed');
-    };
-
-    socket.onerror = (error) => {
-      setStatus('error');
-      console.error('WebSocket error:', error);
-    };
+    connect();
 
     return () => {
-      socket.close();
+      unmountedRef.current = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
+      socketRef.current?.close();
     };
   }, []);
 

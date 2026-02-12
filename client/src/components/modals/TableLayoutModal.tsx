@@ -311,7 +311,7 @@ export function TableLayoutModal({
                             <div>
                               <p className="text-sm font-medium">{layout.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(layout.createdAt).toLocaleDateString()}
+                                {layout.createdAt ? new Date(layout.createdAt).toLocaleDateString() : ''}
                               </p>
                             </div>
                           </div>

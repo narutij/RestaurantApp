@@ -583,6 +583,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Batch create orders (single WebSocket broadcast)
+  app.post('/api/orders/batch', async (req: Request, res: Response) => {
+    try {
+      const { orders: orderItems } = req.body;
+      if (!Array.isArray(orderItems) || orderItems.length === 0) {
+        return res.status(400).json({ error: "Orders array is required" });
+      }
+
+      const createdOrders = [];
+      for (const item of orderItems) {
+        const orderData = { ...item, timestamp: new Date() };
+        const validatedData = insertOrderSchema.parse(orderData);
+        const order = await storage.createOrder(validatedData);
+        createdOrders.push(order);
+      }
+
+      // Single broadcast for all orders
+      const table = createdOrders[0]?.tableId ? await storage.getTable(createdOrders[0].tableId) : null;
+      broadcastToAll({
+        type: "NEW_ORDER",
+        payload: {
+          count: createdOrders.length,
+          tableId: createdOrders[0]?.tableId,
+          tableNumber: table?.number || 'Unknown Table',
+        }
+      });
+
+      res.status(201).json(createdOrders);
+    } catch (error) {
+      console.error('Batch order creation error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create orders" });
+    }
+  });
+
   app.post('/api/orders/:id/complete', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
@@ -823,11 +860,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id, 10);
       const data = insertRestaurantSchema.partial().parse(req.body);
       const restaurant = await storage.updateRestaurant(id, data);
-      
+
       if (!restaurant) {
         return res.status(404).json({ error: "Restaurant not found" });
       }
-      
+
+      broadcastToAll({ type: "RESTAURANT_UPDATED", payload: { restaurantId: id } });
       res.json(restaurant);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -872,6 +910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
       
+      broadcastToAll({ type: "RESTAURANT_UPDATED", payload: { restaurantId: id } });
       res.json({ imageUrl, restaurant });
     } catch (error) {
       // Delete the uploaded file on error
@@ -1095,6 +1134,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error getting workdays:', error);
       res.status(500).json({ error: "Failed to get workdays" });
+    }
+  });
+
+  // Get today's ended workdays with workers for a restaurant
+  app.get('/api/workdays/ended-today/:restaurantId', async (req: Request, res: Response) => {
+    try {
+      const restaurantId = parseInt(req.params.restaurantId, 10);
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const allWorkdays = await storage.getWorkdays(restaurantId);
+      const endedToday = allWorkdays.filter(w => w.date === today && !w.isActive && w.endedAt);
+
+      // Fetch workers for each ended workday
+      const result = await Promise.all(endedToday.map(async (wd) => {
+        const workers = await storage.getWorkdayWorkers(wd.id);
+        return { ...wd, workers };
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error getting ended workdays:', error);
+      res.status(500).json({ error: "Failed to get ended workdays" });
     }
   });
 

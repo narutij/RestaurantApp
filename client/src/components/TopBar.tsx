@@ -61,7 +61,7 @@ export default function TopBar({
   onMarkNotificationRead,
   onMarkAllAsRead,
 }: TopBarProps) {
-  const { connectedUsers, connectedUsersList } = useWebSocketContext();
+  const { connectedUsers, connectedUsersList, addMessageListener } = useWebSocketContext();
   const { t } = useLanguage();
   const { isAdmin, isFloorOrKitchen, appUser } = useAuth();
 
@@ -206,6 +206,28 @@ export default function TopBar({
     // Current selection is not in the visible list — select the first one
     onSelectRestaurant(restaurants[0]);
   }, [restaurants, selectedRestaurant]);
+
+  // Sync selectedRestaurant with latest fetched data (name/image/address changes)
+  useEffect(() => {
+    if (!selectedRestaurant || allRestaurants.length === 0) return;
+    const fresh = allRestaurants.find((r: Restaurant) => r.id === selectedRestaurant.id);
+    if (!fresh) return;
+    if (fresh.name !== selectedRestaurant.name ||
+        fresh.address !== selectedRestaurant.address ||
+        fresh.imageUrl !== selectedRestaurant.imageUrl) {
+      onSelectRestaurant(fresh);
+    }
+  }, [allRestaurants, selectedRestaurant]);
+
+  // Listen for RESTAURANT_UPDATED WebSocket message to refetch instantly
+  useEffect(() => {
+    const removeListener = addMessageListener((message) => {
+      if (message.type === 'RESTAURANT_UPDATED') {
+        queryClient.invalidateQueries({ queryKey: ['/api/restaurants'] });
+      }
+    });
+    return removeListener;
+  }, [addMessageListener, queryClient]);
 
   // Create restaurant mutation
   const createRestaurantMutation = useMutation({
@@ -665,9 +687,9 @@ export default function TopBar({
                 animate={{ opacity: 1, scale: 1, width: 'auto' }}
                 exit={{ opacity: 0, scale: 0.8, width: 0 }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className="flex-shrink-0 overflow-hidden pointer-events-auto"
+                className="flex-shrink-0 pointer-events-auto"
               >
-                <div className="px-3 py-2.5 rounded-full bg-white dark:bg-[#181E23] shadow-lg shadow-black/10 dark:shadow-black/20 border border-green-500/50 animate-pulse">
+                <div className="px-3 py-2.5 rounded-full bg-white dark:bg-[#181E23] shadow-lg shadow-black/10 dark:shadow-black/20 border border-green-500/50">
                   <span className="text-xs font-mono font-bold text-green-500 whitespace-nowrap">
                     {workdayElapsedTime.split(':').slice(0, 2).join(':')}
                   </span>

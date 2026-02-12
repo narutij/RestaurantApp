@@ -400,9 +400,10 @@ export class MemStorage implements IStorage {
     // Fallback to memory storage
     const id = this.currentMenuId++;
     const now = new Date();
-    const newMenu: Menu = { 
-      ...menu, 
+    const newMenu: Menu = {
+      ...menu,
       id,
+      createdBy: menu.createdBy ?? null,
       createdAt: now,
       updatedAt: now
     };
@@ -1749,6 +1750,7 @@ export class MemStorage implements IStorage {
       name: layout.name,
       restaurantId: layout.restaurantId,
       description: layout.description ?? null,
+      createdBy: layout.createdBy ?? null,
       createdAt: now,
       updatedAt: now
     };
@@ -1926,7 +1928,12 @@ export class MemStorage implements IStorage {
         id,
         workdayId: worker.workdayId,
         workerId: worker.workerId,
-        joinedAt: new Date()
+        joinedAt: new Date(),
+        status: 'working',
+        totalWorkedMs: 0,
+        totalRestedMs: 0,
+        lastStatusChangeAt: new Date(),
+        releasedAt: null
       };
       this.workdayWorkersMap.set(id, newWorker);
       return newWorker;
@@ -2590,14 +2597,20 @@ export class MemStorage implements IStorage {
     }
 
     try {
+      // Use date-only strings for comparison to avoid UTC vs local timezone issues
+      // w.date is stored as client's local date string (e.g. "2026-02-13")
+      // which may be ahead of server UTC time, so add 1 day buffer to todayStr
+      const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+      const tomorrow = new Date(now.getTime() + 86400000);
+      const todayStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
       // Get workdays in the timeframe
       const relevantWorkdays = await db.select().from(workdays)
         .where(eq(workdays.restaurantId, restaurantId));
 
       const workdayIds = relevantWorkdays
         .filter(w => {
-          const workdayDate = new Date(w.date);
-          return workdayDate >= startDate && workdayDate <= now;
+          return w.date >= startDateStr && w.date <= todayStr;
         })
         .map(w => w.id);
 
@@ -2611,8 +2624,7 @@ export class MemStorage implements IStorage {
 
       // Split workdays into ended (historical) vs active (current)
       const filteredWorkdays = relevantWorkdays.filter(w => {
-        const workdayDate = new Date(w.date);
-        return workdayDate >= startDate && workdayDate <= now;
+        return w.date >= startDateStr && w.date <= todayStr;
       });
       const endedWorkdayIds = new Set(filteredWorkdays.filter(w => !w.isActive).map(w => w.id));
       const activeWorkday = filteredWorkdays.find(w => w.isActive);

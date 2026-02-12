@@ -22,7 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { apiRequest } from '@/lib/queryClient';
 import { userService, type AppUser } from '@/lib/firestore';
-import { type Menu, type TableLayout } from '@shared/schema';
+import { type Menu, type TableLayout, type Table } from '@shared/schema';
 import {
   Play,
   Square,
@@ -69,26 +69,19 @@ interface EndedShiftWorkerData {
   shiftEndTime: Date;
 }
 
-// Ended shift with worker details
-interface EndedShiftData {
-  id: string;
-  endedAt: Date;
-  duration: string;
-  workersCount: number;
-  workers: EndedShiftWorkerData[];
-  expanded: boolean;
-}
-
 export default function WorkdayTab() {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isAdmin, appUser } = useAuth();
-  const { addMessageListener } = useWebSocketContext();
+  const { addMessageListener, connectedUsersList } = useWebSocketContext();
+  const onlineNames = React.useMemo(() => new Set(connectedUsersList.map(u => u.name)), [connectedUsersList]);
   const {
     selectedRestaurant,
     activeWorkday,
     isWorkdayActive,
+    isWorkdayParticipant,
+    isOrWasWorkdayParticipant,
     elapsedTime,
     startWorkday,
     endWorkday,
@@ -106,129 +99,28 @@ export default function WorkdayTab() {
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [addWorkerOpen, setAddWorkerOpen] = useState(false);
   const [releaseWorkerConfirmId, setReleaseWorkerConfirmId] = useState<string | null>(null);
-  const [dismissShiftsConfirmOpen, setDismissShiftsConfirmOpen] = useState(false);
+  const [activeTablesWarning, setActiveTablesWarning] = useState(false);
+  const [endedShiftsCollapsed, setEndedShiftsCollapsed] = useState(true);
   const [menuExpanded, setMenuExpanded] = useState(false);
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [workersExpanded, setWorkersExpanded] = useState(false);
 
-  // Persisted state for ended shifts (survives tab switches)
-  // Use a helper to get today's date consistently
-  const getTodayDateString = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-
-  const [endedShiftsDismissed, setEndedShiftsDismissed] = useState(() => {
-    const today = getTodayDateString();
-    const storedDate = localStorage.getItem('endedShiftsDate');
-
-    // Clear ALL shift data if it's a new day or no date stored
-    if (!storedDate || storedDate !== today) {
-      localStorage.removeItem('endedShiftsDismissed');
-      localStorage.removeItem('endedShiftsToday');
-      localStorage.setItem('endedShiftsDate', today);
-      return false;
-    }
-    return localStorage.getItem('endedShiftsDismissed') === 'true';
+  // Fetch today's ended shifts from server (shared across all users)
+  const { data: endedShiftsToday = [] } = useQuery<any[]>({
+    queryKey: ['ended-shifts-today', selectedRestaurant?.id],
+    queryFn: async () => {
+      if (!selectedRestaurant?.id) return [];
+      const res = await fetch(`/api/workdays/ended-today/${selectedRestaurant.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedRestaurant?.id,
+    refetchInterval: 30000,
   });
-
-  const [endedShiftsToday, setEndedShiftsToday] = useState<EndedShiftData[]>(() => {
-    const today = getTodayDateString();
-    const storedDate = localStorage.getItem('endedShiftsDate');
-
-    // Return empty if not today's date
-    if (!storedDate || storedDate !== today) {
-      return [];
-    }
-
-    const stored = localStorage.getItem('endedShiftsToday');
-    if (!stored) return [];
-
-    try {
-      const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed)) return [];
-
-      // Filter and validate shifts - only include shifts from today
-      return parsed
-        .filter((shift: EndedShiftData) => {
-          if (!shift || !shift.endedAt) return false;
-          const shiftDate = new Date(shift.endedAt).toISOString().split('T')[0];
-          return shiftDate === today;
-        })
-        .map((shift: EndedShiftData) => ({
-          ...shift,
-          endedAt: new Date(shift.endedAt),
-          workers: (shift.workers || []).map(w => ({
-            ...w,
-            shiftStartTime: new Date(w.shiftStartTime),
-            shiftEndTime: new Date(w.shiftEndTime),
-          })),
-        }));
-    } catch {
-      // Clear corrupted data
-      localStorage.removeItem('endedShiftsToday');
-      return [];
-    }
-  });
-
-  // Clean up old shifts periodically (every time component renders or date changes)
-  useEffect(() => {
-    const today = getTodayDateString();
-    const storedDate = localStorage.getItem('endedShiftsDate');
-    
-    // If the date has changed since last visit, clear everything
-    if (storedDate && storedDate !== today) {
-      localStorage.removeItem('endedShiftsDismissed');
-      localStorage.removeItem('endedShiftsToday');
-      localStorage.setItem('endedShiftsDate', today);
-      setEndedShiftsToday([]);
-      setEndedShiftsDismissed(false);
-      return;
-    }
-    
-    // Filter out any shifts that aren't from today (safety check)
-    const validShifts = endedShiftsToday.filter(shift => {
-      if (!shift || !shift.endedAt) return false;
-      const shiftDate = new Date(shift.endedAt).toISOString().split('T')[0];
-      return shiftDate === today;
-    });
-    
-    // Only update if we filtered something out
-    if (validShifts.length !== endedShiftsToday.length) {
-      setEndedShiftsToday(validShifts);
-    }
-  }, []);
-
-  // Persist ended shifts state to localStorage
-  useEffect(() => {
-    const today = getTodayDateString();
-    const storedDate = localStorage.getItem('endedShiftsDate');
-
-    // Only persist if we're still on the same day
-    if (storedDate === today) {
-      // Filter to only include today's shifts before persisting
-      const todayShifts = endedShiftsToday.filter(shift => {
-        if (!shift || !shift.endedAt) return false;
-        const shiftDate = new Date(shift.endedAt).toISOString().split('T')[0];
-        return shiftDate === today;
-      });
-      localStorage.setItem('endedShiftsToday', JSON.stringify(todayShifts));
-    }
-  }, [endedShiftsToday]);
-
-  useEffect(() => {
-    const today = getTodayDateString();
-    const storedDate = localStorage.getItem('endedShiftsDate');
-
-    // Only persist dismissed state for today
-    if (storedDate === today) {
-      localStorage.setItem('endedShiftsDismissed', String(endedShiftsDismissed));
-    }
-  }, [endedShiftsDismissed]);
 
   // Current date formatting
   const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', {
+  const formattedDate = today.toLocaleDateString(language === 'lt' ? 'lt-LT' : 'en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -268,8 +160,8 @@ export default function WorkdayTab() {
     },
   });
 
-  // Filter out the main admin account from worker selection
-  const allWorkers = realWorkers.filter(w => w.email !== 'narutisjustinas@gmail.com');
+  // Filter out the main admin account and the current user from worker selection
+  const allWorkers = realWorkers.filter(w => w.email !== 'narutisjustinas@gmail.com' && w.id !== appUser?.id);
 
   // Fetch workers assigned to the active workday from the server
   // This ensures workers persist across tab switches
@@ -286,7 +178,21 @@ export default function WorkdayTab() {
       return res.json();
     },
     enabled: !!activeWorkday?.id && isWorkdayActive,
+    refetchInterval: 10000,
   });
+
+  // Fetch active tables to check before ending workday
+  const { data: activeTablesForCheck = [] } = useQuery<Table[]>({
+    queryKey: ['active-tables-check', activeWorkday?.tableLayoutId],
+    queryFn: async () => {
+      const res = await fetch('/api/tables/active');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isWorkdayActive,
+    refetchInterval: 5000,
+  });
+  const hasActiveTables = activeTablesForCheck.some(t => t.isActive);
 
   // Create workday mutation
   const createWorkdayMutation = useMutation({
@@ -306,11 +212,11 @@ export default function WorkdayTab() {
     }
   });
 
-  // Restore workday workers from server when returning to this tab (or on first load)
+  // Sync workday workers from server data (runs on load and whenever server data changes)
   useEffect(() => {
-    if (isWorkdayActive && serverWorkdayWorkers.length > 0 && workdayWorkers.length === 0 && allWorkers.length > 0) {
+    if (isWorkdayActive && serverWorkdayWorkers.length > 0 && realWorkers.length > 0) {
       const restoredWorkers = serverWorkdayWorkers.map(sw => {
-        const worker = allWorkers.find(w => w.id === sw.workerId);
+        const worker = realWorkers.find(w => w.id === sw.workerId);
         const joinedAt = sw.joinedAt ? new Date(sw.joinedAt) : new Date();
         const serverStatus = (sw.status as WorkerShiftStatus) || 'working';
         const lastChange = sw.lastStatusChangeAt ? new Date(sw.lastStatusChangeAt) : joinedAt;
@@ -328,7 +234,25 @@ export default function WorkdayTab() {
       });
       setWorkdayWorkers(restoredWorkers);
     }
-  }, [isWorkdayActive, serverWorkdayWorkers, allWorkers, workdayWorkers.length]);
+  }, [isWorkdayActive, serverWorkdayWorkers, realWorkers]);
+
+  // Listen for table and workday WebSocket events to keep active-tables-check fresh
+  useEffect(() => {
+    const removeListener = addMessageListener((message) => {
+      if (['ACTIVATE_TABLE', 'DEACTIVATE_TABLE'].includes(message.type)) {
+        queryClient.invalidateQueries({ queryKey: ['active-tables-check'] });
+      }
+      if (['WORKDAY_STARTED', 'WORKDAY_ENDED'].includes(message.type)) {
+        queryClient.invalidateQueries({ queryKey: ['workday'] });
+        queryClient.invalidateQueries({ queryKey: ['workday-workers'] });
+        queryClient.invalidateQueries({ queryKey: ['ended-shifts-today'] });
+      }
+      if (['WORKER_JOINED', 'WORKER_LEFT', 'WORKER_STATUS_CHANGED'].includes(message.type)) {
+        queryClient.invalidateQueries({ queryKey: ['workday-workers'] });
+      }
+    });
+    return removeListener;
+  }, [addMessageListener, queryClient]);
 
   // Listen for WebSocket worker status changes from other users
   useEffect(() => {
@@ -384,8 +308,13 @@ export default function WorkdayTab() {
 
       await startWorkday(workday.id);
 
+      // Build full worker list: current user + selected workers
+      const allWorkerIdsToAdd = appUser?.id
+        ? [appUser.id, ...selectedWorkerIds.filter(id => id !== appUser.id)]
+        : [...selectedWorkerIds];
+
       // Save workers to database for history tracking
-      for (const workerId of selectedWorkerIds) {
+      for (const workerId of allWorkerIdsToAdd) {
         try {
           await fetch(`/api/workdays/${workday.id}/workers`, {
             method: 'POST',
@@ -399,8 +328,8 @@ export default function WorkdayTab() {
 
       // Initialize workers
       const now = new Date();
-      const initialWorkers = selectedWorkerIds.map(id => {
-        const worker = allWorkers.find(w => w.id === id);
+      const initialWorkers = allWorkerIdsToAdd.map(id => {
+        const worker = realWorkers.find(w => w.id === id);
         return {
           id,
           name: worker?.name || 'Unknown',
@@ -471,19 +400,11 @@ export default function WorkdayTab() {
         }
       }
 
-      // Add to ended shifts array with worker details
-      const newEndedShift: EndedShiftData = {
-        id: `shift-${Date.now()}`,
-        endedAt: endTime,
-        duration: elapsedTime,
-        workersCount: workdayWorkers.length,
-        workers: finalWorkerData,
-        expanded: false,
-      };
-      setEndedShiftsToday(prev => [...prev, newEndedShift]);
-      setEndedShiftsDismissed(false);
-
       await endWorkday(activeWorkday.id);
+
+      // Refresh ended shifts from server
+      queryClient.invalidateQueries({ queryKey: ['ended-shifts-today'] });
+
       setWorkdayWorkers([]);
       setSelectedWorkerIds([]);
       setSelectedMenuId(null);
@@ -491,8 +412,6 @@ export default function WorkdayTab() {
       addNotification(t('workday.ended'));
     } catch (error) {
       addNotification(t('workday.failedToEnd'));
-      // Remove the shift we just added on error
-      setEndedShiftsToday(prev => prev.slice(0, -1));
     } finally {
       setIsEnding(false);
       setEndConfirmOpen(false);
@@ -569,10 +488,12 @@ export default function WorkdayTab() {
 
   // Add worker during active workday
   const handleAddWorkerToShift = async (workerId: string) => {
-    const worker = allWorkers.find(w => w.id === workerId);
+    const worker = realWorkers.find(w => w.id === workerId);
     if (!worker) return;
 
-    if (workdayWorkers.find(w => w.id === workerId)) return;
+    // Skip if already active (not released)
+    const existing = workdayWorkers.find(w => w.id === workerId);
+    if (existing && existing.status !== 'released') return;
 
     // Save to database for history tracking
     if (activeWorkday?.id) {
@@ -588,15 +509,25 @@ export default function WorkdayTab() {
     }
 
     const now = new Date();
-    setWorkdayWorkers(prev => [...prev, {
+    const newWorker = {
       id: workerId,
       name: worker.name,
-      status: 'working',
+      status: 'working' as WorkerShiftStatus,
       startedAt: now,
       totalWorkedMs: 0,
       totalRestedMs: 0,
       shiftStartTime: now,
-    }]);
+    };
+    setWorkdayWorkers(prev => {
+      // Replace released entry or add new
+      const existingIndex = prev.findIndex(w => w.id === workerId);
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = newWorker;
+        return updated;
+      }
+      return [...prev, newWorker];
+    });
     setAddWorkerOpen(false);
   };
 
@@ -608,16 +539,9 @@ export default function WorkdayTab() {
     return `${hours}h ${minutes}m`;
   };
 
-  // Toggle ended shift expansion
-  const toggleShiftExpanded = (shiftId: string) => {
-    setEndedShiftsToday(prev => prev.map(shift =>
-      shift.id === shiftId ? { ...shift, expanded: !shift.expanded } : shift
-    ));
-  };
-
   // Format time
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
   // Toggle worker selection
@@ -662,97 +586,94 @@ export default function WorkdayTab() {
         </Card>
       </motion.div>
 
-      {/* Shifts Ended Today Banners - Each shift as separate expandable card */}
-      {!isWorkdayActive && endedShiftsToday.length > 0 && !endedShiftsDismissed && (
-        <motion.div 
-          className="space-y-3 pb-4 mb-2 border-b border-border"
+      {/* Shifts Ended Today - Collapsible section */}
+      {endedShiftsToday.length > 0 && (
+        <motion.div
+          className="pb-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1 * 0.1 }}
         >
-          {/* Header with dismiss button */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">
-              {endedShiftsToday.length === 1
-                ? t('workday.shiftEndedToday')
-                : `${endedShiftsToday.length} ${t('workday.shiftsEndedToday')}`}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setDismissShiftsConfirmOpen(true)}
-            >
-              {t('common.dismissAll') || 'Dismiss All'}
-            </Button>
-          </div>
+          <button
+            className="w-full flex items-center justify-between p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10 transition-colors"
+            onClick={() => setEndedShiftsCollapsed(!endedShiftsCollapsed)}
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <span className="text-sm font-medium text-muted-foreground">
+                {endedShiftsToday.length === 1
+                  ? t('workday.shiftEndedToday') || '1 shift ended today'
+                  : `${endedShiftsToday.length} ${t('workday.shiftsEndedToday') || 'shifts ended today'}`}
+              </span>
+            </div>
+            {endedShiftsCollapsed ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
 
-          {/* Individual shift cards */}
-          {endedShiftsToday.map((shift, index) => (
-            <Card key={shift.id} className="border-amber-500/30 bg-amber-500/5 overflow-hidden">
-              <CardContent className="p-0">
-                {/* Clickable header */}
-                <button
-                  className="w-full p-4 flex items-center justify-between hover:bg-amber-500/5 transition-colors"
-                  onClick={() => toggleShiftExpanded(shift.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-500/10 rounded-xl">
-                      <Clock className="h-5 w-5 text-amber-500" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold text-sm">
-                        {t('workday.shift')} #{index + 1}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {t('workday.duration')}: {shift.duration} · {shift.workersCount} {t('workday.workers')} · {t('workday.endedAt')} {formatTime(shift.endedAt)}
-                      </p>
-                    </div>
-                  </div>
-                  {shift.expanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
+          {!endedShiftsCollapsed && (
+            <div className="space-y-3 mt-3">
+              {endedShiftsToday.map((shift: any, index: number) => {
+                const shiftWorkers = shift.workers || [];
+                const startedAt = shift.startedAt ? new Date(shift.startedAt) : null;
+                const endedAt = shift.endedAt ? new Date(shift.endedAt) : null;
+                const durationMs = startedAt && endedAt ? endedAt.getTime() - startedAt.getTime() : 0;
 
-                {/* Expanded worker details */}
-                {shift.expanded && shift.workers.length > 0 && (
-                  <div className="border-t border-amber-500/20 divide-y divide-amber-500/10">
-                    {shift.workers.map((worker) => (
-                      <div key={worker.id} className="p-3 px-4 bg-background/30">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                              <span className="text-xs font-medium">
-                                {worker.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">{worker.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatTime(worker.shiftStartTime)} - {formatTime(worker.shiftEndTime)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-medium text-green-600 dark:text-green-400">
-                              {t('workday.worked') || 'Worked'}: {formatDuration(worker.totalWorkedMs)}
-                            </p>
-                            {worker.totalRestedMs > 0 && (
-                              <p className="text-xs text-amber-600 dark:text-amber-400">
-                                {t('workday.rested') || 'Rested'}: {formatDuration(worker.totalRestedMs)}
-                              </p>
-                            )}
-                          </div>
+                return (
+                  <Card key={shift.id} className="border-amber-500/30 bg-amber-500/5 overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-amber-500/10 rounded-xl">
+                          <Clock className="h-4 w-4 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">
+                            {t('workday.shift') || 'Shift'} #{index + 1}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDuration(durationMs)} · {shiftWorkers.length} {t('workday.workers') || 'workers'}
+                            {endedAt && ` · ${t('workday.endedAt') || 'Ended at'} ${formatTime(endedAt)}`}
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                      {shiftWorkers.length > 0 && (
+                        <div className="border-t border-amber-500/20 mt-2 pt-2 space-y-2">
+                          {shiftWorkers.map((worker: any) => {
+                            const workerInfo = realWorkers.find(rw => rw.id === worker.workerId);
+                            const workerName = workerInfo?.name || worker.workerId;
+                            return (
+                              <div key={worker.id} className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                                    <span className="text-[10px] font-medium">
+                                      {workerName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm">{workerName}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs text-green-600 dark:text-green-400">
+                                    {formatDuration(worker.totalWorkedMs || 0)}
+                                  </span>
+                                  {(worker.totalRestedMs || 0) > 0 && (
+                                    <span className="text-xs text-amber-600 dark:text-amber-400 ml-2">
+                                      {formatDuration(worker.totalRestedMs)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -781,7 +702,7 @@ export default function WorkdayTab() {
                     {t('workday.active') || 'Active'}
                   </Badge>
                   <p className="text-sm text-muted-foreground">
-                    {t('workday.startedAt') || 'Started at'} {activeWorkday.startedAt ? new Date(activeWorkday.startedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                    {t('workday.startedAt') || 'Started at'} {activeWorkday.startedAt ? new Date(activeWorkday.startedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
                   </p>
                 </div>
 
@@ -792,17 +713,25 @@ export default function WorkdayTab() {
                   </span>
                 </div>
 
-                {/* End Workday Button */}
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  className="w-full max-w-xs"
-                  onClick={() => setEndConfirmOpen(true)}
-                  disabled={isEnding}
-                >
-                  <Square className="mr-2 h-5 w-5" />
-                  {t('workday.endWorkday') || 'End Workday'}
-                </Button>
+                {/* End Workday Button - only for participants */}
+                {isWorkdayParticipant && (
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    className="w-full max-w-xs"
+                    onClick={() => {
+                      if (hasActiveTables) {
+                        setActiveTablesWarning(true);
+                      } else {
+                        setEndConfirmOpen(true);
+                      }
+                    }}
+                    disabled={isEnding}
+                  >
+                    <Square className="mr-2 h-5 w-5" />
+                    {t('workday.endWorkday') || 'End Workday'}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -822,10 +751,12 @@ export default function WorkdayTab() {
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setAddWorkerOpen(true)}>
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  {t('workday.add') || 'Add'}
-                </Button>
+                {isWorkdayParticipant && (
+                  <Button variant="ghost" size="sm" onClick={() => setAddWorkerOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    {t('workday.add') || 'Add'}
+                  </Button>
+                )}
               </div>
 
               <ScrollArea className="max-h-[300px]">
@@ -835,13 +766,26 @@ export default function WorkdayTab() {
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {workdayWorkers.map((worker) => (
+                    {workdayWorkers.map((worker) => {
+                      const workerData = realWorkers.find(w => w.id === worker.id);
+                      return (
                       <div key={worker.id} className="p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`h-2 w-2 rounded-full flex-shrink-0 ${
-                            worker.status === 'working' ? 'bg-green-500' :
-                            worker.status === 'resting' ? 'bg-amber-500' : 'bg-gray-400'
-                          }`} />
+                          <div className="relative flex-shrink-0">
+                            {workerData?.photoUrl ? (
+                              <img src={workerData.photoUrl} alt={worker.name} className="h-9 w-9 rounded-full object-cover" />
+                            ) : (
+                              <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+                                <span className="text-xs font-medium">
+                                  {worker.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </span>
+                              </div>
+                            )}
+                            <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
+                              worker.status === 'working' ? 'bg-green-500' :
+                              worker.status === 'resting' ? 'bg-amber-500' : 'bg-gray-400'
+                            }`} />
+                          </div>
                           <div className="min-w-0">
                             <p className="font-medium truncate">{worker.name}</p>
                             {worker.status === 'released' ? (
@@ -925,7 +869,8 @@ export default function WorkdayTab() {
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </ScrollArea>
@@ -1179,20 +1124,24 @@ export default function WorkdayTab() {
                           >
                             <div className="flex items-center gap-3">
                               <div className="relative">
-                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                  <span className="text-xs font-medium">
-                                    {worker.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                                  </span>
-                                </div>
+                                {worker.photoUrl ? (
+                                  <img src={worker.photoUrl} alt={worker.name} className="h-8 w-8 rounded-full object-cover" />
+                                ) : (
+                                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                    <span className="text-xs font-medium">
+                                      {worker.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                    </span>
+                                  </div>
+                                )}
                                 {/* Online indicator */}
                                 <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
-                                  worker.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                                  onlineNames.has(worker.name) ? 'bg-green-500' : 'bg-gray-400'
                                 }`} />
                               </div>
                               <div className="text-left">
                                 <span className="font-medium text-sm block">{worker.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {worker.role} · {worker.isOnline ? t('workday.online') : t('workday.offline')}
+                                  {worker.role} · {onlineNames.has(worker.name) ? t('workday.online') : t('workday.offline')}
                                 </span>
                               </div>
                             </div>
@@ -1303,6 +1252,21 @@ export default function WorkdayTab() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Active Tables Warning Dialog */}
+      <AlertDialog open={activeTablesWarning} onOpenChange={setActiveTablesWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('workday.cannotEndTitle') || 'Cannot End Workday'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('workday.cannotEndActiveTables') || 'There are still active tables with open orders. Please close all tables before ending the workday.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>{t('common.ok') || 'OK'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Release Worker Confirmation Dialog */}
       <AlertDialog open={!!releaseWorkerConfirmId} onOpenChange={(open) => { if (!open) setReleaseWorkerConfirmId(null); }}>
         <AlertDialogContent>
@@ -1333,7 +1297,7 @@ export default function WorkdayTab() {
       <AlertDialog open={addWorkerOpen} onOpenChange={setAddWorkerOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('workday.addWorkerTitle') || 'Add Worker to Shift'}</AlertDialogTitle>
+            <AlertDialogTitle>{t('workday.addStaffTitle') || 'Add Staff to Shift'}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('workday.addWorkerDescription') || 'Select a worker to add to today\'s shift'}
             </AlertDialogDescription>
@@ -1342,25 +1306,36 @@ export default function WorkdayTab() {
           <ScrollArea className="max-h-[300px] my-4">
             <div className="space-y-2">
               {allWorkers
-                .filter(w => !workdayWorkers.find(ww => ww.id === w.id))
+                .filter(w => !workdayWorkers.find(ww => ww.id === w.id && ww.status !== 'released'))
                 .map((worker) => (
                   <button
                     key={worker.id}
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
                     onClick={() => handleAddWorkerToShift(worker.id)}
                   >
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-sm font-medium">
-                        {worker.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </span>
+                    <div className="relative">
+                      {worker.photoUrl ? (
+                        <img src={worker.photoUrl} alt={worker.name} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                          <span className="text-sm font-medium">
+                            {worker.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${
+                        onlineNames.has(worker.name) ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
                     </div>
                     <div className="text-left">
                       <span className="font-medium block">{worker.name}</span>
-                      <span className="text-xs text-muted-foreground">{worker.role}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {worker.role} · {onlineNames.has(worker.name) ? t('workday.online') : t('workday.offline')}
+                      </span>
                     </div>
                   </button>
                 ))}
-              {allWorkers.filter(w => !workdayWorkers.find(ww => ww.id === w.id)).length === 0 && (
+              {allWorkers.filter(w => !workdayWorkers.find(ww => ww.id === w.id && ww.status !== 'released')).length === 0 && (
                 <p className="text-center text-muted-foreground py-4">
                   {t('workday.allWorkersAssigned') || 'All workers are already assigned'}
                 </p>
@@ -1374,28 +1349,6 @@ export default function WorkdayTab() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dismiss Shifts Confirmation Dialog */}
-      <AlertDialog open={dismissShiftsConfirmOpen} onOpenChange={setDismissShiftsConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('workday.dismissShiftsTitle') || 'Dismiss Shift History?'}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('workday.dismissShiftsDescription') || 'Are you sure you want to dismiss all ended shift banners? The shift data will still be saved, but the banners will be hidden until tomorrow.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setEndedShiftsDismissed(true);
-                setDismissShiftsConfirmOpen(false);
-              }}
-            >
-              {t('common.dismiss') || 'Dismiss'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

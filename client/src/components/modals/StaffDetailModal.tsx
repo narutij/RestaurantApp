@@ -18,6 +18,7 @@ import {
   Building2,
   TrendingUp
 } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { AppUser } from '@/lib/firestore';
 
 type TimePeriod = 'day' | 'week' | 'month' | 'quarter' | 'year';
@@ -37,6 +38,7 @@ interface StaffDetailModalProps {
 }
 
 export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDetailModalProps) {
+  const { t } = useLanguage();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('week');
 
   // Fetch worker statistics
@@ -81,10 +83,10 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
 
   const getRoleLabel = (role: string): string => {
     switch (role) {
-      case 'admin': return 'Admin';
-      case 'kitchen': return 'Kitchen';
-      case 'floor': return 'Floor';
-      default: return 'Staff';
+      case 'admin': return t('staff.roleAdmin');
+      case 'kitchen': return t('staff.roleKitchen');
+      case 'floor': return t('staff.roleFloor');
+      default: return t('staff.roleFloor');
     }
   };
 
@@ -96,11 +98,11 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
 
   const getPeriodLabel = (period: TimePeriod): string => {
     switch (period) {
-      case 'day': return 'Today';
-      case 'week': return 'This Week';
-      case 'month': return 'This Month';
-      case 'quarter': return 'This Quarter';
-      case 'year': return 'This Year';
+      case 'day': return t('staff.today');
+      case 'week': return t('staff.thisWeek');
+      case 'month': return t('staff.thisMonth');
+      case 'quarter': return t('staff.thisQuarter');
+      case 'year': return t('staff.thisYear');
     }
   };
 
@@ -130,7 +132,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                       </span>
                     </div>
                   )}
-                  <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-[#1E2429] ${
+                  <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-background ${
                     isOnline ? 'bg-green-500' : 'bg-gray-500'
                   }`} />
                 </div>
@@ -144,7 +146,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                       <span className="ml-1.5">{getRoleLabel(user.role || 'floor')}</span>
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {isOnline ? 'Online' : 'Offline'}
+                      {isOnline ? t('staff.online') : t('staff.offline')}
                     </span>
                   </div>
                 </div>
@@ -173,18 +175,18 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Work Statistics</span>
+                <span className="text-sm font-medium">{t('staff.workStatistics')}</span>
               </div>
               <Select value={selectedPeriod} onValueChange={(v: TimePeriod) => setSelectedPeriod(v)}>
                 <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="day">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="quarter">This Quarter</SelectItem>
-                  <SelectItem value="year">This Year</SelectItem>
+                  <SelectItem value="day">{t('staff.today')}</SelectItem>
+                  <SelectItem value="week">{t('staff.thisWeek')}</SelectItem>
+                  <SelectItem value="month">{t('staff.thisMonth')}</SelectItem>
+                  <SelectItem value="quarter">{t('staff.thisQuarter')}</SelectItem>
+                  <SelectItem value="year">{t('staff.thisYear')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -202,7 +204,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                       <Clock className="h-4 w-4 text-green-400" />
                     </div>
                     <div className="text-xl font-bold">{formatHours(stats?.totalHours || 0)}</div>
-                    <div className="text-xs text-muted-foreground">Total Hours</div>
+                    <div className="text-xs text-muted-foreground">{t('staff.totalHours')}</div>
                   </div>
 
                   <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 text-center">
@@ -210,7 +212,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                       <Calendar className="h-4 w-4 text-blue-400" />
                     </div>
                     <div className="text-xl font-bold">{stats?.shiftsCount || 0}</div>
-                    <div className="text-xs text-muted-foreground">Shifts</div>
+                    <div className="text-xs text-muted-foreground">{t('staff.shifts')}</div>
                   </div>
 
                   <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 text-center">
@@ -218,7 +220,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                       <TrendingUp className="h-4 w-4 text-amber-400" />
                     </div>
                     <div className="text-xl font-bold">{formatHours(stats?.averageShiftLength || 0)}</div>
-                    <div className="text-xs text-muted-foreground">Avg Shift</div>
+                    <div className="text-xs text-muted-foreground">{t('staff.avgShift')}</div>
                   </div>
                 </div>
 
@@ -227,7 +229,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Hours by Restaurant</span>
+                      <span className="text-sm font-medium">{t('staff.hoursByRestaurant')}</span>
                     </div>
                     <div className="space-y-2">
                       {stats.restaurants.map((restaurant) => (
@@ -250,7 +252,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                   <div className="text-center py-6">
                     <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      No work data for {getPeriodLabel(selectedPeriod).toLowerCase()}
+                      {t('staff.noWorkData')} {getPeriodLabel(selectedPeriod).toLowerCase()}
                     </p>
                   </div>
                 )}

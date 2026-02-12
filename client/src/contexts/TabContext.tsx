@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 export type TabId = 'restaurant' | 'workday' | 'orders' | 'kitchen' | 'history';
 
 // Pre-order item type with quantity and badges
-interface PreOrderItem {
+export interface PreOrderItem {
   id: string;
   menuItem?: {
     id: number;

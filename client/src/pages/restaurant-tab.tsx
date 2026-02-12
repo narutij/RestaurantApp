@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkday } from "@/contexts/WorkdayContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { type Timeframe } from "@/components/widgets/StatWidget";
 import { TopItemsWidget } from "@/components/widgets/TopItemsWidget";
 import { TopStaffWidget } from "@/components/widgets/TopStaffWidget";
@@ -23,7 +24,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Building2,
-  DollarSign,
   Euro,
   Users,
   MenuSquare,
@@ -158,6 +158,8 @@ export default function RestaurantInfoTab() {
   const { isAdmin, appUser, currentUser } = useAuth();
   const { selectedRestaurant } = useWorkday();
   const { t, formatPrice, language } = useLanguage();
+  const queryClient = useQueryClient();
+  const { addMessageListener } = useWebSocketContext();
 
   // Modal states
   const [workersModalOpen, setWorkersModalOpen] = useState(false);
@@ -201,6 +203,7 @@ export default function RestaurantInfoTab() {
       return res.json();
     },
     enabled: !!selectedRestaurant?.id && isAdmin,
+    refetchInterval: 30000,
   });
 
   // Fetch clients statistics (admin only)
@@ -213,6 +216,7 @@ export default function RestaurantInfoTab() {
       return res.json();
     },
     enabled: !!selectedRestaurant?.id && isAdmin,
+    refetchInterval: 30000,
   });
 
   // Fetch top dishes statistics (admin only)
@@ -225,6 +229,7 @@ export default function RestaurantInfoTab() {
       return res.json();
     },
     enabled: !!selectedRestaurant?.id && isAdmin,
+    refetchInterval: 30000,
   });
 
   // Fetch all Firestore users for name/avatar resolution
@@ -257,6 +262,17 @@ export default function RestaurantInfoTab() {
       };
     });
   }, [topStaffData, allUsers]);
+
+  // WebSocket listener - refresh statistics when tables close or workday ends
+  useEffect(() => {
+    const removeListener = addMessageListener((message) => {
+      if (message.type === 'DEACTIVATE_TABLE' || message.type === 'WORKDAY_ENDED') {
+        queryClient.invalidateQueries({ queryKey: ['statistics'] });
+        queryClient.invalidateQueries({ queryKey: ['top-staff'] });
+      }
+    });
+    return removeListener;
+  }, [addMessageListener, queryClient]);
 
   // Fetch current user's working statistics (non-admin only)
   const { data: myStats } = useQuery<WorkerStatistics>({
@@ -542,7 +558,7 @@ export default function RestaurantInfoTab() {
               <div className="relative">
                 <div className="flex items-center justify-between mb-2">
                   <div className="p-2 bg-green-500/20 rounded-xl">
-                    {language === 'lt' ? <Euro className="h-4 w-4 text-green-500" /> : <DollarSign className="h-4 w-4 text-green-500" />}
+                    <Euro className="h-4 w-4 text-green-500" />
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

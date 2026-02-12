@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { useTab } from '@/contexts/TabContext';
+import { useTab, type PreOrderItem } from '@/contexts/TabContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -53,18 +53,6 @@ import {
   Tag,
   Ban,
 } from 'lucide-react';
-
-// Pre-order item type with quantity and badges
-interface PreOrderItem {
-  id: string;
-  menuItem?: MenuItem;
-  specialItemName?: string;
-  price: number;
-  quantity: number;
-  notes?: string;
-  badges: string[];
-  isSpecialItem: boolean;
-}
 
 // Default badge options
 const DEFAULT_BADGES = ['Gluten free', 'Make it special', 'Birthday', 'Child'];
@@ -123,7 +111,7 @@ export default function OrderTab() {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
   const { addMessageListener } = useWebSocketContext();
-  const { activeWorkday, isWorkdayActive } = useWorkday();
+  const { activeWorkday, isWorkdayActive, isWorkdayParticipant } = useWorkday();
   const { t, formatPrice } = useLanguage();
   const { userRole } = useAuth();
 
@@ -260,7 +248,8 @@ export default function OrderTab() {
       if (!res.ok) throw new Error('Failed to fetch tables');
       return res.json();
     },
-    enabled: !!activeWorkday?.tableLayoutId
+    enabled: !!activeWorkday?.tableLayoutId,
+    refetchInterval: 5000,
   });
 
   // Fetch menu items for the active workday's menu
@@ -316,7 +305,7 @@ export default function OrderTab() {
       if (!res.ok) throw new Error('Failed to fetch orders');
       return res.json();
     },
-    enabled: isWorkdayActive,
+    enabled: isWorkdayActive && isWorkdayParticipant,
     refetchInterval: 3000
   });
 
@@ -410,12 +399,22 @@ export default function OrderTab() {
     }
   };
 
+  // Force-refresh all data when worker becomes a participant (added to shift mid-workday)
+  useEffect(() => {
+    if (isWorkdayParticipant) {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['all-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['table-orders'] });
+    }
+  }, [isWorkdayParticipant, queryClient]);
+
   // Listen for WebSocket updates
   useEffect(() => {
     const removeListener = addMessageListener((message: WebSocketMessage) => {
-      if (['NEW_ORDER', 'ACTIVATE_TABLE', 'DEACTIVATE_TABLE', 'CANCEL_ORDER'].includes(message.type)) {
+      if (['NEW_ORDER', 'COMPLETE_ORDER', 'UNCOMPLETE_ORDER', 'ACTIVATE_TABLE', 'DEACTIVATE_TABLE', 'CANCEL_ORDER'].includes(message.type)) {
         queryClient.invalidateQueries({ queryKey: ['tables'] });
         queryClient.invalidateQueries({ queryKey: ['table-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['all-orders'] });
       }
     });
     return () => removeListener();
@@ -685,33 +684,40 @@ export default function OrderTab() {
     setPreOrderItems([]);
 
     try {
-      // Build array of all order requests (expanding quantities)
-      const orderPromises: Promise<any>[] = [];
+      // Build array of all order items (expanding quantities)
+      const orderItems: any[] = [];
 
       for (const item of itemsToSend) {
-        // Create quantity number of individual orders for each item
         for (let i = 0; i < item.quantity; i++) {
-          orderPromises.push(
-            createOrderRequest({
-              tableId,
-              menuItemId: item.menuItem?.id ?? null,
-              price: item.price,
-              notes: item.badges.length > 0
-                ? `${item.badges.map(b => `[${b}]`).join(' ')}${item.notes ? ` ${item.notes}` : ''}`
-                : item.notes,
-              specialItemName: item.specialItemName,
-              isSpecialItem: item.isSpecialItem,
-              workdayId
-            })
-          );
+          orderItems.push({
+            tableId,
+            menuItemId: item.menuItem?.id ?? null,
+            price: item.price,
+            notes: item.badges.length > 0
+              ? `${item.badges.map(b => `[${b}]`).join(' ')}${item.notes ? ` ${item.notes}` : ''}`
+              : item.notes,
+            specialItemName: item.specialItemName,
+            isSpecialItem: item.isSpecialItem,
+            workdayId
+          });
         }
       }
 
-      // Send all orders in parallel
-      await Promise.all(orderPromises);
+      // Send all orders in a single batch request
+      const response = await fetch('/api/orders/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orders: orderItems }),
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       // Invalidate queries ONCE after all orders are created
       queryClient.invalidateQueries({ queryKey: ['table-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['all-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
 
       addNotification(t('orders.orderConfirmed') || 'Order sent to kitchen!');
     } catch (error) {
@@ -749,6 +755,20 @@ export default function OrderTab() {
     );
   }
 
+  if (!isWorkdayParticipant) {
+    return (
+      <div className="p-4 pb-24 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="p-4 bg-blue-500/10 rounded-full mb-4">
+          <AlertCircle className="h-12 w-12 text-blue-500" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">{t('workday.notParticipant') || 'Not Added to Shift'}</h2>
+        <p className="text-muted-foreground text-center max-w-sm">
+          {t('workday.notParticipantDescription') || 'A workday is ongoing, but you are not added to this shift. Ask an admin to add you.'}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 pb-24 space-y-4">
       {/* Tables Grid */}
@@ -779,6 +799,13 @@ export default function OrderTab() {
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {tables.map(table => {
                 const readyCount = readyOrdersByTable[table.id] || 0;
+                const tableActivatedAt = table.activatedAt ? new Date(table.activatedAt).getTime() : 0;
+                const tableOrders = allOrders.filter(o => {
+                  if (o.tableId !== table.id || o.canceled) return false;
+                  const orderTime = new Date(o.timestamp).getTime();
+                  return orderTime >= tableActivatedAt;
+                });
+                const allOrdersReady = tableOrders.length > 0 && tableOrders.every(o => o.completed);
                 return (
                   <button
                     key={table.id}
@@ -786,7 +813,9 @@ export default function OrderTab() {
                       activeTableId === table.id
                         ? 'border-primary border-dashed bg-primary/15 shadow-lg ring-2 ring-primary/30 scale-[1.02]'
                         : table.isActive
-                        ? 'border-green-500 bg-green-500/10'
+                        ? allOrdersReady
+                          ? 'border-green-500 bg-green-500/10'
+                          : 'border-amber-500 bg-amber-500/10'
                         : isReadOnly
                         ? 'border-border bg-muted/30 opacity-50 cursor-not-allowed'
                         : 'border-border bg-muted/30 hover:border-muted-foreground hover:bg-muted/50'
@@ -803,8 +832,8 @@ export default function OrderTab() {
                     {table.isActive ? (
                       <div className="flex items-center justify-center gap-2 mt-1.5">
                         <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3 text-green-600" />
-                          <span className="text-xs font-medium text-green-600">{table.peopleCount || 0}</span>
+                          <Users className={`h-3 w-3 ${allOrdersReady ? 'text-green-600' : 'text-amber-600'}`} />
+                          <span className={`text-xs font-medium ${allOrdersReady ? 'text-green-600' : 'text-amber-600'}`}>{table.peopleCount || 0}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3 text-amber-600" />
