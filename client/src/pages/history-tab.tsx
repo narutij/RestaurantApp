@@ -680,7 +680,19 @@ export default function HistoryTab() {
       const startDate = formatLocalDate(exportDateRange.from);
       const endDate = formatLocalDate(exportDateRange.to || exportDateRange.from);
       
-      const response = await fetch(`/api/reports/download?restaurantId=${selectedRestaurant.id}&startDate=${startDate}&endDate=${endDate}`);
+      // Build worker names map from Firestore users
+      const workerNames: Record<string, string> = {};
+      for (const user of allUsers) {
+        if (user.id && user.name) {
+          workerNames[user.id] = user.name;
+        }
+      }
+
+      const response = await fetch(`/api/reports/download?restaurantId=${selectedRestaurant.id}&startDate=${startDate}&endDate=${endDate}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerNames }),
+      });
       
       if (!response.ok) {
         throw new Error('Failed to generate report');

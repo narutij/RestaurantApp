@@ -1706,11 +1706,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download Report API - Direct download (no email)
-  app.get('/api/reports/download', async (req: Request, res: Response) => {
+  app.post('/api/reports/download', async (req: Request, res: Response) => {
     try {
-      const restaurantId = parseInt(req.query.restaurantId as string, 10);
-      const startDate = req.query.startDate as string;
-      const endDate = req.query.endDate as string;
+      const restaurantId = parseInt(req.query.restaurantId as string || req.body.restaurantId, 10);
+      const startDate = (req.query.startDate as string) || req.body.startDate;
+      const endDate = (req.query.endDate as string) || req.body.endDate;
+      const workerNames: Record<string, string> = req.body.workerNames || {};
 
       if (!startDate || !endDate || isNaN(restaurantId)) {
         return res.status(400).json({ error: "startDate, endDate, and restaurantId are required" });
@@ -1829,11 +1830,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Resolve worker names from restaurant_workers table
+      // Resolve worker names from client-provided names map, then fallback to restaurant_workers table
       const restaurantWorkersList = await storage.getRestaurantWorkers(restaurantId);
       const workerNameMap = new Map<string, string>();
       for (const rw of restaurantWorkersList) {
         workerNameMap.set(rw.workerId, rw.name);
+      }
+      // Client-provided names (from Firestore) take priority
+      for (const [id, name] of Object.entries(workerNames)) {
+        if (name) workerNameMap.set(id, name);
       }
       for (const [workerId, data] of staffMap) {
         data.name = workerNameMap.get(workerId) || workerId;
