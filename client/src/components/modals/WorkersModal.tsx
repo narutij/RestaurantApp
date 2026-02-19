@@ -48,7 +48,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const { t } = useLanguage();
-  const { connectedUsersList } = useWebSocketContext();
+  const { connectedUsersList, sendMessage } = useWebSocketContext();
   const queryClient = useQueryClient();
 
   // Derive online status from WebSocket connected users
@@ -111,6 +111,9 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
   useEffect(() => {
     if (open) {
       loadData();
+    } else {
+      // Reset loading state when modal closes to prevent stale state flashes
+      setLoading(true);
     }
   }, [open]);
 
@@ -226,6 +229,11 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
   const handleUpdateUserRole = async (userId: string, newRole: WorkerRole) => {
     try {
       await userService.update(userId, { role: newRole });
+      // Notify all clients so the affected user can auto-refresh
+      sendMessage({
+        type: 'ROLE_CHANGED',
+        payload: { userId, newRole }
+      });
       toast({
         title: t('staff.roleUpdated'),
         description: `${t('staff.roleUpdatedTo')} ${getRoleLabel(newRole)}`,
@@ -283,7 +291,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[440px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+          <DialogContent className="sm:max-w-[440px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
             {/* Header */}
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-violet-500/10 to-transparent" />
@@ -324,7 +332,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                     activeUsers.map((user) => (
                       <div
                         key={user.id}
-                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 cursor-pointer transition-colors"
+                        className="p-4 bg-white/30 dark:bg-white/5 rounded-xl border border-white/40 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 cursor-pointer transition-colors"
                         onClick={() => {
                           setSelectedStaff(user);
                           setStaffDetailOpen(true);
@@ -337,6 +345,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                 src={user.photoUrl}
                                 alt={user.name}
                                 className="h-10 w-10 rounded-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                               />
                             ) : (
                               <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
@@ -381,7 +390,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+      <DialogContent className="sm:max-w-[440px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
         {/* Header */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-violet-500/10 to-transparent" />
@@ -426,7 +435,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                     {pendingRequests.map((request) => (
                       <div
                         key={request.id}
-                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5"
+                        className="p-4 bg-white/30 dark:bg-white/5 rounded-xl border border-white/40 dark:border-white/5"
                       >
                         <div className="flex items-start gap-3">
                           {/* Avatar */}
@@ -453,7 +462,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                             </p>
                             
                             {/* Role & Restaurant Row */}
-                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-white/5">
+                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/30 dark:border-white/5">
                               {/* Role Selection */}
                               <Select
                                 value={selectedRoles[request.id] || 'floor'}
@@ -462,7 +471,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                 }}
                                 disabled={processingRequest === request.id}
                               >
-                                <SelectTrigger className="w-[130px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 flex-shrink-0">
+                                <SelectTrigger className="w-[130px] h-8 text-xs bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 flex-shrink-0">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -494,7 +503,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      className="h-8 flex-1 justify-between text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                                      className="h-8 flex-1 justify-between text-xs bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10"
                                       disabled={processingRequest === request.id}
                                     >
                                       <div className="flex items-center gap-1.5 truncate">
@@ -520,7 +529,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                         return (
                                           <div
                                             key={restaurant.id}
-                                            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                                            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/30 dark:hover:bg-white/5 cursor-pointer"
                                             onClick={() => {
                                               const newSelections = isSelected
                                                 ? currentSelections.filter(id => id !== restaurant.id)
@@ -608,7 +617,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                       return (
                         <div
                           key={user.id}
-                          className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 transition-colors"
+                          className="p-4 bg-white/30 dark:bg-white/5 rounded-xl border border-white/40 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 transition-colors"
                         >
                           {/* Clickable user info */}
                           <div
@@ -643,7 +652,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                           </div>
 
                           {/* Role and Restaurant Assignment Row */}
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-white/5">
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/30 dark:border-white/5">
                             {/* Role Select */}
                             <Select
                               value={user.role || 'floor'}
@@ -656,7 +665,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                 }
                               }}
                             >
-                              <SelectTrigger className="w-[130px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 flex-shrink-0">
+                              <SelectTrigger className="w-[130px] h-8 text-xs bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 flex-shrink-0">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -691,7 +700,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 flex-1 justify-between text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                                    className="h-8 flex-1 justify-between text-xs bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10"
                                   >
                                     <div className="flex items-center gap-1.5 truncate">
                                       <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
@@ -715,7 +724,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                       return (
                                         <div
                                           key={restaurant.id}
-                                          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                                          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/30 dark:hover:bg-white/5 cursor-pointer"
                                           onClick={() => {
                                             const newAssignments = isAssigned
                                               ? assignedRestaurants.filter(id => id !== restaurant.id)
@@ -740,7 +749,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
                                         {t('staff.noRestaurantsAvailable')}
                                       </p>
                                     )}
-                                    <div className="border-t border-gray-200 dark:border-white/5 mt-2 pt-2">
+                                    <div className="border-t border-white/30 dark:border-white/5 mt-2 pt-2">
                                       <p className="text-[10px] text-muted-foreground px-2">
                                         {assignedRestaurants.length === 0
                                           ? t('staff.accessToAll')
@@ -776,7 +785,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
       
       {/* Role Change Confirmation Dialog */}
       <AlertDialog open={!!roleChangeConfirm} onOpenChange={(open) => !open && setRoleChangeConfirm(null)}>
-        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+        <AlertDialogContent className="glass-panel border-white/50 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('staff.confirmRoleChange')}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -786,7 +795,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmRoleChange}
               className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border-0"
@@ -799,7 +808,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
 
       {/* Delete User Confirmation Dialog */}
       <AlertDialog open={!!deleteUserConfirm} onOpenChange={(open) => !open && setDeleteUserConfirm(null)}>
-        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+        <AlertDialogContent className="glass-panel border-white/50 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('staff.removeStaffMember')}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -807,7 +816,7 @@ export function WorkersModal({ open, onOpenChange, viewOnly = false }: WorkersMo
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteUserConfirm && handleDeleteUser(deleteUserConfirm)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"

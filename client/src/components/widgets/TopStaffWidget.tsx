@@ -24,6 +24,7 @@ interface TopStaffWidgetProps {
   timeframe: StaffTimeframe;
   onTimeframeChange: (tf: StaffTimeframe) => void;
   isLoading?: boolean;
+  noCard?: boolean;
 }
 
 // Format minutes to hours:minutes display
@@ -39,6 +40,7 @@ export function TopStaffWidget({
   timeframe,
   onTimeframeChange,
   isLoading = false,
+  noCard = false,
 }: TopStaffWidgetProps) {
   const { t } = useLanguage();
 
@@ -79,108 +81,114 @@ export function TopStaffWidget({
       .slice(0, 2);
   };
 
+  const inner = (
+    <>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-xl bg-purple-500/20">
+            <Users className="h-4 w-4 text-purple-500" />
+          </div>
+          <p className="text-xs text-muted-foreground font-medium">
+            {t('restaurant.topStaff') || 'Top Staff'}
+          </p>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-6 px-2 gap-1 text-[11px] font-normal">
+              {timeframeLabels[timeframe]}
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onTimeframeChange('day')}>
+              {timeframeLabels.day}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onTimeframeChange('week')}>
+              {timeframeLabels.week}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onTimeframeChange('month')}>
+              {timeframeLabels.month}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onTimeframeChange('year')}>
+              {timeframeLabels.year}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-4 text-sm text-muted-foreground">
+          {t('common.loading') || 'Loading...'}
+        </div>
+      ) : workers.length === 0 ? (
+        <div className="text-center py-4 text-sm text-muted-foreground">
+          {t('restaurant.noStaffData') || 'No data available'}
+        </div>
+      ) : (
+        <div className="flex items-end justify-center gap-2 pt-2">
+          {podiumOrder.map((worker, index) => {
+            const { height, emoji } = getPodiumStyle(index);
+            return (
+              <div
+                key={worker.workerId}
+                className="flex flex-col items-center flex-1 max-w-[90px]"
+              >
+                {/* Avatar */}
+                <div className="relative mb-1">
+                  {worker.avatarUrl ? (
+                    <img
+                      src={worker.avatarUrl}
+                      alt={worker.name}
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                    />
+                  ) : null}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${worker.avatarUrl ? 'hidden' : ''} ${
+                      index === 1
+                        ? 'bg-purple-500/30 text-purple-600 dark:text-purple-400'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}>
+                      {getInitials(worker.name)}
+                  </div>
+                  <span className="absolute -top-1 -right-1 text-sm">{emoji}</span>
+                </div>
+
+                {/* Name */}
+                <p className="text-[10px] font-medium text-center truncate w-full mb-1">
+                  {worker.name.split(' ')[0]}
+                </p>
+
+                {/* Podium block */}
+                <div
+                  className={`w-full ${height} rounded-t-lg flex flex-col items-center justify-end pb-1 ${
+                    index === 1
+                      ? 'bg-gradient-to-t from-purple-500/30 to-purple-500/10'
+                      : index === 0
+                      ? 'bg-gradient-to-t from-gray-400/30 to-gray-400/10'
+                      : 'bg-gradient-to-t from-violet-700/30 to-violet-700/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-0.5">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[11px] font-bold">{formatWorkTime(worker.totalMinutes)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
+  if (noCard) return <div className="h-full">{inner}</div>;
+
   return (
     <Card className="overflow-hidden border-purple-500/20 h-full">
       <CardContent className="p-4 relative h-full">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-transparent" />
-        <div className="relative">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-purple-500/20">
-                <Users className="h-4 w-4 text-purple-500" />
-              </div>
-              <p className="text-xs text-muted-foreground font-medium">
-                {t('restaurant.topStaff') || 'Top Staff'}
-              </p>
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 px-2 gap-1 text-[11px] font-normal">
-                  {timeframeLabels[timeframe]}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onTimeframeChange('day')}>
-                  {timeframeLabels.day}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTimeframeChange('week')}>
-                  {timeframeLabels.week}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTimeframeChange('month')}>
-                  {timeframeLabels.month}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTimeframeChange('year')}>
-                  {timeframeLabels.year}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              {t('common.loading') || 'Loading...'}
-            </div>
-          ) : workers.length === 0 ? (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              {t('restaurant.noStaffData') || 'No data available'}
-            </div>
-          ) : (
-            <div className="flex items-end justify-center gap-2 pt-2">
-              {podiumOrder.map((worker, index) => {
-                const { height, emoji } = getPodiumStyle(index);
-                return (
-                  <div
-                    key={worker.workerId}
-                    className="flex flex-col items-center flex-1 max-w-[90px]"
-                  >
-                    {/* Avatar */}
-                    <div className="relative mb-1">
-                      {worker.avatarUrl ? (
-                        <img
-                          src={worker.avatarUrl}
-                          alt={worker.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                          index === 1
-                            ? 'bg-purple-500/30 text-purple-600 dark:text-purple-400'
-                            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                        }`}>
-                          {getInitials(worker.name)}
-                        </div>
-                      )}
-                      <span className="absolute -top-1 -right-1 text-sm">{emoji}</span>
-                    </div>
-
-                    {/* Name */}
-                    <p className="text-[10px] font-medium text-center truncate w-full mb-1">
-                      {worker.name.split(' ')[0]}
-                    </p>
-
-                    {/* Podium block */}
-                    <div
-                      className={`w-full ${height} rounded-t-lg flex flex-col items-center justify-end pb-1 ${
-                        index === 1
-                          ? 'bg-gradient-to-t from-purple-500/30 to-purple-500/10'
-                          : index === 0
-                          ? 'bg-gradient-to-t from-gray-400/30 to-gray-400/10'
-                          : 'bg-gradient-to-t from-violet-700/30 to-violet-700/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-0.5">
-                        <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-                        <span className="text-[9px] font-bold">{formatWorkTime(worker.totalMinutes)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <div className="relative">{inner}</div>
       </CardContent>
     </Card>
   );

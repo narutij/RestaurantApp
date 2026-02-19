@@ -117,7 +117,7 @@ export default function TabNavigation() {
     >
       <div className="max-w-md md:max-w-lg mx-auto pointer-events-auto">
         {/* Floating Pill Container */}
-        <div className="relative bg-white dark:bg-[#181E23] rounded-full shadow-lg shadow-black/10 dark:shadow-black/40 border border-gray-200 dark:border-white/5 p-1.5">
+        <div className="relative bg-white/25 dark:bg-[#181E23]/25 backdrop-blur-xl backdrop-saturate-150 rounded-full shadow-lg shadow-black/10 dark:shadow-black/40 border border-white/50 dark:border-white/10 p-1.5">
           {/* Tab Items Container */}
           <div 
             ref={buttonsContainerRef}

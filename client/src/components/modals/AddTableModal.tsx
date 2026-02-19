@@ -62,7 +62,7 @@ export function AddTableModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
+      <DialogContent className="sm:max-w-[400px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden" hideCloseButton>
         {/* Header */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent" />
@@ -97,7 +97,7 @@ export function AddTableModal({
               value={number}
               onChange={(e) => setNumber(e.target.value)}
               placeholder="e.g., 5"
-              className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-amber-500/50"
+              className="mt-1.5 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-amber-500/50"
             />
             {errors.number && <p className="text-xs text-red-400 mt-1">{errors.number}</p>}
           </div>
@@ -108,14 +108,14 @@ export function AddTableModal({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g., Near window"
-              className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-amber-500/50"
+              className="mt-1.5 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-amber-500/50"
             />
             {errors.label && <p className="text-xs text-red-400 mt-1">{errors.label}</p>}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-white/5 flex justify-end gap-2">
+        <div className="p-4 border-t border-white/30 dark:border-white/5 flex justify-end gap-2">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}

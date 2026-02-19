@@ -177,7 +177,7 @@ export function RestaurantModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[450px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[450px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           {/* Header */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent" />
@@ -257,7 +257,7 @@ export function RestaurantModal({
                   value={newRestaurantName}
                   onChange={(e) => setNewRestaurantName(e.target.value)}
                   placeholder="e.g., Vilko Puota"
-                  className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-cyan-500/50"
+                  className="mt-1.5 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-cyan-500/50"
                 />
               </div>
               
@@ -267,7 +267,7 @@ export function RestaurantModal({
                   value={newRestaurantAddress}
                   onChange={(e) => setNewRestaurantAddress(e.target.value)}
                   placeholder="e.g., 123 Main Street"
-                  className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-cyan-500/50"
+                  className="mt-1.5 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-cyan-500/50"
                 />
               </div>
 
@@ -315,10 +315,10 @@ export function RestaurantModal({
                     {restaurants.map((restaurant: Restaurant) => (
                       <div
                         key={restaurant.id}
-                        className={`p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border transition-colors cursor-pointer ${
+                        className={`p-4 bg-white/20 dark:bg-white/5 rounded-xl border transition-colors cursor-pointer ${
                           selectedRestaurantId === restaurant.id
                             ? 'border-cyan-500/50 bg-cyan-500/5'
-                            : 'border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20'
+                            : 'border-white/30 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20'
                         }`}
                         onClick={() => handleRestaurantClick(restaurant)}
                       >
@@ -380,7 +380,7 @@ export function RestaurantModal({
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+        <AlertDialogContent className="glass-panel border-white/50 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Restaurant</AlertDialogTitle>
             <AlertDialogDescription>
@@ -389,7 +389,7 @@ export function RestaurantModal({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel 
-              className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10"
+              className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 hover:bg-white/10"
               onClick={() => setRestaurantToDelete(null)}
             >
               Cancel

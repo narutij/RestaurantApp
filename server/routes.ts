@@ -100,6 +100,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             break;
+          case "ROLE_CHANGED":
+            // Admin changed a user's role - relay to all clients
+            broadcastToAll(message);
+            break;
         }
       } catch (err) {
         console.error("Error processing WebSocket message:", err);
@@ -134,9 +138,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   // Menus
   app.get('/api/menus', async (req: Request, res: Response) => {
-    const restaurantId = req.query.restaurantId ? parseInt(req.query.restaurantId as string, 10) : undefined;
-    const menus = await storage.getMenus(restaurantId);
-    res.json(menus);
+    try {
+      const restaurantId = req.query.restaurantId ? parseInt(req.query.restaurantId as string, 10) : undefined;
+      if (restaurantId !== undefined && isNaN(restaurantId)) {
+        return res.status(400).json({ error: "Invalid restaurantId" });
+      }
+      const menus = await storage.getMenus(restaurantId);
+      res.json(menus);
+    } catch (error) {
+      console.error('Error fetching menus:', error);
+      res.status(500).json({ error: "Failed to fetch menus" });
+    }
   });
   
   app.get('/api/menus/:id', async (req: Request, res: Response) => {
@@ -518,19 +530,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.get('/api/tables/active', async (req: Request, res: Response) => {
-    const tables = await storage.getActiveTables();
-    res.json(tables);
+    try {
+      const tables = await storage.getActiveTables();
+      res.json(tables);
+    } catch (error) {
+      console.error('Error fetching active tables:', error);
+      res.status(500).json({ error: "Failed to fetch active tables" });
+    }
   });
-  
+
   // Orders
   app.get('/api/orders', async (req: Request, res: Response) => {
-    const orders = await storage.getOrdersWithDetails();
-    res.json(orders);
+    try {
+      const orders = await storage.getOrdersWithDetails();
+      res.json(orders);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
   });
-  
+
   app.get('/api/orders/new', async (req: Request, res: Response) => {
-    const orders = await storage.getNewOrders();
-    res.json(orders);
+    try {
+      const orders = await storage.getNewOrders();
+      res.json(orders);
+    } catch (error) {
+      console.error('Error fetching new orders:', error);
+      res.status(500).json({ error: "Failed to fetch new orders" });
+    }
   });
   
   app.get('/api/tables/:tableId/orders', async (req: Request, res: Response) => {
@@ -591,10 +618,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Orders array is required" });
       }
 
+      // Validate ALL orders first before creating any (prevents partial batch)
+      const now = new Date();
+      const validatedItems = orderItems.map((item: any) => {
+        const orderData = { ...item, timestamp: now };
+        return insertOrderSchema.parse(orderData);
+      });
+
       const createdOrders = [];
-      for (const item of orderItems) {
-        const orderData = { ...item, timestamp: new Date() };
-        const validatedData = insertOrderSchema.parse(orderData);
+      for (const validatedData of validatedItems) {
         const order = await storage.createOrder(validatedData);
         createdOrders.push(order);
       }
@@ -966,6 +998,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Handle base64 image data
         const base64Data = avatarUrl.replace(/^data:image\/\w+;base64,/, "");
         const buffer = Buffer.from(base64Data, 'base64');
+
+        // Enforce 5MB file size limit
+        const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+        if (buffer.length > MAX_AVATAR_SIZE) {
+          return res.status(400).json({ error: "Avatar image too large (max 5MB)" });
+        }
         const filename = `avatar-${Date.now()}.png`;
         const filepath = path.join(process.cwd(), 'uploads', filename);
         
@@ -1662,6 +1700,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertReminderSchema.parse(req.body);
       const reminder = await storage.createReminder(validatedData);
+      broadcastToAll({
+        type: "REMINDER_UPDATED",
+        payload: { restaurantId: validatedData.restaurantId }
+      });
       res.status(201).json(reminder);
     } catch (error) {
       console.error('Error creating reminder:', error);
@@ -1676,6 +1718,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ error: "Reminder not found" });
       }
+      broadcastToAll({
+        type: "REMINDER_UPDATED",
+        payload: {}
+      });
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting reminder:', error);
@@ -1765,8 +1811,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalTables += dayData.tablesServed;
           totalPeople += dayData.peopleServed;
           totalShifts += dayData.shifts;
-        } catch (e) {
-          // Day has no data, add zeros
+        } catch (e: any) {
+          // Log unexpected errors but continue with zeros for this day
+          if (e?.message && !e.message.includes('not found') && !e.message.includes('no data')) {
+            console.error(`Report: unexpected error for date ${date}:`, e.message);
+          }
           dailyData.push({
             date,
             revenue: 0,
@@ -1825,8 +1874,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
-        } catch (e) {
-          // skip
+        } catch (e: any) {
+          // Log unexpected errors for staff aggregation but continue
+          if (e?.message && !e.message.includes('not found') && !e.message.includes('no data')) {
+            console.error(`Report staff aggregation error for date ${date}:`, e.message);
+          }
         }
       }
 
@@ -2019,8 +2071,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalTables += dayData.tablesServed;
           totalPeople += dayData.peopleServed;
           totalShifts += dayData.shifts;
-        } catch (e) {
-          // Day has no data, add zeros
+        } catch (e: any) {
+          // Log unexpected errors but continue with zeros for this day
+          if (e?.message && !e.message.includes('not found') && !e.message.includes('no data')) {
+            console.error(`Report: unexpected error for date ${date}:`, e.message);
+          }
           dailyData.push({
             date,
             revenue: 0,

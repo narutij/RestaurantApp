@@ -98,7 +98,7 @@ export function DayTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
+      <DialogContent className="sm:max-w-[450px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden" hideCloseButton>
         {/* Header */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent" />
@@ -138,7 +138,7 @@ export function DayTemplateModal({
                     <Input 
                       {...field} 
                       disabled={mode === 'apply'}
-                      className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-violet-500/50"
+                      className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-violet-500/50"
                       placeholder="e.g., Weekend Setup"
                     />
                   </FormControl>
@@ -149,7 +149,7 @@ export function DayTemplateModal({
 
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Select Date</Label>
-              <div className="bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 p-3">
+              <div className="bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 p-3">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -165,7 +165,7 @@ export function DayTemplateModal({
                 control={form.control}
                 name="isTemplate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#181818] p-4">
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-xl border border-white/40 dark:border-white/10 bg-white/20 dark:bg-white/5 p-4">
                     <FormControl>
                       <Checkbox
                         checked={field.value}

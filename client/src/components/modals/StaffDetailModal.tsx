@@ -110,7 +110,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+      <DialogContent className="sm:max-w-[440px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
         {/* Header with user info */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-cyan-500/10 to-transparent" />
@@ -178,7 +178,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                 <span className="text-sm font-medium">{t('staff.workStatistics')}</span>
               </div>
               <Select value={selectedPeriod} onValueChange={(v: TimePeriod) => setSelectedPeriod(v)}>
-                <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10">
+                <SelectTrigger className="w-[140px] h-8 text-xs bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -199,7 +199,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
               <>
                 {/* Stats Grid */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 text-center">
+                  <div className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-2">
                       <Clock className="h-4 w-4 text-green-400" />
                     </div>
@@ -207,7 +207,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                     <div className="text-xs text-muted-foreground">{t('staff.totalHours')}</div>
                   </div>
 
-                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 text-center">
+                  <div className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-2">
                       <Calendar className="h-4 w-4 text-blue-400" />
                     </div>
@@ -215,7 +215,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                     <div className="text-xs text-muted-foreground">{t('staff.shifts')}</div>
                   </div>
 
-                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 text-center">
+                  <div className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-2">
                       <TrendingUp className="h-4 w-4 text-amber-400" />
                     </div>
@@ -235,7 +235,7 @@ export function StaffDetailModal({ open, onOpenChange, user, isOnline }: StaffDe
                       {stats.restaurants.map((restaurant) => (
                         <div
                           key={restaurant.id}
-                          className="p-3 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 flex items-center justify-between"
+                          className="p-3 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 flex items-center justify-between"
                         >
                           <span className="text-sm font-medium">{restaurant.name}</span>
                           <Badge variant="secondary" className="bg-green-500/10 text-green-400">

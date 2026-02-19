@@ -220,6 +220,8 @@ export default function WorkdayTab() {
         const joinedAt = sw.joinedAt ? new Date(sw.joinedAt) : new Date();
         const serverStatus = (sw.status as WorkerShiftStatus) || 'working';
         const lastChange = sw.lastStatusChangeAt ? new Date(sw.lastStatusChangeAt) : joinedAt;
+        // Use lastStatusChangeAt as the timer start — the server stores when the current
+        // status began, so elapsed time since then + totalWorkedMs gives the correct total.
         return {
           id: sw.workerId,
           name: worker?.name || 'Unknown',
@@ -382,11 +384,10 @@ export default function WorkdayTab() {
         };
       });
 
-      // Persist final worker times to server BEFORE ending workday
-      // This ensures totalWorkedMs is saved even if server-side finalization has issues
-      for (const wd of finalWorkerData) {
-        try {
-          await fetch(`/api/workdays/${activeWorkday.id}/workers/${wd.id}/status`, {
+      // Persist final worker times to server BEFORE ending workday (parallel for speed)
+      await Promise.allSettled(
+        finalWorkerData.map(wd =>
+          fetch(`/api/workdays/${activeWorkday.id}/workers/${wd.id}/status`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -394,11 +395,9 @@ export default function WorkdayTab() {
               totalWorkedMs: wd.totalWorkedMs,
               totalRestedMs: wd.totalRestedMs,
             }),
-          });
-        } catch (e) {
-          console.error('Failed to persist final worker time:', e);
-        }
-      }
+          }).catch(e => console.error('Failed to persist final worker time:', e))
+        )
+      );
 
       await endWorkday(activeWorkday.id);
 
@@ -719,12 +718,21 @@ export default function WorkdayTab() {
                     variant="destructive"
                     size="lg"
                     className="w-full max-w-xs"
-                    onClick={() => {
-                      if (hasActiveTables) {
-                        setActiveTablesWarning(true);
-                      } else {
-                        setEndConfirmOpen(true);
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/tables/active');
+                        const freshTables: Table[] = res.ok ? await res.json() : [];
+                        if (freshTables.some((t: Table) => t.isActive)) {
+                          setActiveTablesWarning(true);
+                          return;
+                        }
+                      } catch {
+                        if (hasActiveTables) {
+                          setActiveTablesWarning(true);
+                          return;
+                        }
                       }
+                      setEndConfirmOpen(true);
                     }}
                     disabled={isEnding}
                   >

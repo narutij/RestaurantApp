@@ -105,7 +105,7 @@ export function WorkdayProvider({ children }: { children: React.ReactNode }) {
       return res.json();
     },
     enabled: !!activeWorkday?.id,
-    refetchInterval: 10000,
+    staleTime: 10000,
   });
 
   const workdayWorkerIds = workdayWorkersData.map((w: any) => w.workerId as string);

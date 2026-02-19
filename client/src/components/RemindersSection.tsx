@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
   Clipboard,
   Plus,
@@ -27,9 +28,20 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
   const [newReminder, setNewReminder] = useState('');
   const [isImportant, setIsImportant] = useState(false);
   const { appUser, isAdmin } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
+  const { addMessageListener } = useWebSocketContext();
+
+  // Listen for real-time board updates from other users
+  useEffect(() => {
+    const removeListener = addMessageListener((message) => {
+      if (message.type === 'REMINDER_UPDATED') {
+        queryClient.invalidateQueries({ queryKey: ['reminders', restaurantId] });
+      }
+    });
+    return removeListener;
+  }, [addMessageListener, queryClient, restaurantId]);
 
   const { data: reminders = [], isLoading } = useQuery<Reminder[]>({
     queryKey: ['reminders', restaurantId],
@@ -89,7 +101,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleAddReminder();
@@ -99,7 +111,8 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
   const formatDate = (date: Date | string | null) => {
     if (!date) return '';
     const d = new Date(date);
-    return d.toLocaleDateString('lt-LT', {
+    const locale = language === 'lt' ? 'lt-LT' : 'en-IE';
+    return d.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -206,7 +219,7 @@ export function RemindersSection({ restaurantId }: RemindersSectionProps) {
             placeholder={t('board.addNote')}
             value={newReminder}
             onChange={(e) => setNewReminder(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             disabled={createMutation.isPending}
             className={`flex-1 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 focus:border-cyan-500/50 ${
               isImportant ? 'border-amber-500/30' : ''

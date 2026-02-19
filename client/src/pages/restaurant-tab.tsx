@@ -544,7 +544,7 @@ export default function RestaurantInfoTab() {
     <div className="p-4 pb-24 space-y-4">
       {/* Top Widgets — phone: stack, tablet: row with Top Dishes beside */}
       <motion.div
-        className="flex flex-col lg:flex-row gap-3"
+        className="flex flex-col lg:flex-row lg:items-stretch gap-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0 * 0.1 }}
@@ -552,8 +552,8 @@ export default function RestaurantInfoTab() {
         {/* Revenue & Clients — always side-by-side, keep phone proportions */}
         <div className="grid grid-cols-2 gap-3 lg:basis-1/2 lg:flex-shrink-0">
           {/* Revenue Widget */}
-          <Card className="overflow-hidden border-green-500/20">
-            <CardContent className="p-4 relative">
+          <Card className="overflow-hidden border-green-500/20 h-full">
+            <CardContent className="p-4 relative h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent" />
               <div className="relative">
                 <div className="flex items-center justify-between mb-2">
@@ -584,7 +584,7 @@ export default function RestaurantInfoTab() {
                   </DropdownMenu>
                 </div>
                 <p className="text-xs text-muted-foreground">{t('restaurant.revenue') || 'Revenue'}</p>
-                <p className="text-xl font-bold tracking-tight mt-1 text-green-600 dark:text-green-400">
+                <p className="text-2xl font-bold tracking-tight mt-1 text-green-600 dark:text-green-400">
                   {formatPrice(revenueStats?.revenue || 0)}
                 </p>
               </div>
@@ -592,8 +592,8 @@ export default function RestaurantInfoTab() {
           </Card>
 
           {/* Clients Widget */}
-          <Card className="overflow-hidden border-blue-500/20">
-            <CardContent className="p-4 relative">
+          <Card className="overflow-hidden border-blue-500/20 h-full">
+            <CardContent className="p-4 relative h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent" />
               <div className="relative">
                 <div className="flex items-center justify-between mb-2">
@@ -624,7 +624,7 @@ export default function RestaurantInfoTab() {
                   </DropdownMenu>
                 </div>
                 <p className="text-xs text-muted-foreground">{t('restaurant.clients') || 'Clients'}</p>
-                <p className="text-xl font-bold tracking-tight mt-1 text-blue-600 dark:text-blue-400">
+                <p className="text-2xl font-bold tracking-tight mt-1 text-blue-600 dark:text-blue-400">
                   {clientsStats?.peopleCount || 0}
                 </p>
               </div>
@@ -632,43 +632,50 @@ export default function RestaurantInfoTab() {
           </Card>
         </div>
 
-        {/* Top Dishes & Top Staff — swipable carousel */}
-        <div className="lg:flex-1 lg:min-w-0">
-          <div ref={emblaRef} className="overflow-hidden">
-            <div className="flex gap-4">
-              <div className="min-w-0 shrink-0 grow-0 basis-full">
-                <TopItemsWidget
-                  items={topDishesStats?.topItems || []}
-                  timeframe={topDishesTimeframe}
-                  onTimeframeChange={setTopDishesTimeframe}
-                  isLoading={loadingTopDishes}
-                />
-              </div>
-              <div className="min-w-0 shrink-0 grow-0 basis-full">
-                <TopStaffWidget
-                  workers={resolvedTopStaff}
-                  timeframe={topStaffTimeframe}
-                  onTimeframeChange={setTopStaffTimeframe}
-                  isLoading={loadingTopStaff}
-                />
+        {/* Top Dishes & Top Staff — swipable carousel in a single card */}
+        <Card className="overflow-hidden border-purple-500/20 lg:flex-1 lg:min-w-0 flex flex-col">
+          <CardContent className="p-4 relative flex-1 flex flex-col">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-transparent" />
+            <div className="relative flex-1">
+              <div ref={emblaRef} className="overflow-hidden h-full">
+                <div className="flex gap-4 h-full">
+                  <div className="min-w-0 shrink-0 grow-0 basis-full h-full">
+                    <TopItemsWidget
+                      items={topDishesStats?.topItems || []}
+                      timeframe={topDishesTimeframe}
+                      onTimeframeChange={setTopDishesTimeframe}
+                      isLoading={loadingTopDishes}
+                      noCard
+                    />
+                  </div>
+                  <div className="min-w-0 shrink-0 grow-0 basis-full h-full">
+                    <TopStaffWidget
+                      workers={resolvedTopStaff}
+                      timeframe={topStaffTimeframe}
+                      onTimeframeChange={setTopStaffTimeframe}
+                      isLoading={loadingTopStaff}
+                      noCard
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          {/* Dot indicators */}
-          <div className="flex justify-center gap-1.5 mt-2">
-            {[0, 1].map(i => (
-              <button
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  activeSlide === i
-                    ? 'bg-foreground/60 w-3'
-                    : 'bg-foreground/20'
-                }`}
-                onClick={() => emblaApi?.scrollTo(i)}
-              />
-            ))}
-          </div>
-        </div>
+            {/* Dot indicators inside the card */}
+            <div className="relative flex justify-center gap-1.5 mt-[11px]">
+              {[0, 1].map(i => (
+                <button
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${
+                    activeSlide === i
+                      ? 'bg-foreground/60 w-3'
+                      : 'bg-foreground/20'
+                  }`}
+                  onClick={() => emblaApi?.scrollTo(i)}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Restaurant Board (formerly Reminders) */}

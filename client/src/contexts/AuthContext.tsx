@@ -38,6 +38,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: { name?: string; photoUrl?: string }) => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAdmin: boolean;
   isFloorOrKitchen: boolean;
 }
@@ -154,6 +155,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
+  const refreshUser = async () => {
+    if (!appUser?.uid) return;
+    try {
+      const userData = await userService.getByUid(appUser.uid);
+      if (userData && userData.status === 'active') {
+        setAppUser(userData);
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
+
   const updateProfile = async (updates: { name?: string; photoUrl?: string }) => {
     if (!appUser) return;
 
@@ -222,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     logout,
     updateProfile,
+    refreshUser,
     isAdmin: appUser?.role === 'admin',
     isFloorOrKitchen: appUser?.role === 'floor' || appUser?.role === 'kitchen'
   };

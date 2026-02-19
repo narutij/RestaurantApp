@@ -282,7 +282,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
   }) => (
     <div
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors rounded-xl mx-2 group ${onClick ? 'cursor-pointer' : ''}`}
+      className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/30 dark:hover:bg-white/5 transition-colors rounded-xl mx-2 group ${onClick ? 'cursor-pointer' : ''}`}
       style={{ width: 'calc(100% - 16px)' }}
     >
       <div className="flex items-center gap-3">
@@ -305,7 +305,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-[320px] sm:w-[360px] flex flex-col p-0 bg-white dark:bg-[#181818] border-r border-gray-200 dark:border-white/5">
+        <SheetContent side="left" className="w-[320px] sm:w-[360px] flex flex-col p-0 !bg-white/70 dark:!bg-[#181818]/70 backdrop-blur-2xl backdrop-saturate-150 border-r border-white/50 dark:border-white/10">
           {/* Header with gradient */}
           <div className="relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-purple-500/10 to-transparent" />
@@ -317,7 +317,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
               {/* User Profile Card */}
               <button
                 onClick={handleUserBlockClick}
-                className="w-full p-4 bg-gray-100 dark:bg-[#1E2429] hover:bg-gray-200 dark:hover:bg-[#252B32] rounded-2xl transition-all group border border-gray-200 dark:border-white/5"
+                className="w-full p-4 bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 rounded-2xl transition-all group border border-white/50 dark:border-white/5"
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-14 w-14 ring-2 ring-primary/30 flex-shrink-0">
@@ -370,7 +370,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                   label={t('settings.language')}
                   description={language === 'en' ? 'English' : 'Lietuvių'}
                   action={
-                    <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-white/5 rounded-full p-1">
+                    <div className="flex items-center gap-0.5 bg-white/30 dark:bg-white/5 rounded-full p-1">
                       <button
                         type="button"
                         onClick={() => setLanguage('en')}
@@ -473,7 +473,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
           </div>
 
           {/* Footer with version and logout */}
-          <div className="p-4 border-t border-gray-200 dark:border-white/5 space-y-3">
+          <div className="p-4 border-t border-white/30 dark:border-white/5 space-y-3">
             <div className="flex items-center justify-between px-2 py-2">
               <div className="flex items-center gap-2">
                 <Smartphone className="h-4 w-4 text-muted-foreground" />
@@ -495,7 +495,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
 
       {/* Change Password Modal */}
       <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
-        <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
+        <DialogContent className="sm:max-w-[400px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden" hideCloseButton>
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent" />
             <div className="relative px-6 py-5">
@@ -524,7 +524,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder={t('settings.enterCurrentPassword')}
-                  className="h-11 pr-10 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 rounded-xl"
+                  className="h-11 pr-10 bg-white/20 dark:bg-white/5 border-white/40 dark:border-white/10 rounded-xl"
                 />
                 <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -539,7 +539,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder={t('settings.enterNewPassword')}
-                  className="h-11 pr-10 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 rounded-xl"
+                  className="h-11 pr-10 bg-white/20 dark:bg-white/5 border-white/40 dark:border-white/10 rounded-xl"
                 />
                 <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -553,11 +553,11 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 placeholder={t('settings.confirmNewPasswordPlaceholder')}
-                className="h-11 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 rounded-xl"
+                className="h-11 bg-white/20 dark:bg-white/5 border-white/40 dark:border-white/10 rounded-xl"
               />
             </div>
             <div className="flex gap-3 pt-2">
-              <Button variant="ghost" className="flex-1 h-11 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl" onClick={() => setPasswordModalOpen(false)} disabled={isChangingPassword}>
+              <Button variant="ghost" className="flex-1 h-11 bg-white/30 dark:bg-white/5 hover:bg-white/40 dark:hover:bg-white/10 border border-white/40 dark:border-white/10 rounded-xl" onClick={() => setPasswordModalOpen(false)} disabled={isChangingPassword}>
                 {t('common.cancel')}
               </Button>
               <Button className="flex-1 h-11 bg-amber-500 hover:bg-amber-600 text-white rounded-xl" onClick={handleChangePassword} disabled={isChangingPassword}>
@@ -570,7 +570,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
 
       {/* Help & Support Modal */}
       <Dialog open={helpModalOpen} onOpenChange={setHelpModalOpen}>
-        <DialogContent className="sm:max-w-[480px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[480px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 via-rose-500/10 to-transparent" />
             <div className="relative px-6 py-5">
@@ -631,7 +631,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-gray-200 dark:border-white/5">
+              <div className="pt-2 border-t border-white/30 dark:border-white/5">
                 <p className="text-xs text-muted-foreground text-center">
                   {t('help.footer')}
                 </p>
@@ -643,7 +643,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
 
       {/* Privacy Policy Modal */}
       <Dialog open={privacyModalOpen} onOpenChange={setPrivacyModalOpen}>
-        <DialogContent className="sm:max-w-[480px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[480px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-green-500/10 to-transparent" />
             <div className="relative px-6 py-5">
@@ -714,7 +714,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-gray-200 dark:border-white/5">
+              <div className="pt-2 border-t border-white/30 dark:border-white/5">
                 <p className="text-xs text-muted-foreground text-center">
                   {t('privacy.footer')}
                 </p>
@@ -726,7 +726,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
 
       {/* Profile Edit Modal */}
       <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
-        <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
+        <DialogContent className="sm:max-w-[400px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden" hideCloseButton>
           {/* Header with gradient */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-purple-500/10 to-transparent" />
@@ -805,7 +805,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   placeholder={t('settings.enterYourName')}
-                  className="h-11 bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-white/10 focus:border-primary/50 rounded-xl"
+                  className="h-11 bg-white/20 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-primary/50 rounded-xl"
                 />
               </div>
               
@@ -814,7 +814,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 <Label className="text-xs text-muted-foreground">
                   {t('settings.emailAddress')}
                 </Label>
-                <div className="h-11 px-3 flex items-center bg-gray-50 dark:bg-[#181818]/50 border border-gray-200 dark:border-white/5 rounded-xl">
+                <div className="h-11 px-3 flex items-center bg-white/20 dark:bg-white/5/50 border border-white/30 dark:border-white/5 rounded-xl">
                   <span className="text-sm text-muted-foreground">{appUser?.email || t('common.notSet')}</span>
                 </div>
               </div>
@@ -824,7 +824,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
                 <Label className="text-xs text-muted-foreground">
                   {t('settings.role')}
                 </Label>
-                <div className="h-11 px-3 flex items-center justify-between bg-gray-50 dark:bg-[#181818]/50 border border-gray-200 dark:border-white/5 rounded-xl">
+                <div className="h-11 px-3 flex items-center justify-between bg-white/20 dark:bg-white/5/50 border border-white/30 dark:border-white/5 rounded-xl">
                   <span className="text-sm text-muted-foreground">{getTranslatedRole(appUser?.role)}</span>
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${getRoleBadgeColor(appUser?.role)}`}>
                     {appUser?.role === 'admin' ? t('settings.fullAccess') : t('settings.limited')}
@@ -836,7 +836,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
             {/* Change Password */}
             <Button
               variant="ghost"
-              className="w-full h-11 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl justify-start"
+              className="w-full h-11 bg-white/20 dark:bg-white/5 hover:bg-white/30 dark:hover:bg-white/10 border border-white/40 dark:border-white/10 rounded-xl justify-start"
               onClick={() => {
                 setCurrentPassword('');
                 setNewPassword('');
@@ -852,7 +852,7 @@ export function SettingsSidebar({ open, onOpenChange }: SettingsSidebarProps) {
             <div className="flex gap-3 pt-2">
               <Button
                 variant="ghost"
-                className="flex-1 h-11 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl"
+                className="flex-1 h-11 bg-white/30 dark:bg-white/5 hover:bg-white/40 dark:hover:bg-white/10 border border-white/40 dark:border-white/10 rounded-xl"
                 onClick={() => setProfileModalOpen(false)}
                 disabled={isUpdatingProfile}
               >

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -106,6 +106,33 @@ const parseNotesWithBadges = (notes: string | null | undefined): { badges: strin
 
   return { badges, text };
 };
+
+// Self-contained timer component — manages its own 1s interval so the
+// parent OrderTab doesn't re-render every second.
+const ActiveTimer = memo(function ActiveTimer({ activatedAt }: { activatedAt: string | Date | null | undefined }) {
+  const [display, setDisplay] = useState('--:--');
+  const activatedAtRef = useRef(activatedAt);
+  activatedAtRef.current = activatedAt;
+
+  useEffect(() => {
+    const calc = () => {
+      const at = activatedAtRef.current;
+      if (!at) { setDisplay('--:--'); return; }
+      const diff = Math.floor((Date.now() - new Date(at).getTime()) / 1000);
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setDisplay(h > 0
+        ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+        : `${m}:${s.toString().padStart(2, '0')}`);
+    };
+    calc();
+    const id = setInterval(calc, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return <>{display}</>;
+});
 
 export default function OrderTab() {
   const queryClient = useQueryClient();
@@ -218,26 +245,6 @@ export default function OrderTab() {
     ...customBadges
   ], [customBadges, hiddenDefaultBadges]);
 
-  // Active time calculation
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const getActiveTimeDisplay = (activatedAt: string | Date | null | undefined) => {
-    if (!activatedAt) return '--:--';
-    const start = new Date(activatedAt);
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - start.getTime()) / 1000);
-    const hours = Math.floor(diff / 3600);
-    const minutes = Math.floor((diff % 3600) / 60);
-    const seconds = diff % 60;
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
 
   // Fetch tables for the active workday's table layout
   const { data: tables = [], isLoading: tablesLoading } = useQuery<Table[]>({
@@ -381,9 +388,14 @@ export default function OrderTab() {
         return;
       }
       setActiveTableId(table.id);
-      // Mark all ready orders for this table as "seen"
+      // Mark all ready orders for this table as "seen" (current session only)
+      const tableActivatedAt = table.activatedAt ? new Date(table.activatedAt).getTime() : 0;
       const readyOrderIds = allOrders
-        .filter(o => o.tableId === table.id && o.completed)
+        .filter(o => {
+          if (o.tableId !== table.id || !o.completed || o.canceled) return false;
+          const orderTime = new Date(o.timestamp).getTime();
+          return orderTime >= tableActivatedAt;
+        })
         .map(o => o.id);
       if (readyOrderIds.length > 0) {
         setSeenReadyOrders(prev => {
@@ -679,9 +691,7 @@ export default function OrderTab() {
     const tableId = activeTableId;
     const workdayId = activeWorkday?.id;
 
-    // Set confirming and clear cart IMMEDIATELY for instant UI feedback
     setIsConfirming(true);
-    setPreOrderItems([]);
 
     try {
       // Build array of all order items (expanding quantities)
@@ -714,6 +724,9 @@ export default function OrderTab() {
         throw new Error(`Server error: ${response.status}`);
       }
 
+      // Only clear cart AFTER server confirms success
+      setPreOrderItems([]);
+
       // Invalidate queries ONCE after all orders are created
       queryClient.invalidateQueries({ queryKey: ['table-orders'] });
       queryClient.invalidateQueries({ queryKey: ['all-orders'] });
@@ -722,9 +735,8 @@ export default function OrderTab() {
       addNotification(t('orders.orderConfirmed') || 'Order sent to kitchen!');
     } catch (error) {
       console.error('Error confirming order:', error);
-      // Don't restore items - some orders may have been sent successfully
-      // User can check the confirmed orders section to see what was saved
-      addNotification(t('orders.orderFailed') || 'Failed to send some orders. Please check confirmed orders.');
+      // Cart is preserved — user can retry
+      addNotification(t('orders.orderFailed') || 'Failed to send order. Please try again.');
     } finally {
       setIsConfirming(false);
     }
@@ -838,7 +850,7 @@ export default function OrderTab() {
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3 text-amber-600" />
                           <span className="text-xs font-medium text-amber-600">
-                            {getActiveTimeDisplay(table.activatedAt)}
+                            <ActiveTimer activatedAt={table.activatedAt} />
                           </span>
                         </div>
                       </div>
@@ -877,7 +889,7 @@ export default function OrderTab() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
-                      {getActiveTimeDisplay(activeTable.activatedAt)}
+                      <ActiveTimer activatedAt={activeTable.activatedAt} />
                     </span>
                   </div>
                 </div>

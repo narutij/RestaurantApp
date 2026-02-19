@@ -35,8 +35,10 @@ import {
   Sparkles,
   Ban,
   X,
-  Archive,
   CheckCheck,
+  UtensilsCrossed,
+  Trophy,
+  LayoutGrid,
 } from 'lucide-react';
 
 // Helper to parse badges from notes
@@ -52,15 +54,8 @@ const parseNotesWithBadges = (notes: string | null | undefined): { badges: strin
   return { badges, text };
 };
 
-// Running time display component
-const RunningTime = ({ startTime }: { startTime: Date | string }) => {
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
+// Running time display component — accepts a shared tick to avoid N independent intervals
+const RunningTime = ({ startTime, tick: _tick }: { startTime: Date | string; tick?: number }) => {
   const start = typeof startTime === 'string' ? new Date(startTime) : startTime;
   const now = new Date();
   const diffMs = Math.max(0, now.getTime() - start.getTime());
@@ -431,21 +426,21 @@ const KitchenHistorySheet = ({
           ) : (
             <div className="p-4 space-y-4">
               {historyTables.map(table => {
-                const mergedItems = mergeOrders(table.orders);
+                const mergedItems = mergeOrders(table.orders).reverse();
                 const canRevoke = !table.isTableClosed && !readOnly;
 
                 return (
                   <Card key={`${table.tableId}-${table.isTableClosed ? 'closed' : 'active'}`} className="overflow-hidden">
                     <div className={`p-3 border-b flex items-center justify-between ${
-                      table.isTableClosed 
-                        ? 'bg-muted/30' 
+                      table.isTableClosed
+                        ? 'bg-muted/30'
                         : 'bg-green-500/10'
                     }`}>
-                      <div>
+                      <div className="flex items-center gap-2">
                         <span className="font-semibold">{t('kitchen.table')} {table.tableNumber}</span>
-                        {table.tableLabel && (
-                          <span className="ml-2 text-muted-foreground">{table.tableLabel}</span>
-                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {table.latestOrderTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         {table.hasCanceledOrders && (
@@ -584,30 +579,6 @@ const KitchenHistorySheet = ({
   );
 };
 
-// Play a bell chime using Web Audio API
-const playOrderBell = () => {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const playTone = (freq: number, startTime: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0.3, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-    };
-    const now = ctx.currentTime;
-    playTone(830, now, 0.15);
-    playTone(1100, now + 0.15, 0.2);
-  } catch (e) {
-    // Audio not supported, silently fail
-  }
-};
-
 export default function KitchenTab() {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
@@ -618,6 +589,13 @@ export default function KitchenTab() {
 
   // Floor role = view-only in Kitchen tab (no marking ready, no revoke)
   const isReadOnly = userRole === 'floor';
+
+  // Single shared tick for all RunningTime components (1 interval instead of N)
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Expanded items state
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -630,14 +608,9 @@ export default function KitchenTab() {
   // Track when canceled orders first appeared (for auto-dismiss)
   const [cancelAppearTimes, setCancelAppearTimes] = useState<Map<number, number>>(new Map());
 
-  // Archived table IDs - tables manually or auto-archived to history
-  const [archivedTableIds, setArchivedTableIds] = useState<Set<number>>(new Set());
-
   // "Ready all" confirmation state: tableId → true means awaiting second tap
   const [readyAllConfirm, setReadyAllConfirm] = useState<number | null>(null);
   const readyAllTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track when canceled-only tables first appeared (for auto-archive after 3min)
-  const [canceledTableAppearTimes, setCanceledTableAppearTimes] = useState<Map<number, number>>(new Map());
 
   // Fetch active tables
   const { data: activeTables = [] } = useQuery<Table[]>({
@@ -678,14 +651,6 @@ export default function KitchenTab() {
         queryClient.invalidateQueries({ queryKey: ['orders'] });
         queryClient.invalidateQueries({ queryKey: ['active-tables'] });
 
-        // Play bell sound for new orders if sounds are enabled
-        if (message.type === 'NEW_ORDER') {
-          const soundsEnabled = localStorage.getItem('kitchenSoundsEnabled') !== 'false';
-          if (soundsEnabled) {
-            playOrderBell();
-          }
-        }
-
         if (message.type === 'KITCHEN_NOTIFICATION') {
           addNotification(`Table ${(message.payload as any)?.tableNumber} needs attention!`);
         }
@@ -694,12 +659,11 @@ export default function KitchenTab() {
     return () => removeListener();
   }, [addMessageListener, queryClient, addNotification]);
 
-  // Track canceled orders appearance time and auto-dismiss after 3 minutes
+  // Register new canceled orders when they appear
   useEffect(() => {
     const allCanceledIds = orders.filter(o => o.canceled).map(o => o.id);
     const now = Date.now();
 
-    // Register new canceled orders
     setCancelAppearTimes(prev => {
       const next = new Map(prev);
       let changed = false;
@@ -711,25 +675,30 @@ export default function KitchenTab() {
       });
       return changed ? next : prev;
     });
+  }, [orders]);
 
-    // Auto-dismiss after 3 minutes
+  // Separate effect for auto-dismiss timer (no dependency on cancelAppearTimes to avoid loop)
+  useEffect(() => {
     const timer = setInterval(() => {
-      const cutoff = Date.now() - 3 * 60 * 1000;
-      setDismissedCancelIds(prev => {
-        const next = new Set(prev);
-        let changed = false;
-        cancelAppearTimes.forEach((appearTime, id) => {
-          if (appearTime < cutoff && !next.has(id)) {
-            next.add(id);
-            changed = true;
-          }
+      setCancelAppearTimes(currentTimes => {
+        const cutoff = Date.now() - 3 * 60 * 1000;
+        setDismissedCancelIds(prev => {
+          const next = new Set(prev);
+          let changed = false;
+          currentTimes.forEach((appearTime, id) => {
+            if (appearTime < cutoff && !next.has(id)) {
+              next.add(id);
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
         });
-        return changed ? next : prev;
+        return currentTimes; // Don't modify, just read via functional update
       });
     }, 10000);
 
     return () => clearInterval(timer);
-  }, [orders, cancelAppearTimes]);
+  }, []);
 
   // Mutations
   const completeOrderMutation = useMutation({
@@ -847,71 +816,18 @@ export default function KitchenTab() {
     });
   }, [orders, activeTables]);
 
-  // Separate pending, canceled-lingering, and completed tables
+  // Separate pending and completed tables
   const tablesWithPendingOrders = tableGroups.filter(t => t.hasPendingOrders);
 
-  // Tables with no pending orders - split into canceled-lingering and truly completed
-  const doneTables = tableGroups.filter(t => !t.hasPendingOrders && t.orders.length > 0);
-
-  // Tables that have canceled orders and haven't been archived yet - keep in main view
-  const canceledLingeringTables = doneTables.filter(t =>
-    t.orders.some(o => o.canceled) && !archivedTableIds.has(t.tableId)
-  );
-
-  // Tables that are fully completed (no canceled) or have been archived
-  const completedActiveTables = doneTables.filter(t =>
-    !t.orders.some(o => o.canceled) || archivedTableIds.has(t.tableId)
-  );
-
-  // Track canceled-lingering tables and auto-archive after 3 minutes
-  useEffect(() => {
-    const now = Date.now();
-
-    // Register appearance times for newly canceled-lingering tables
-    setCanceledTableAppearTimes(prev => {
-      const next = new Map(prev);
-      let changed = false;
-      canceledLingeringTables.forEach(t => {
-        if (!next.has(t.tableId)) {
-          next.set(t.tableId, now);
-          changed = true;
-        }
-      });
-      // Clean up tables that are no longer lingering
-      for (const tableId of next.keys()) {
-        if (!canceledLingeringTables.find(tbl => tbl.tableId === tableId)) {
-          next.delete(tableId);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-
-    // Auto-archive after 3 minutes
-    const timer = setInterval(() => {
-      const cutoff = Date.now() - 3 * 60 * 1000;
-      setArchivedTableIds(prev => {
-        const next = new Set(prev);
-        let changed = false;
-        canceledTableAppearTimes.forEach((appearTime, tableId) => {
-          if (appearTime < cutoff && !next.has(tableId)) {
-            next.add(tableId);
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }, 10000);
-
-    return () => clearInterval(timer);
-  }, [canceledLingeringTables, canceledTableAppearTimes]);
+  // All done tables (no pending orders) - go straight to history
+  const completedActiveTables = tableGroups.filter(t => !t.hasPendingOrders && t.orders.length > 0);
 
   // Build kitchen history: includes completed orders from active tables + all orders from closed tables
   const historyTables = useMemo((): HistoryTableGroup[] => {
     const activeTableIds = new Set(activeTables.map(t => t.id));
     const result: HistoryTableGroup[] = [];
-    
-    // Add completed orders from active tables (can be revoked)
+
+    // Add completed/done orders from active tables (can be revoked)
     completedActiveTables.forEach(table => {
       result.push({
         ...table,
@@ -922,7 +838,7 @@ export default function KitchenTab() {
 
     // Group orders from closed tables (tables that are NOT active but have orders)
     const closedTableGroups: Record<number, HistoryTableGroup> = {};
-    
+
     orders.filter(o => !activeTableIds.has(o.tableId)).forEach(order => {
       if (!closedTableGroups[order.tableId]) {
         closedTableGroups[order.tableId] = {
@@ -941,7 +857,7 @@ export default function KitchenTab() {
       }
 
       closedTableGroups[order.tableId].orders.push(order);
-      
+
       if (order.canceled) {
         closedTableGroups[order.tableId].hasCanceledOrders = true;
       }
@@ -955,14 +871,31 @@ export default function KitchenTab() {
     // Add closed table groups to result
     result.push(...Object.values(closedTableGroups));
 
-    // Sort: active tables first, then by latest order time (most recent first)
-    return result.sort((a, b) => {
-      if (a.isTableClosed !== b.isTableClosed) {
-        return a.isTableClosed ? 1 : -1; // Active tables first
-      }
-      return b.latestOrderTime.getTime() - a.latestOrderTime.getTime();
-    });
+    // Sort: newest first by latest order time
+    return result.sort((a, b) => b.latestOrderTime.getTime() - a.latestOrderTime.getTime());
   }, [orders, activeTables, completedActiveTables]);
+
+  // Kitchen stats for today's summary widget
+  const kitchenStats = useMemo(() => {
+    const completedOrders = orders.filter(o => o.completed && !o.canceled);
+    const closedCount = completedOrders.length;
+    const totalOrders = orders.filter(o => !o.canceled).length;
+
+    // Top dishes: group by name, count occurrences
+    const dishCounts: Record<string, number> = {};
+    orders.filter(o => !o.canceled).forEach(o => {
+      const name = o.isSpecialItem && o.specialItemName ? o.specialItemName : o.menuItemName;
+      if (name) dishCounts[name] = (dishCounts[name] || 0) + 1;
+    });
+    const topDishes = Object.entries(dishCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    // Unique tables served
+    const tablesServed = new Set(orders.filter(o => !o.canceled).map(o => o.tableId)).size;
+
+    return { closedCount, totalOrders, topDishes, tablesServed };
+  }, [orders]);
 
   // No active workday
   if (!isWorkdayActive) {
@@ -1033,8 +966,79 @@ export default function KitchenTab() {
         </Card>
       </motion.div>
 
-      {/* No pending orders (but may have canceled-lingering tables below) */}
-      {tablesWithPendingOrders.length === 0 && canceledLingeringTables.length === 0 ? (
+      {/* Today's Stats Widget */}
+      {kitchenStats.totalOrders > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <div className="grid grid-cols-3 gap-2">
+            {/* Closed Orders */}
+            <Card className="overflow-hidden border-green-500/20 h-full">
+              <CardContent className="p-3 relative h-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent" />
+                <div className="relative flex flex-col items-center justify-center text-center gap-1 h-full">
+                  <div className="p-1.5 rounded-lg bg-green-500/20">
+                    <CheckCheck className="h-3.5 w-3.5 text-green-500" />
+                  </div>
+                  <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                    {kitchenStats.closedCount}/{kitchenStats.totalOrders}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {t('kitchen.closedOrders') || 'Closed'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Dish */}
+            <Card className="overflow-hidden border-amber-500/20 h-full">
+              <CardContent className="p-3 relative h-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent" />
+                <div className="relative flex flex-col items-center justify-center text-center gap-1 h-full">
+                  <div className="p-1.5 rounded-lg bg-amber-500/20">
+                    <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                  </div>
+                  {kitchenStats.topDishes.length > 0 ? (
+                    <>
+                      <span className="text-sm font-bold truncate w-full" title={kitchenStats.topDishes[0][0]}>
+                        {kitchenStats.topDishes[0][0]}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {kitchenStats.topDishes[0][1]}x · {t('kitchen.topDish') || 'Top Dish'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tables Served */}
+            <Card className="overflow-hidden border-blue-500/20 h-full">
+              <CardContent className="p-3 relative h-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent" />
+                <div className="relative flex flex-col items-center justify-center text-center gap-1 h-full">
+                  <div className="p-1.5 rounded-lg bg-blue-500/20">
+                    <LayoutGrid className="h-3.5 w-3.5 text-blue-500" />
+                  </div>
+                  <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                    {kitchenStats.tablesServed}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {t('kitchen.tablesServed') || 'Tables'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </motion.div>
+      )}
+
+      {/* No pending orders */}
+      {tablesWithPendingOrders.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1110,7 +1114,7 @@ export default function KitchenTab() {
                               </span>
                               <span className="flex items-center gap-1.5">
                                 <Clock className="h-4 w-4" />
-                                <RunningTime startTime={table.oldestPendingTime || table.activeSince} />
+                                <RunningTime startTime={table.oldestPendingTime || table.activeSince} tick={tick} />
                               </span>
                             </div>
                           </div>
@@ -1256,106 +1260,6 @@ export default function KitchenTab() {
         </motion.div>
       )}
 
-      {/* Canceled-lingering tables - stay visible for 3min with Archive button */}
-      {canceledLingeringTables.length > 0 && (
-        <div className="space-y-4">
-          <AnimatePresence>
-            {canceledLingeringTables.map(table => {
-              const canceledOrders = table.orders.filter(o => o.canceled);
-              const completedOrders = table.orders.filter(o => !o.canceled && o.completed);
-              // Group canceled orders by name
-              const canceledGroups: Record<string, { name: string; count: number }> = {};
-              canceledOrders.forEach(o => {
-                const name = o.isSpecialItem && o.specialItemName ? o.specialItemName : o.menuItemName;
-                const key = name || 'Unknown';
-                if (!canceledGroups[key]) canceledGroups[key] = { name: key, count: 0 };
-                canceledGroups[key].count++;
-              });
-
-              return (
-                <motion.div
-                  key={`canceled-${table.tableId}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card className="overflow-hidden border-l-4 border-l-red-500 shadow-md">
-                    {/* Table Header */}
-                    <div className="p-4 bg-gradient-to-r from-red-900/80 to-red-800/60 dark:from-red-900/60 dark:to-red-800/40 text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold">
-                            {t('kitchen.table')} {table.tableNumber}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1 text-sm opacity-80">
-                            <Ban className="h-4 w-4" />
-                            <span>{t('orders.canceledOrders')}</span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-                          onClick={() => {
-                            setArchivedTableIds(prev => {
-                              const next = new Set(prev);
-                              next.add(table.tableId);
-                              return next;
-                            });
-                          }}
-                        >
-                          <Archive className="h-4 w-4 mr-1.5" />
-                          {t('kitchen.archive')}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Canceled items */}
-                    <div className="p-3 bg-red-500/5">
-                      <div className="flex flex-wrap gap-2">
-                        {Object.values(canceledGroups).map(cg => (
-                          <Badge
-                            key={cg.name}
-                            variant="outline"
-                            className="bg-red-500/10 text-red-500 border-red-300 dark:border-red-700 line-through"
-                          >
-                            {cg.count}x {cg.name}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      {/* Also show completed items if any */}
-                      {completedOrders.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {(() => {
-                            const completedGroups: Record<string, { name: string; count: number }> = {};
-                            completedOrders.forEach(o => {
-                              const name = o.isSpecialItem && o.specialItemName ? o.specialItemName : o.menuItemName;
-                              const key = name || 'Unknown';
-                              if (!completedGroups[key]) completedGroups[key] = { name: key, count: 0 };
-                              completedGroups[key].count++;
-                            });
-                            return Object.values(completedGroups).map(cg => (
-                              <Badge
-                                key={cg.name}
-                                variant="outline"
-                                className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-300"
-                              >
-                                {cg.count}x {cg.name}
-                              </Badge>
-                            ));
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-      )}
     </div>
   );
 }

@@ -323,7 +323,9 @@ export type WebSocketMessage = {
     | "WORKER_LEFT"
     | "WORKER_STATUS_CHANGED"
     | "KITCHEN_NOTIFICATION"
-    | "RESTAURANT_UPDATED";
+    | "RESTAURANT_UPDATED"
+    | "REMINDER_UPDATED"
+    | "ROLE_CHANGED";
   payload: unknown;
 };
 

@@ -19,22 +19,22 @@ input[type="number"] {
   --background: 210 20% 98%;
   --foreground: 222 47% 11%;
 
-  --card: 0 0% 100%;
+  --card: 0 0% 100% / 0.45;
   --card-foreground: 222 47% 11%;
 
-  --popover: 0 0% 100%;
+  --popover: 0 0% 100% / 0.5;
   --popover-foreground: 222 47% 11%;
 
   --primary: 221 83% 53%;
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 210 40% 96%;
+  --secondary: 210 10% 98%;
   --secondary-foreground: 222 47% 11%;
 
-  --muted: 210 40% 96%;
+  --muted: 210 10% 98%;
   --muted-foreground: 215 16% 47%;
 
-  --accent: 210 40% 96%;
+  --accent: 210 10% 98%;
   --accent-foreground: 222 47% 11%;
 
   --destructive: 0 84% 60%;
@@ -46,8 +46,8 @@ input[type="number"] {
   --warning: 38 92% 50%;
   --warning-foreground: 222 47% 11%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
+  --border: 214 20% 93%;
+  --input: 214 20% 93%;
   --ring: 221 83% 53%;
 
   --radius: 0.75rem;
@@ -66,10 +66,10 @@ input[type="number"] {
   --foreground: 210 20% 90%;
 
   /* Card/containers: #1E2429 = 210 14% 14% */
-  --card: 210 14% 14%;
+  --card: 210 14% 14% / 0.4;
   --card-foreground: 210 20% 90%;
 
-  --popover: 210 14% 14%;
+  --popover: 210 14% 14% / 0.45;
   --popover-foreground: 210 20% 90%;
 
   --primary: 217 91% 60%;
@@ -126,6 +126,29 @@ input[type="number"] {
     @apply font-sans antialiased bg-background text-foreground;
   }
 
+  /* Gradient mesh background for frosted glass effect */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse 60% 50% at 10% 20%, hsl(260 60% 60% / 0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 85% 15%, hsl(200 80% 50% / 0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 45% at 50% 80%, hsl(330 60% 55% / 0.1) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 50% at 75% 60%, hsl(170 60% 45% / 0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .dark body::before,
+  body.dark::before {
+    background:
+      radial-gradient(ellipse 60% 50% at 10% 20%, hsl(260 60% 40% / 0.25) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 85% 15%, hsl(200 80% 40% / 0.2) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 45% at 50% 80%, hsl(330 60% 40% / 0.15) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 50% at 75% 60%, hsl(170 60% 35% / 0.12) 0%, transparent 50%);
+  }
+
   #root {
     @apply h-full;
     overflow: hidden;
@@ -163,7 +186,14 @@ input[type="number"] {
 
   /* Glass effect for overlays */
   .glass {
-    @apply bg-white/80 dark:bg-black/80 backdrop-blur-lg;
+    @apply bg-white/80 dark:bg-black/80 backdrop-blur-xl;
+  }
+
+  /* Frosted glass panel for sheets, dialogs, alert-dialogs */
+  .glass-panel {
+    background: hsl(var(--card)) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 
   /* Workday timer pulse animation */

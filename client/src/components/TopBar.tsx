@@ -393,7 +393,7 @@ export default function TopBar({
         <div ref={leftRef} className="flex-shrink-0 pointer-events-auto">
           <button
             onClick={onMenuClick}
-            className="p-2.5 bg-white dark:bg-[#181E23] hover:bg-gray-100 dark:hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/10 dark:shadow-black/20 border border-gray-200 dark:border-white/5"
+            className="p-2.5 bg-white/25 dark:bg-[#181E23]/25 backdrop-blur-xl backdrop-saturate-150 hover:bg-white/40 dark:hover:bg-[#1A242E]/40 rounded-full transition-colors shadow-lg shadow-black/10 dark:shadow-black/20 border border-white/50 dark:border-white/10"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -403,7 +403,7 @@ export default function TopBar({
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto">
           <motion.div
             ref={pillRef}
-            className="flex items-center bg-white dark:bg-[#181E23] rounded-full shadow-lg shadow-black/10 dark:shadow-black/20 border border-gray-200 dark:border-white/5 p-1 overflow-hidden"
+            className="flex items-center bg-white/25 dark:bg-[#181E23]/25 backdrop-blur-xl backdrop-saturate-150 rounded-full shadow-lg shadow-black/10 dark:shadow-black/20 border border-white/50 dark:border-white/10 p-1 overflow-hidden"
             animate={{ width: pillWidth, x: pillOffset }}
             initial={false}
             transition={{
@@ -418,7 +418,7 @@ export default function TopBar({
             }}>
               <PopoverTrigger asChild>
                 <button
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-[#1A242E] transition-colors min-w-0"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-white/30 dark:hover:bg-white/10 transition-colors min-w-0"
                 >
                   {selectedRestaurant ? (
                     <>
@@ -616,13 +616,13 @@ export default function TopBar({
           </Popover>
 
             {/* Separator */}
-            <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1 flex-shrink-0" />
+            <div className="w-px h-6 bg-white/30 dark:bg-white/10 mx-1 flex-shrink-0" />
 
             {/* Connected Workers - Inside Center Pill */}
             <Popover open={usersPopoverOpen} onOpenChange={setUsersPopoverOpen}>
               <PopoverTrigger asChild>
                 <button
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-[#1A242E] transition-colors flex-shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/30 dark:hover:bg-white/10 transition-colors flex-shrink-0"
                 >
                   <Users className="h-4 w-4" />
                   <span className="text-xs font-medium">{totalConnectedUsers}</span>
@@ -689,7 +689,7 @@ export default function TopBar({
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 className="flex-shrink-0 pointer-events-auto"
               >
-                <div className="px-3 py-2.5 rounded-full bg-white dark:bg-[#181E23] shadow-lg shadow-black/10 dark:shadow-black/20 border border-green-500/50">
+                <div className="px-3 py-2.5 rounded-full bg-white/25 dark:bg-[#181E23]/25 backdrop-blur-xl backdrop-saturate-150 shadow-lg shadow-black/10 dark:shadow-black/20 border border-green-500/50">
                   <span className="text-xs font-mono font-bold text-green-500 whitespace-nowrap">
                     {workdayElapsedTime.split(':').slice(0, 2).join(':')}
                   </span>
@@ -701,7 +701,7 @@ export default function TopBar({
           <div className="pointer-events-auto">
             <Popover open={notificationsOpen} onOpenChange={handleNotificationsOpenChange}>
               <PopoverTrigger asChild>
-                <button className="relative p-2.5 bg-white dark:bg-[#181E23] hover:bg-gray-100 dark:hover:bg-[#1A242E] rounded-full transition-colors shadow-lg shadow-black/10 dark:shadow-black/20 border border-gray-200 dark:border-white/5">
+                <button className="relative p-2.5 bg-white/25 dark:bg-[#181E23]/25 backdrop-blur-xl backdrop-saturate-150 hover:bg-white/40 dark:hover:bg-[#1A242E]/40 rounded-full transition-colors shadow-lg shadow-black/10 dark:shadow-black/20 border border-white/50 dark:border-white/10">
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">

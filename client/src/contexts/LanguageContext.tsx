@@ -282,6 +282,9 @@ const translations = {
     'kitchen.tablesInHistory': 'tables in history',
     'kitchen.table': 'Table',
     'kitchen.items': 'items',
+    'kitchen.closedOrders': 'Closed',
+    'kitchen.topDish': 'Top Dish',
+    'kitchen.tablesServed': 'Tables',
 
     // History page
     'history.title': 'History',
@@ -480,6 +483,9 @@ const translations = {
     'toast.restaurantSelectedDescription': 'is now active.',
     'toast.notificationSent': 'Notification sent',
     'toast.kitchenNotified': 'Kitchen has been notified',
+    'toast.roleChanged': 'Role Changed',
+    'toast.roleChangedDesc': 'Your role has been changed to',
+    'toast.roleChangedGeneric': 'Your role has been updated',
 
     // Roles
     'role.admin': 'admin',
@@ -907,6 +913,9 @@ const translations = {
     'kitchen.tablesInHistory': 'stalai istorijoje',
     'kitchen.table': 'Stalas',
     'kitchen.items': 'patiekalai',
+    'kitchen.closedOrders': 'Atlikta',
+    'kitchen.topDish': 'Populiariausias',
+    'kitchen.tablesServed': 'Stalai',
 
     // History page
     'history.title': 'Istorija',
@@ -1105,6 +1114,9 @@ const translations = {
     'toast.restaurantSelectedDescription': 'dabar aktyvus.',
     'toast.notificationSent': 'Pranešimas išsiųstas',
     'toast.kitchenNotified': 'Virtuvė informuota',
+    'toast.roleChanged': 'Rolė pakeista',
+    'toast.roleChangedDesc': 'Jūsų rolė pakeista į',
+    'toast.roleChangedGeneric': 'Jūsų rolė buvo atnaujinta',
 
     // Roles
     'role.admin': 'administratorius',

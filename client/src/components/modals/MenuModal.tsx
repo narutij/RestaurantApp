@@ -123,7 +123,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
   if (!restaurant) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[400px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
+        <DialogContent className="sm:max-w-[400px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden" hideCloseButton>
           <div className="p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
               <MenuSquare className="h-8 w-8 text-green-400" />
@@ -139,7 +139,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
+        <DialogContent className="sm:max-w-[500px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden max-h-[85vh]" hideCloseButton>
           {/* Header */}
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent" />
@@ -190,7 +190,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
               <div className="p-6 pt-2 space-y-4">
                 {/* Menu Form */}
                 {showMenuForm ? (
-                  <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
+                  <div className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 space-y-4">
                     <h3 className="text-sm font-medium">
                       {isEditingMenu ? t('menu.editMenu') : t('menu.createNewMenu')}
                     </h3>
@@ -200,7 +200,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
                         value={menuName}
                         onChange={(e) => setMenuName(e.target.value)}
                         placeholder="e.g., Lunch Menu"
-                        className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                        className="mt-1 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
@@ -231,7 +231,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
                 ) : (
                   <Button
                     variant="outline"
-                    className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
+                    className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-white/30 dark:hover:bg-white/5"
                     onClick={() => {
                       setMenuName("");
                       setIsEditingMenu(false);
@@ -255,7 +255,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
                     {menus.map((menu: Menu) => (
                       <div
                         key={menu.id}
-                        className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20 transition-colors cursor-pointer"
+                        className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/20 transition-colors cursor-pointer"
                         onClick={() => setSelectedMenu(menu)}
                       >
                         <div className="flex items-center justify-between">
@@ -311,7 +311,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
       
       {/* Delete Menu Dialog */}
       <AlertDialog open={deleteMenuDialog} onOpenChange={setDeleteMenuDialog}>
-        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+        <AlertDialogContent className="glass-panel border-white/50 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('menu.deleteMenu')}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -319,7 +319,7 @@ export function MenuModal({ open, onOpenChange, restaurant, currentUserId }: Men
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => menuToDelete && deleteMenuMutation.mutate(menuToDelete.id)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -523,7 +523,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
         <div className="p-6 pt-2 space-y-4">
           {/* Category Form */}
           {showCategoryForm ? (
-            <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
+            <div className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 space-y-4">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <FolderOpen className="h-4 w-4 text-blue-400" />
                 {isEditingCategory ? t('menu.editCategory') : t('menu.addCategory')}
@@ -534,7 +534,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="e.g., Main Courses"
-                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                  className="mt-1 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -564,7 +564,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
             </div>
           ) : showItemForm ? (
             /* Item Form */
-            <div className="p-4 bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 space-y-4">
+            <div className="p-4 bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 space-y-4">
               <h3 className="text-sm font-medium flex items-center gap-2">
                 <UtensilsCrossed className="h-4 w-4 text-emerald-400" />
                 {isEditingItem ? t('menu.editItem') : t('menu.addItem')}
@@ -575,7 +575,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
                   placeholder="e.g., Margherita Pizza"
-                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10"
+                  className="mt-1 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10"
                 />
               </div>
               <div>
@@ -587,7 +587,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
                   value={itemPrice}
                   onChange={(e) => setItemPrice(e.target.value)}
                   placeholder="0.00"
-                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="mt-1 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div>
@@ -596,7 +596,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
                   value={itemDescription}
                   onChange={(e) => setItemDescription(e.target.value)}
                   placeholder="Brief description..."
-                  className="mt-1 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 resize-none h-16"
+                  className="mt-1 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 resize-none h-16"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -618,7 +618,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
           ) : canModify ? (
             <Button
               variant="outline"
-              className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-100 dark:hover:bg-white/5"
+              className="w-full border-dashed border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-white/30 dark:hover:bg-white/5"
               onClick={() => {
                 setCategoryName("");
                 setIsEditingCategory(false);
@@ -640,7 +640,7 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
           ) : (
             <div className="space-y-3">
               {categories.map((category: any) => (
-                <div key={category.id} className="bg-gray-50 dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-white/5 overflow-hidden">
+                <div key={category.id} className="bg-white/20 dark:bg-white/5 rounded-xl border border-white/30 dark:border-white/5 overflow-hidden">
                   {/* Category Header */}
                   <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors"
@@ -732,13 +732,13 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
 
       {/* Delete Item Dialog */}
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
-        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+        <AlertDialogContent className="glass-panel border-white/50 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('menu.deleteItem')}</AlertDialogTitle>
             <AlertDialogDescription>{t('common.delete')} "{deletingItemName}"?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingItemId && deleteItemMutation.mutate(deletingItemId)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -751,13 +751,13 @@ function CategoryList({ menuId, canModify = true }: { menuId: number; canModify?
       
       {/* Delete Category Dialog */}
       <AlertDialog open={deleteCategoryDialogOpen} onOpenChange={setDeleteCategoryDialogOpen}>
-        <AlertDialogContent className="bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10">
+        <AlertDialogContent className="glass-panel border-white/50 dark:border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('menu.deleteCategory')}</AlertDialogTitle>
             <AlertDialogDescription>{t('common.delete')} "{deletingCategoryName}" {t('menu.deleteCategoryAndItems')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel className="bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 hover:bg-white/10">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingCategoryId && deleteCategoryMutation.mutate(deletingCategoryId)}
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0"
@@ -799,7 +799,7 @@ function CategoryItems({ categoryId, canModify = true, onEditItem, onDeleteItem 
 
   if (isLoading) {
     return (
-      <div className="p-4 border-t border-gray-200 dark:border-white/5">
+      <div className="p-4 border-t border-white/30 dark:border-white/5">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mx-auto" />
       </div>
     );
@@ -807,14 +807,14 @@ function CategoryItems({ categoryId, canModify = true, onEditItem, onDeleteItem 
 
   if (items.length === 0) {
     return (
-      <div className="p-4 border-t border-gray-200 dark:border-white/5 text-center">
+      <div className="p-4 border-t border-white/30 dark:border-white/5 text-center">
         <p className="text-xs text-muted-foreground">{t('menu.noItems')}</p>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-gray-200 dark:border-white/5 divide-y divide-gray-200 dark:divide-white/5">
+    <div className="border-t border-white/30 dark:border-white/5 divide-y divide-gray-200 dark:divide-white/5">
       {items.map((item: any) => (
         <div key={item.id} className="flex items-center justify-between p-3 pl-10 hover:bg-white/5 transition-colors">
           <div>

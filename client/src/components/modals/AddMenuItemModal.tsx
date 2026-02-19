@@ -63,7 +63,7 @@ export function AddMenuItemModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] p-0 bg-white dark:bg-[#1E2429] border-gray-200 dark:border-white/10 overflow-hidden" hideCloseButton>
+      <DialogContent className="sm:max-w-[420px] p-0 glass-panel border-white/50 dark:border-white/10 overflow-hidden" hideCloseButton>
         {/* Header */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-green-500/10 to-transparent" />
@@ -98,7 +98,7 @@ export function AddMenuItemModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Margherita Pizza"
-              className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-emerald-500/50"
+              className="mt-1.5 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-emerald-500/50"
             />
             {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
           </div>
@@ -112,14 +112,14 @@ export function AddMenuItemModal({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0.00"
-              className="mt-1.5 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:border-emerald-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="mt-1.5 bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 focus:border-emerald-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             {errors.price && <p className="text-xs text-red-400 mt-1">{errors.price}</p>}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-white/5 flex justify-end gap-2">
+        <div className="p-4 border-t border-white/30 dark:border-white/5 flex justify-end gap-2">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
